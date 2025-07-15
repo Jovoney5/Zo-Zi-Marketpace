@@ -3,6 +3,9 @@ setuptools>=65.5.0
 wheel>=0.38.0
 pip>=22.0.0
 
+# Web server
+gunicorn>=21.2.0
+
 # Core web framework
 flask>=2.3.0
 django>=4.2.0
@@ -38,6 +41,7 @@ python-dateutil>=2.8.2
 PyYAML>=6.0
 click>=8.1.0
 Jinja2>=3.1.0
+gunicorn>=21.2.0
 
 # Optional AI/ML (only if needed)
 # tensorflow>=2.13.0
