@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zo-Zi - Sign Up</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f4; }
+        video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+        .navbar { display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.8); padding: 10px 20px; position: relative; z-index: 2; }
+        .brand a { font-size: 24px; font-weight: bold; color: black; text-decoration: none; }
+        .brand a:hover { color: #FFD700; }
+        .auth-container { display: flex; align-items: center; }
+        .auth-buttons { margin-left: 10px; padding: 8px; background: yellow; border: none; cursor: pointer; border-radius: 5px; }
+        .auth-buttons:hover { background: #FFA500; }
+        .container { max-width: 600px; margin: 50px auto; background: rgba(255, 255, 255, 0.9); padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); z-index: 1; position: relative; }
+        .tabs { display: flex; border-bottom: 2px solid #ccc; margin-bottom: 20px; }
+        .tab { flex: 1; text-align: center; padding: 10px; cursor: pointer; font-weight: bold; }
+        .tab.active { background: #FFD700; color: black; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; }
+        .form-group input, .form-group select { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; }
+        .error { color: red; text-align: center; margin-bottom: 10px; }
+        button[type="submit"] { background: #FFD700; border: none; padding: 10px; width: 100%; cursor: pointer; border-radius: 5px; }
+        button[type="submit"]:hover { background: #FFA500; }
+    </style>
+</head>
+<body>
+    <video autoplay loop muted playsinline id="bgVideo">
+        <source src="{{ url_for('static', filename='flag_vid.webm') }}" type="video/webm">
+    </video>
+
+    <div class="navbar">
+        <div class="brand"><a href="{{ url_for('index') }}">Zo-Zi</a></div>
+        <div class="auth-container">
+            <button class="auth-buttons" onclick="window.location.href='{{ url_for('login') }}'">Login</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <div class="tab active" onclick="showTab('buyer')">Buyer Signup</div>
+            <div class="tab" onclick="showTab('seller')">Seller Signup</div>
+        </div>
+
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+
+        <div id="buyer" class="tab-content active">
+            <<form id="buyer-form" method="POST" action="{{ url_for('signup') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="form_type" value="buyer">
+    <!-- ...rest of form -->
+                <input type="hidden" name="form_type" value="buyer">
+                <div class="form-group">
+                    <label for="first_name">First Name</label>
+                    <input type="text" id="first_name" name="first_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="last_name">Last Name</label>
+                    <input type="text" id="last_name" name="last_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email (Optional)</label>
+                    <input type="email" id="email" name="email">
+                </div>
+                <div class="form-group">
+                    <label for="phone_number">Phone Number</label>
+                    <input type="tel" id="phone_number" name="phone_number" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirm_password">Confirm Password</label>
+                    <input type="password" id="confirm_password" name="confirm_password" required>
+                </div>
+                <div class="form-group">
+                    <label for="address">Address</label>
+                    <input type="text" id="address" name="address" required>
+                </div>
+                <div class="form-group">
+                    <label for="security_question">Security Question</label>
+                    <select id="security_question" name="security_question" required>
+                        <option value="pet">What is the name of your first pet?</option>
+                        <option value="school">What is the name of your elementary school?</option>
+                        <option value="city">In which city were you born?</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="security_answer">Answer</label>
+                    <input type="text" id="security_answer" name="security_answer" required>
+                </div>
+                <button type="submit">Sign Up as Buyer</button>
+            </form>
+        </div>
+
+        <div id="seller" class="tab-content">
+            <form id="seller-form" method="POST" action="{{ url_for('signup') }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="hidden" name="form_type" value="seller">
+
+                <input type="hidden" name="form_type" value="seller">
+                <div class="form-group">
+                    <label for="business_name">Business Name</label>
+                    <input type="text" id="business_name" name="business_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="owner_name">Owner Name</label>
+                    <input type="text" id="owner_name" name="owner_name" required>
+                </div>
+                <div class="form-group">
+                    <label for="business_email">Business Email (Optional)</label>
+                    <input type="email" id="business_email" name="business_email">
+                </div>
+                <div class="form-group">
+                    <label for="business_phone">Business Phone</label>
+                    <input type="tel" id="business_phone" name="business_phone" required>
+                </div>
+                <div class="form-group">
+                    <label for="business_address">Business Address</label>
+                    <input type="text" id="business_address" name="business_address" required>
+                </div>
+                <div class="form-group">
+                    <label for="business_password">Password</label>
+                    <input type="password" id="business_password" name="business_password" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirm_business_password">Confirm Password</label>
+                    <input type="password" id="confirm_business_password" name="confirm_business_password" required>
+                </div>
+                <button type="submit">Sign Up as Seller</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById("bgVideo");
+        function loopVideo() {
+            if (video.currentTime >= 17) {
+                video.currentTime = 0;
+                video.play().catch(() => {});
+            }
+        }
+        setInterval(loopVideo, 100);
+        video.addEventListener("play", () => setInterval(loopVideo, 100));
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelector(`.tab[onclick="showTab('${tabId}')"]`).classList.add('active');
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        document.getElementById('buyer-form').addEventListener('submit', function(e) {
+            const email = document.getElementById('email').value;
+            const phone = document.getElementById('phone_number').value;
+            const password = document.getElementById('password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+            if (email && !email.includes('@')) {
+                e.preventDefault();
+                alert('Please enter a valid email or leave it blank.');
+            } else if (phone.length < 7) {
+                e.preventDefault();
+                alert('Phone number must be at least 7 digits.');
+            } else if (password.length < 6) {
+                e.preventDefault();
+                alert('Password must be at least 6 characters.');
+            } else if (password !== confirmPassword) {
+                e.preventDefault();
+                alert('Passwords do not match.');
+            }
+        });
+
+        document.getElementById('seller-form').addEventListener('submit', function(e) {
+            const email = document.getElementById('business_email').value;
+            const phone = document.getElementById('business_phone').value;
+            const password = document.getElementById('business_password').value;
+            const confirmPassword = document.getElementById('confirm_business_password').value;
+            if (email && !email.includes('@')) {
+                e.preventDefault();
+                alert('Please enter a valid email or leave it blank.');
+            } else if (phone.length < 7) {
+                e.preventDefault();
+                alert('Phone number must be at least 7 digits.');
+            } else if (password.length < 6) {
+                e.preventDefault();
+                alert('Password must be at least 6 characters.');
+            } else if (password !== confirmPassword) {
+                e.preventDefault();
+                alert('Passwords do not match.');
+            }
+        });
+    </script>
+</body>
+</html>

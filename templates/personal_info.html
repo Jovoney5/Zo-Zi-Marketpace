@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zo-Zi - Personal Details</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; padding-top: 140px; }
+        video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+        .navbar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px 20px;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 10;
+        }
+        .navbar-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 1200px;
+        }
+        .brand-container {
+            display: flex;
+            align-items: center;
+        }
+        .brand a {
+            font-size: 24px;
+            font-weight: bold;
+            color: black;
+            text-decoration: none;
+        }
+        .brand a:hover {
+            color: #FFD700;
+        }
+        .menu-container {
+            position: relative;
+            display: inline-block;
+            margin-left: 10px;
+        }
+        .menu-icon {
+            cursor: pointer;
+            font-size: 24px;
+        }
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            background-color: white;
+            min-width: 160px;
+            box-shadow: 0px 8px 16px rgba(0,0,0,0.2);
+            border-radius: 5px;
+            z-index: 11;
+        }
+        .dropdown-content a {
+            padding: 10px;
+            display: block;
+            color: green;
+            text-decoration: none;
+        }
+        .dropdown-content a:hover {
+            background-color: yellow;
+        }
+        .menu-container:hover .dropdown-content {
+            display: block;
+        }
+        .nav-links {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 10px;
+            width: 100%;
+            max-width: 1200px;
+        }
+        .nav-links a {
+            color: green;
+            text-decoration: none;
+            font-size: 16px;
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+        .nav-links a:hover {
+            background: #FFD700;
+            color: black;
+        }
+        .search-container {
+            flex-grow: 0.8;
+            margin: 0 20px;
+            position: relative;
+            max-width: 500px;
+            display: flex;
+            align-items: center;
+        }
+        .search-container input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .search-icon {
+            margin-left: 5px;
+            cursor: pointer;
+            font-size: 20px;
+            color: #006400;
+            padding: 5px;
+        }
+        .search-icon:hover {
+            background: #FFD700;
+            border-radius: 5px;
+        }
+        .suggestions {
+            position: absolute;
+            background: white;
+            width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            z-index: 11;
+            top: 100%;
+        }
+        .suggestions a {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            text-decoration: none;
+            color: black;
+        }
+        .suggestions a img {
+            width: 30px;
+            height: 30px;
+            object-fit: contain;
+            margin-right: 10px;
+            border-radius: 3px;
+        }
+        .suggestions a span {
+            flex-grow: 1;
+            font-size: 14px;
+        }
+        .suggestions a:hover {
+            background: #f0f0f0;
+        }
+        .auth-container {
+            display: flex;
+            align-items: center;
+            margin-right: 26px;
+        }
+        .auth-buttons {
+            margin-left: 10px;
+            padding: 8px 16px;
+            background: yellow;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .auth-buttons:hover {
+            background: #FFA500;
+        }
+        .profile {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+        .profile img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .cart-icon, .contact-icon {
+            margin-left: 10px;
+            cursor: pointer;
+            position: relative;
+        }
+        .cart-icon img, .contact-icon img {
+            width: 30px;
+            height: 30px;
+        }
+        .cart-icon .cart-total {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: red;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 12px;
+        }
+        .cart-dropdown {
+            display: none;
+            position: absolute;
+            top: 40px;
+            right: 0;
+            background: white;
+            min-width: 300px;
+            box-shadow: 0px 8px 16px rgba(0,0,0,0.2);
+            border-radius: 5px;
+            z-index: 11;
+            padding: 10px;
+        }
+        .cart-dropdown .cart-item {
+            display: flex;
+            align-items: center;
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+            position: relative;
+        }
+        .cart-dropdown .cart-item img {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            margin-right: 10px;
+        }
+        .cart-dropdown .cart-item-details {
+            flex-grow: 1;
+        }
+        .cart-dropdown .cart-item-details p {
+            margin: 0;
+            font-size: 14px;
+        }
+        .cart-dropdown .remove-item {
+            position: absolute;
+            right: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            color: red;
+        }
+        .cart-dropdown .remove-item:hover {
+            color: darkred;
+        }
+        .cart-dropdown .empty-cart {
+            padding: 10px;
+            text-align: center;
+            color: #666;
+        }
+        .cart-dropdown .checkout-button {
+            display: block;
+            background: #FFD700;
+            border: none;
+            padding: 10px;
+            margin: 10px;
+            text-align: center;
+            cursor: pointer;
+            border-radius: 5px;
+            text-decoration: none;
+            color: black;
+        }
+        .cart-dropdown .checkout-button:hover {
+            background: #FFA500;
+        }
+        .details-container {
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 10px;
+            text-align: center;
+            z-index: 1;
+            position: relative;
+        }
+        .details-container h1 {
+            color: #006400;
+        }
+        .details-container form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .details-container input, .details-container select, .details-container textarea {
+            width: 90%;
+            padding: 10px;
+            margin: 10px 0;
+            border: none;
+            border-radius: 5px;
+        }
+        .details-container textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        .details-container button {
+            background: #FFD700;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .details-container button:hover {
+            background: #FFA500;
+        }
+        .profile-pic {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 768px) {
+            body { padding-top: 120px; }
+            .navbar { padding: 10px; }
+            .navbar-top { flex-wrap: wrap; }
+            .nav-links { gap: 10px; }
+            .search-container { margin: 10px 10px; }
+        }
+        @media (max-width: 480px) {
+            body { padding-top: 140px; }
+            .navbar-top { flex-direction: column; align-items: center; gap: 10px; }
+            .search-container { margin: 0 10px; }
+            .search-icon { font-size: 16px; padding: 3px; }
+            .nav-links { flex-direction: column; align-items: center; gap: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <video autoplay loop muted playsinline id="bgVideo">
+        <source src="{{ url_for('static', filename='flag_vid.webm') }}" type="video/webm">
+    </video>
+    <div class="navbar">
+        <div class="navbar-top">
+            <div class="brand-container">
+                <div class="brand"><a href="{{ url_for('index') }}">Zo-Zi</a></div>
+                <div class="menu-container">
+                    <div class="menu-icon">☰</div>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('profile') }}">User Account</a>
+                        <a href="{{ url_for('personal_info') }}">Personal Details</a>
+                        <a href="{{ url_for('orders') }}">Order History</a>
+                        <a href="{{ url_for('password_reset') }}">Password Reset</a>
+                        <a href="{{ url_for('seller_dashboard') }}">Seller Account</a>
+                        <a href="{{ url_for('subscriptions') }}">Subscriptions</a>
+                        <a href="{{ url_for('zozi_assistant') }}">Zo-Zi the Assistant</a>
+                        <a href="{{ url_for('find_sellers') }}">Find Personal Sellers</a>
+                        <a href="{{ url_for('tracking') }}">Tracking</a>
+                    </div>
+                </div>
+            </div>
+            <div class="search-container">
+                <input type="text" id="search" placeholder="Search products...">
+                <span class="search-icon">🔍</span>
+                <div class="suggestions" id="suggestions"></div>
+            </div>
+            <div class="auth-container">
+                {% if user %}
+                    <button class="auth-buttons" onclick="window.location.href='{{ url_for('logout') }}'">Logout</button>
+                {% else %}
+                    <button class="auth-buttons" onclick="window.location.href='{{ url_for('login') }}'">Login</button>
+                {% endif %}
+                <button class="auth-buttons" onclick="window.location.href='{{ url_for('signup') }}'">Sign Up</button>
+                <div class="profile" onclick="window.location.href='{{ url_for('profile' if user else 'login') }}'" title="{% if user and user.profile_picture %}Change Profile Picture{% elif user %}Add Profile Picture{% else %}Login to add profile{% endif %}">
+                    {% if user and user.profile_picture %}
+                        <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile">
+                    {% else %}
+                        <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%;">+</span>
+                    {% endif %}
+                </div>
+                <div class="cart-icon">
+                    <img src="{{ url_for('static', filename='cart icon 3.png') }}" alt="Cart">
+                    <span class="cart-total">{{ cart_item_count }}</span>
+                    <div class="cart-dropdown" id="cartDropdown">
+                        <div id="cartItems"></div>
+                        <a href="{{ url_for('checkout') }}" class="checkout-button">Checkout</a>
+                    </div>
+                </div>
+                <div class="contact-icon" onclick="window.location.href='{{ url_for('contact') }}'">
+                    <img src="{{ url_for('static', filename='customer service.png') }}" alt="Customer Service">
+                </div>
+            </div>
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('index') }}">Home</a>
+            <a href="{{ url_for('tracking') }}">Track Order</a>
+            {% if user %}
+                <a href="{{ url_for('personal_info') }}">Personal Info</a>
+                <a href="{{ url_for('orders') }}">Orders</a>
+            {% endif %}
+            <a href="{{ url_for('find_sellers') }}">Find Sellers</a>
+            <a href="{{ url_for('free') }}">Free</a>
+            <a href="{{ url_for('seller_dashboard') }}">Become a Seller</a>
+            <a href="{{ url_for('contact') }}">Contact</a>
+            <a href="{{ url_for('cancel_refund') }}">Cancel/Refund</a>
+        </div>
+    </div>
+    <div class="details-container">
+        <h1>Your Personal Details</h1>
+        {% if error %}
+            <div style="color: red; margin-bottom: 10px;">{{ error }}</div>
+        {% endif %}
+        {% if success %}
+            <div style="color: green; margin-bottom: 10px;">{{ success }}</div>
+        {% endif %}
+        {% if user.profile_picture %}
+            <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile Picture" class="profile-pic" onerror="this.src='{{ url_for('static', filename='images/placeholder.jpg') }}'">
+        {% else %}
+            <div class="profile-pic" style="background: gray;"></div>
+        {% endif %}
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="text" name="first_name" value="{{ user.first_name | default('') }}" placeholder="First Name" required>
+            <input type="text" name="last_name" value="{{ user.last_name | default('') }}" placeholder="Last Name" required>
+            <input type="email" name="email" value="{{ user.email | default('') }}" placeholder="Email" required>
+            <input type="tel" name="phone_number" value="{{ user.phone_number | default('') }}" placeholder="Phone Number" required>
+            <select name="gender" required>
+                <option value="" disabled {% if not user.gender %}selected{% endif %}>Select Gender</option>
+                <option value="Male" {% if user.gender == 'Male' %}selected{% endif %}>Male</option>
+                <option value="Female" {% if user.gender == 'Female' %}selected{% endif %}>Female</option>
+                <option value="Other" {% if user.gender == 'Other' %}selected{% endif %}>Other</option>
+            </select>
+            <textarea name="address" placeholder="Address" required>{{ user.address | default('') }}</textarea>
+            <input type="tel" name="whatsapp_number" value="{{ user.whatsapp_number | default('') }}" placeholder="WhatsApp Number" required>
+            <button type="submit">Update Details</button>
+        </form>
+        <button onclick="window.location.href='{{ url_for('profile') }}'">Change Profile Picture</button>
+    </div>
+    <script>
+        // Video loop
+        const video = document.getElementById("bgVideo");
+        video.addEventListener("timeupdate", function() {
+            if (video.currentTime >= 17) video.currentTime = 0;
+        });
+
+        // Utility function to escape HTML to prevent XSS
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Debounce function to limit updateCartDropdown calls
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // Update cart dropdown
+        async function updateCartDropdown(keepOpen = false) {
+            const cartItemsDiv = document.getElementById('cartItems');
+            const cartTotalBadge = document.querySelector('.cart-total');
+            const cartDropdown = document.getElementById('cartDropdown');
+            try {
+                const response = await fetch('/cart/data', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        console.warn('Unauthorized, redirecting to login');
+                        window.location.href = '{{ url_for('login') }}';
+                        return;
+                    }
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const data = await response.json();
+                if (data.success) {
+                    cartItemsDiv.innerHTML = '';
+                    if (!data.cart_items || data.cart_items.length === 0) {
+                        cartItemsDiv.innerHTML = '<p class="empty-cart">Your cart is empty</p>';
+                        cartTotalBadge.textContent = '0';
+                    } else {
+                        data.cart_items.forEach(item => {
+                            const itemDiv = document.createElement('div');
+                            itemDiv.className = 'cart-item';
+                            itemDiv.innerHTML = `
+                                <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
+                                <div class="cart-item-details">
+                                    <p><a href="/product/${encodeURIComponent(item.product_key.replace(/ /g, '+'))}">${escapeHTML(item.product_key)}</a></p>
+                                    <p>${item.price} JMD x ${item.quantity}</p>
+                                </div>
+                                <span class="remove-item" onclick="removeFromCart('${escapeHTML(item.product_key)}')">x</span>
+                            `;
+                            cartItemsDiv.appendChild(itemDiv);
+                        });
+                        cartTotalBadge.textContent = data.cart_item_count || 0;
+                    }
+                    if (keepOpen) {
+                        cartDropdown.style.display = 'block';
+                    }
+                } else {
+                    throw new Error(data.message || 'Failed to fetch cart data');
+                }
+            } catch (error) {
+                console.error('Update cart dropdown error:', error.message, error.stack);
+                cartItemsDiv.innerHTML = '<p class="empty-cart">Error loading cart</p>';
+                cartTotalBadge.textContent = '0';
+                if (keepOpen) {
+                    cartDropdown.style.display = 'block';
+                }
+            }
+        }
+
+        // Debounced updateCartDropdown
+        const debouncedUpdateCartDropdown = debounce(updateCartDropdown, 500);
+
+        // Cart dropdown toggle
+        const cartIcon = document.querySelector('.cart-icon');
+        const cartDropdown = document.getElementById('cartDropdown');
+        let isUpdating = false;
+
+        cartIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!isUpdating) {
+                isUpdating = true;
+                cartDropdown.style.display = cartDropdown.style.display === 'block' ? 'none' : 'block';
+                if (cartDropdown.style.display === 'block') {
+                    debouncedUpdateCartDropdown(true);
+                }
+                setTimeout(() => { isUpdating = false; }, 600);
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!isUpdating && !cartIcon.contains(e.target) && !cartDropdown.contains(e.target)) {
+                cartDropdown.style.display = 'none';
+            }
+        });
+
+        // Remove from cart
+        async function removeFromCart(productKey) {
+            try {
+                const response = await fetch('/update_cart', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        product_key: productKey,
+                        quantity: 0
+                    })
+                });
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(`HTTP error! Status: ${response.status}, Response: ${text.substring(0, 100)}...`);
+                }
+                const data = await response.json();
+                if (data.success) {
+                    document.querySelector('.cart-total').textContent = data.cart_item_count || 0;
+                    await debouncedUpdateCartDropdown(true);
+                } else {
+                    alert(data.message || 'Failed to remove product from cart.');
+                }
+            } catch (error) {
+                console.error('Remove from cart error:', error);
+                alert('Network error while removing from cart.');
+            }
+        }
+
+        // Search functionality
+        const searchInput = document.getElementById('search');
+        const suggestionsDiv = document.getElementById('suggestions');
+        const searchIcon = document.querySelector('.search-icon');
+
+        async function showSuggestions() {
+            const query = searchInput.value;
+            if (query.length < 2) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+            try {
+                const response = await fetch(`/autocomplete?query=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                suggestionsDiv.innerHTML = '';
+                data.forEach(suggestion => {
+                    const a = document.createElement('a');
+                    a.href = `/product/${suggestion.product_key.replace(/ /g, '+')}`;
+                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/placeholder.jpg'"><span>${escapeHTML(suggestion.name)}</span>`;
+                    suggestionsDiv.appendChild(a);
+                });
+                suggestionsDiv.style.display = data.length ? 'block' : 'none';
+            } catch (error) {
+                console.error('Error fetching suggestions:', error);
+                suggestionsDiv.style.display = 'none';
+            }
+        }
+
+        async function triggerSearch() {
+            const query = searchInput.value;
+            if (query.length < 2) {
+                alert('Please enter at least 2 characters to search.');
+                return;
+            }
+            window.location.href = `/search?query=${encodeURIComponent(query)}`;
+        }
+
+        searchInput.addEventListener('input', showSuggestions);
+        searchIcon.addEventListener('click', triggerSearch);
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                triggerSearch();
+            }
+        });
+
+        // Initialize cart on page load
+        window.onload = () => {
+            debouncedUpdateCartDropdown();
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zo-Zi Chat</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: 'Nyala', sans-serif;
+    }
+
+    body {
+      background-color: #0f172a;
+      margin: 0;
+      padding-top: 60px;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    video {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: -1;
+    }
+
+    .navbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.8);
+      padding: 10px 0 10px 20px;
+      position: fixed;
+      top: 0;
+      width: 100%;
+      z-index: 10;
+      transition: none !important;
+      will-change: none;
+    }
+
+    .brand-container {
+      display: flex;
+      align-items: center;
+    }
+
+    .brand a {
+      font-size: 24px;
+      font-weight: bold;
+      color: black;
+      text-decoration: none;
+    }
+
+    .brand a:hover {
+      color: #FFD700;
+    }
+
+    .menu-container {
+      position: relative;
+      display: inline-block;
+      margin-left: 10px;
+    }
+
+    .menu-icon {
+      cursor: pointer;
+      font-size: 24px;
+    }
+
+    .dropdown-content {
+      display: none;
+      position: absolute;
+      background-color: white;
+      min-width: 160px;
+      box-shadow: 0px 8px 16px rgba(0,0,0,0.2);
+      border-radius: 5px;
+      z-index: 11;
+    }
+
+    .dropdown-content a {
+      padding: 10px;
+      display: block;
+      color: green;
+      text-decoration: none;
+    }
+
+    .dropdown-content a:hover {
+      background-color: yellow;
+    }
+
+    .menu-container:hover .dropdown-content {
+      display: block;
+    }
+
+    .search-container {
+      flex-grow: 0.8;
+      margin: 0 20px;
+      position: relative;
+      max-width: 500px;
+    }
+
+    .search-container input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    .suggestions {
+      position: absolute;
+      background: white;
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+      z-index: 11;
+    }
+
+    .suggestions a {
+      display: block;
+      padding: 8px;
+      text-decoration: none;
+      color: black;
+    }
+
+    .suggestions a:hover {
+      background: #f0f0f0;
+    }
+
+    .auth-container {
+      display: flex;
+      align-items: center;
+      margin-right: 26px;
+    }
+
+    .auth-buttons {
+      margin-left: 10px;
+      padding: 8px;
+      background: yellow;
+      border: none;
+      cursor: pointer;
+      border-radius: 5px;
+    }
+
+    .auth-buttons:hover {
+      background: #FFA500;
+    }
+
+    .profile {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      margin-left: 10px;
+      cursor: pointer;
+    }
+
+    .profile img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .profile span {
+      font-size: 20px;
+      color: white;
+      line-height: 40px;
+      background: gray;
+      display: block;
+      border-radius: 50%;
+      text-align: center;
+    }
+
+    .cart-icon, .contact-icon {
+      margin-left: 10px;
+      cursor: pointer;
+      position: relative;
+      display: block;
+    }
+
+    .cart-icon img, .contact-icon img {
+      width: 30px;
+      height: 30px;
+      display: block;
+    }
+
+    .cart-icon .cart-total {
+      position: absolute;
+      top: -10px;
+      right: -10px;
+      background: red;
+      color: white;
+      border-radius: 50%;
+      padding: 2px 6px;
+      font-size: 12px;
+    }
+
+    .cart-dropdown {
+      display: none;
+      position: absolute;
+      top: 40px;
+      right: 0;
+      background: white;
+      min-width: 300px;
+      box-shadow: 0px 8px 16px rgba(0,0,0,0.2);
+      border-radius: 5px;
+      z-index: 11;
+      padding: 10px;
+    }
+
+    .cart-dropdown .cart-item {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid #ccc;
+      position: relative;
+    }
+
+    .cart-dropdown .cart-item img {
+      width: 50px;
+      height: 50px;
+      object-fit: contain;
+      margin-right: 10px;
+    }
+
+    .cart-dropdown .cart-item-details {
+      flex-grow: 1;
+    }
+
+    .cart-dropdown .cart-item-details p {
+      margin: 0;
+      font-size: 14px;
+    }
+
+    .cart-dropdown .remove-item {
+      position: absolute;
+      right: 10px;
+      cursor: pointer;
+      font-size: 16px;
+      color: red;
+    }
+
+    .cart-dropdown .remove-item:hover {
+      color: darkred;
+    }
+
+    .cart-dropdown .empty-cart {
+      padding: 10px;
+      text-align: center;
+      color: #666;
+    }
+
+    .cart-dropdown .checkout-button {
+      display: block;
+      background: #FFD700;
+      border: none;
+      padding: 10px;
+      margin: 10px;
+      text-align: center;
+      cursor: pointer;
+      border-radius: 5px;
+      text-decoration: none;
+      color: black;
+    }
+
+    .cart-dropdown .checkout-button:hover {
+      background: #FFA500;
+    }
+
+    .main-content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      background-color: rgba(30, 41, 59, 0.9);
+      color: #e2e8f0;
+      width: 250px;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+      border-right: 2px solid #334155;
+      margin-top: 10px;
+    }
+
+    .section {
+      margin-bottom: 1.5rem;
+    }
+
+    .section h4 {
+      margin-bottom: 0.5rem;
+      font-size: 1rem;
+      color: #38bdf8;
+    }
+
+    .section ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    .section ul li {
+      margin-bottom: 0.5rem;
+      cursor: pointer;
+    }
+
+    .section ul li:hover {
+      color: #4f46e5;
+    }
+
+    #new-chat {
+      background: #38bdf8;
+      color: white;
+      border: none;
+      padding: 8px;
+      width: 100%;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1rem;
+      text-align: left;
+    }
+
+    #new-chat:hover {
+      background: #4f46e5;
+    }
+
+    .chat-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .chat-box {
+      background-color: rgba(30, 41, 59, 0.9);
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      border-radius: 1rem;
+      box-shadow: 0 0 20px rgba(0,0,0,0.5);
+      margin: 1rem;
+      overflow: hidden;
+    }
+
+    .chat-messages {
+      flex: 1;
+      padding: 1rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      background: rgba(30, 41, 59, 0.9);
+      color: #ffffff;
+      font-size: 1.25rem;
+    }
+
+    .chat-input {
+      display: flex;
+      padding: 1rem;
+      background-color: #334155;
+    }
+
+    .chat-input input {
+      flex: 1;
+      padding: 0.75rem 1rem;
+      border: none;
+      border-radius: 2rem;
+      outline: none;
+      font-size: 1rem;
+      background-color: #1e293b;
+      color: #e2e8f0;
+    }
+
+    .chat-input button {
+      margin-left: 0.5rem;
+      padding: 0.75rem 1rem;
+      border: none;
+      border-radius: 2rem;
+      background-color: #4f46e5;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .typing-indicator {
+      font-style: italic;
+      color: #ffffff;
+      font-size: 1.25rem;
+    }
+  </style>
+</head>
+<body>
+  <video autoplay loop muted playsinline id="bgVideo">
+    <source src="{{ url_for('static', filename='flag_vid.webm') }}" type="video/webm">
+  </video>
+
+  <div class="navbar">
+    <div class="brand-container">
+      <div class="brand"><a href="{{ url_for('index') }}">Zo-Zi</a></div>
+      <div class="menu-container">
+        <div class="menu-icon">☰</div>
+        <div class="dropdown-content">
+          <a href="{{ url_for('profile') }}">User Account</a>
+          <a href="{{ url_for('personal_info') }}">Personal Details</a>
+          <a href="{{ url_for('password_reset') }}">Password Reset</a>
+          <a href="{{ url_for('seller_dashboard') }}">Seller Account</a>
+          <a href="{{ url_for('subscriptions') }}">Subscriptions</a>
+          <a href="{{ url_for('zozi_assistant') }}">Zo-Zi the Assistant</a>
+          <a href="{{ url_for('find_sellers') }}">Find Personal Sellers</a>
+          <a href="{{ url_for('tracking') }}">Tracking</a>
+        </div>
+      </div>
+    </div>
+    <div class="search-container">
+      <input type="text" id="search" placeholder="Search products...">
+      <div class="suggestions" id="suggestions"></div>
+    </div>
+    <div class="auth-container">
+      {% if user %}
+        <button class="auth-buttons" onclick="window.location.href='{{ url_for('logout') }}'">Logout</button>
+      {% else %}
+        <button class="auth-buttons" onclick="window.location.href='{{ url_for('login') }}'">Login</button>
+        <button class="auth-buttons" onclick="window.location.href='{{ url_for('signup') }}'">Sign Up</button>
+      {% endif %}
+      <div class="profile" onclick="window.location.href='{{ url_for('profile' if user else 'login') }}'" title="{% if user and user.profile_picture %}Change Profile Picture{% elif user %}Add Profile Picture{% else %}Login to add profile{% endif %}">
+        {% if user and user.profile_picture %}
+          <img id="navbar-profile-picture" src="{{ url_for('static', filename='uploads/' + (user.profile_picture | default('default.jpg'))) }}" alt="Profile" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+        {% else %}
+          <span>+</span>
+        {% endif %}
+      </div>
+      <div class="cart-icon">
+        <img src="{{ url_for('static', filename='cart icon 3.png') }}" alt="Cart" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+        <span class="cart-total">{{ cart_item_count }}</span>
+        <div class="cart-dropdown" id="cartDropdown">
+          <div id="cartItems"></div>
+          <a href="{{ url_for('checkout') }}" class="checkout-button">Checkout</a>
+        </div>
+      </div>
+      <div class="contact-icon" onclick="window.location.href='{{ url_for('contact') }}'">
+        <img src="{{ url_for('static', filename='customer service.png') }}" alt="Customer Service" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+      </div>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="sidebar" id="sidebar">
+      <div class="section">
+        <h4>➕ New Chat</h4>
+        <button id="new-chat">Start New Chat</button>
+      </div>
+      <div class="section">
+        <h4>🕓 Chat History</h4>
+        <ul id="chat-history">
+          {% for chat in chat_history %}
+            <li data-chat-id="{{ loop.index }}">{{ chat.timestamp }}</li>
+          {% else %}
+            <li data-chat-id="chat1">April 16 - 8:45PM</li>
+            <li data-chat-id="chat2">April 17 - 10:30AM</li>
+          {% endfor %}
+        </ul>
+      </div>
+      <div class="section">
+        <h4>🎯 Zo-Zi Picks</h4>
+        <ul id="zozi-picks">
+          <li data-pick-id="kingston-deals">Top Deals in Kingston</li>
+          <li data-pick-id="mobay-produce">Fresh Produce - Mobay</li>
+          <li data-pick-id="clothing-sale">Island Clothing Sale</li>
+        </ul>
+      </div>
+      <div class="section">
+        <h4>📦 Track Orders</h4>
+        <ul id="track-orders">
+          <li data-order-id="4521">Order #4521 - On the way</li>
+          <li data-order-id="4489">Order #4489 - Delivered</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="chat-container" id="chat-container">
+      <div class="chat-box">
+        <div class="chat-messages" id="chat-messages">
+          <!-- Initial prompt removed -->
+        </div>
+        <form class="chat-input" onsubmit="sendMessage(event)">
+          <input type="text" id="user-input" placeholder="Wa Gwaan fam, I’m Zo-Zi, how can I assist you?" autocomplete="off" />
+          <button type="submit">Send</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Debug profile picture
+    console.log('Profile picture path:', '{{ user.profile_picture | default("none") }}');
+
+    // Video loop
+    const video = document.getElementById("bgVideo");
+    if (video) {
+      video.addEventListener('timeupdate', () => {
+        if (video.currentTime >= 17) {
+          video.currentTime = 0;
+        }
+      });
+    }
+
+    // Chat saving and Zo-Zi scripts
+    let currentChat = [];
+    const chatHistoryData = {
+      chat1: [
+        { sender: 'Zo-Zi', text: 'Hello! How may I assist you today?' },
+        { sender: 'You', text: 'Can you help with mathematics?' },
+        { sender: 'Zo-Zi', text: 'Of course, mathematics is my speciality! What problem would you like to solve?' }
+      ],
+      chat2: [
+        { sender: 'Zo-Zi', text: 'Hello, shall we have a chat?' },
+        { sender: 'You', text: 'Tell me about Jamaica.' },
+        { sender: 'Zo-Zi', text: 'Jamaica has a rich history! Would you like to hear more about it?' }
+      ],
+      {% for chat in chat_history %}
+        '{{ loop.index }}': [
+          {% for msg in chat.messages %}
+            { sender: '{{ msg.sender }}', text: '{{ msg.text }}' },
+          {% endfor %}
+        ],
+      {% endfor %}
+    };
+
+    const zoziPicksResponses = {
+      'kingston-deals': 'I’ve found some excellent deals in Kingston! Are you interested in technology, fashion, or perhaps food specials today?',
+      'mobay-produce': 'Fresh produce in Montego Bay is a splendid choice! Would you like tips on what’s in season at the moment?',
+      'clothing-sale': 'The island clothing sale has some lovely styles! Do you prefer vibrant prints or more relaxed designs?'
+    };
+
+    const trackOrdersResponses = {
+      '4521': 'Order #4521 is on its way! It should arrive soon. Would you like more details?',
+      '4489': 'Order #4489 has been delivered! I hope you’re pleased with it. Is there anything else I can assist with?'
+    };
+
+    async function saveCurrentChat() {
+      if (currentChat.length > 0) {
+        const response = await fetch('/save_chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messages: currentChat })
+        });
+        const data = await response.json();
+        if (data.success) {
+          // Update chat history UI
+          const chatHistoryList = document.getElementById('chat-history');
+          const timestamp = new Date().toLocaleString('en-GB', { month: 'long', day: 'numeric', hour: 'numeric', minute: 'numeric', hour12: true });
+          const chatId = chatHistoryList.children.length + 1;
+          const li = document.createElement('li');
+          li.setAttribute('data-chat-id', chatId.toString());
+          li.textContent = timestamp;
+          chatHistoryList.appendChild(li);
+          chatHistoryData[chatId] = [...currentChat];
+        }
+      }
+    }
+
+    function startNewChat() {
+      saveCurrentChat().then(() => {
+        currentChat = [];
+        const chatMessages = document.getElementById('chat-messages');
+        chatMessages.innerHTML = '';
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      });
+    }
+
+    window.addEventListener('beforeunload', saveCurrentChat);
+
+    document.getElementById('new-chat').addEventListener('click', startNewChat);
+
+    function sendMessage(event) {
+      event.preventDefault();
+      const input = document.getElementById('user-input');
+      const message = input.value.trim();
+      const chatMessages = document.getElementById('chat-messages');
+
+      if (message !== '') {
+        const userMessage = document.createElement('div');
+        userMessage.innerHTML = `<strong>You:</strong> ${message}`;
+        chatMessages.appendChild(userMessage);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        currentChat.push({ sender: 'You', text: message });
+        input.value = '';
+
+        const typingIndicator = document.createElement('div');
+        typingIndicator.classList.add('typing-indicator');
+        typingIndicator.id = 'typing-indicator';
+        typingIndicator.innerHTML = '<strong>Zo-Zi:</strong> <span id="dots">.</span>';
+        chatMessages.appendChild(typingIndicator);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+
+        let dotCount = 1;
+        const dotInterval = setInterval(() => {
+          dotCount = (dotCount % 3) + 1;
+          document.getElementById('dots').textContent = '.'.repeat(dotCount);
+        }, 500);
+
+        setTimeout(() => {
+          clearInterval(dotInterval);
+          typingIndicator.remove();
+
+          const responseText = getBotResponse(message);
+          const botMessage = document.createElement('div');
+          botMessage.innerHTML = `<strong>Zo-Zi:</strong> `;
+          chatMessages.appendChild(botMessage);
+          chatMessages.scrollTop = chatMessages.scrollHeight;
+          currentChat.push({ sender: 'Zo-Zi', text: responseText });
+
+          let charIndex = 0;
+          const typingEffect = setInterval(() => {
+            if (charIndex < responseText.length) {
+              botMessage.innerHTML = `<strong>Zo-Zi:</strong> ${responseText.substring(0, charIndex + 1)}`;
+              charIndex++;
+              chatMessages.scrollTop = chatMessages.scrollHeight;
+            } else {
+              clearInterval(typingEffect);
+            }
+          }, 50);
+        }, 3000);
+      }
+    }
+
+    function getBotResponse(message) {
+      const lowerMessage = message.toLowerCase();
+      if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
+        return 'Hello! I’m Zo-Zi, your friendly assistant. How may I assist you today?';
+      } else if (lowerMessage.includes('?')) {
+        return 'That’s a splendid question! Allow me to explain. What exactly would you like to learn about?';
+      } else if (lowerMessage.includes('math') || lowerMessage.match(/\d+\s*[\+\-\*\/]\s*\d+/)) {
+        try {
+          const result = eval(lowerMessage.match(/\d+\s*[\+\-\*\/]\s*\d+/)[0]);
+          return `I’ve calculated it for you: ${result}. Would you like to try another?`;
+        } catch {
+          return 'I’m afraid that calculation is a bit tricky. Could you try a simpler one, please?';
+        }
+      } else if (lowerMessage.includes('jamaica') || lowerMessage.includes('history')) {
+        return 'Jamaica has a rich history! From the Maroons to independence in 1962, it’s full of resilience. Would you like to hear more about its heritage?';
+      } else if (lowerMessage.includes('music') || lowerMessage.includes('reggae')) {
+        return 'Reggae is the heartbeat of Jamaica! Think Bob Marley and those soulful rhythms. Are you fond of such music?';
+      } else {
+        return 'I’m not quite sure I understand. Could you kindly repeat that for me, please?';
+      }
+    }
+
+    document.getElementById('chat-history').addEventListener('click', (e) => {
+      if (e.target.tagName === 'LI') {
+        const chatId = e.target.getAttribute('data-chat-id');
+        const chatMessages = document.getElementById('chat-messages');
+        chatMessages.innerHTML = '';
+
+        chatHistoryData[chatId].forEach(msg => {
+          const message = document.createElement('div');
+          message.innerHTML = `<strong>${msg.sender}:</strong> ${msg.text}`;
+          chatMessages.appendChild(message);
+        });
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    });
+
+    document.getElementById('zozi-picks').addEventListener('click', (e) => {
+      if (e.target.tagName === 'LI') {
+        const pickId = e.target.getAttribute('data-pick-id');
+        const chatMessages = document.getElementById('chat-messages');
+        chatMessages.innerHTML = '';
+
+        const botMessage = document.createElement('div');
+        botMessage.innerHTML = `<strong>Zo-Zi:</strong> ${zoziPicksResponses[pickId]}`;
+        chatMessages.appendChild(botMessage);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    });
+
+    document.getElementById('track-orders').addEventListener('click', (e) => {
+      if (e.target.tagName === 'LI') {
+        const orderId = e.target.getAttribute('data-order-id');
+        const chatMessages = document.getElementById('chat-messages');
+        chatMessages.innerHTML = '';
+
+        const botMessage = document.createElement('div');
+        botMessage.innerHTML = `<strong>Zo-Zi:</strong> ${trackOrdersResponses[orderId]}`;
+        chatMessages.appendChild(botMessage);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
+    });
+
+    const searchInput = document.getElementById('search');
+    const suggestionsDiv = document.getElementById('suggestions');
+    searchInput.addEventListener('input', async () => {
+      const query = searchInput.value;
+      if (query.length < 2) {
+        suggestionsDiv.style.display = 'none';
+        return;
+      }
+      const response = await fetch(`/search_suggestions?query=${encodeURIComponent(query)}`);
+      const data = await response.json();
+      suggestionsDiv.innerHTML = '';
+      data.suggestions.forEach(suggestion => {
+        const a = document.createElement('a');
+        a.href = `/product/${suggestion.key.replace(/ /g, '+')}`;
+        a.textContent = suggestion.name;
+        suggestionsDiv.appendChild(a);
+      });
+      suggestionsDiv.style.display = data.suggestions.length ? 'block' : 'none';
+    });
+
+    async function addToCart(productKey, price, imageUrl) {
+      const response = await fetch('/cart/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_key: productKey, price: price, quantity: 1, image_url: imageUrl })
+      });
+      const data = await response.json();
+      if (data.success) {
+        document.querySelector('.cart-total').textContent = Object.values(session.cart || {}).reduce((sum, item) => sum + item.quantity, 0) || {{ cart_item_count }};
+        fetchCartItems();
+      }
+    }
+
+    async function removeFromCart(productKey) {
+      const response = await fetch('/cart/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_key: productKey })
+      });
+      const data = await response.json();
+      if (data.success) {
+        document.querySelector('.cart-total').textContent = Object.values(session.cart || {}).reduce((sum, item) => sum + item.quantity, 0) || {{ cart_item_count }};
+        fetchCartItems();
+      }
+    }
+
+    async function fetchCartItems() {
+      const response = await fetch('/cart');
+      const data = await response.json();
+      const cartItemsDiv = document.getElementById('cartItems');
+      cartItemsDiv.innerHTML = '';
+      if (data.cart_items.length === 0) {
+        cartItemsDiv.innerHTML = '<p class="empty-cart">Your cart is empty</p>';
+      } else {
+        data.cart_items.forEach(item => {
+          const itemDiv = document.createElement('div');
+          itemDiv.className = 'cart-item';
+          itemDiv.innerHTML = `
+            <img src="/static/${item.image_url}" alt="${item.product_key}" onerror="this.src='/static/placeholder.jpg'">
+            <div class="cart-item-details">
+              <p>${item.product_key}</p>
+              <p>${item.price} JMD x ${item.quantity}</p>
+            </div>
+            <span class="remove-item" onclick="removeFromCart('${item.product_key}')">x</span>
+          `;
+          cartItemsDiv.appendChild(itemDiv);
+        });
+      }
+    }
+
+    const cartIcon = document.querySelector('.cart-icon');
+    const cartDropdown = document.getElementById('cartDropdown');
+    cartIcon.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cartDropdown.style.display = cartDropdown.style.display === 'block' ? 'none' : 'block';
+      if (cartDropdown.style.display === 'block') {
+        fetchCartItems();
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!cartIcon.contains(e.target)) {
+        cartDropdown.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>

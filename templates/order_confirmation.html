@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Order Confirmation - Zo-Zi</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #d1f2eb;  /* Changed to solid color */
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Removed video background styles */
+
+        .navbar {
+            background-color: rgba(51, 51, 51, 0.95);
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+            transition: color 0.3s ease;
+        }
+
+        .navbar a:hover {
+            color: #FFD700;
+        }
+
+        .cart-icon {
+            position: relative;
+        }
+
+        .cart-total {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: red;
+            color: white;
+            border-radius: 50%;
+            padding: 5px 8px;
+            font-size: 12px;
+        }
+
+        .profile {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-left: 10px;
+            cursor: pointer;
+            display: inline-block;
+            vertical-align: middle;
+        }
+
+        .profile img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .confirmation-container {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: calc(100vh - 80px);
+            padding: 20px;
+        }
+
+        .confirmation-content {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(15px);
+            padding: 40px;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 600px;
+            width: 100%;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .success-icon {
+            font-size: 80px;
+            color: #28a745;
+            margin-bottom: 20px;
+            animation: bounce 1s ease-in-out;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-20px); }
+            60% { transform: translateY(-10px); }
+        }
+
+        .confirmation-content h1 {
+            color: #28a745;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            font-weight: bold;
+        }
+
+        .thank-you-message {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 30px;
+            line-height: 1.6;
+        }
+
+        .order-details {
+            background: rgba(248, 249, 250, 0.8);
+            padding: 25px;
+            border-radius: 15px;
+            margin: 25px 0;
+            text-align: left;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .order-details h3 {
+            color: #333;
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.4em;
+            border-bottom: 2px solid #28a745;
+            padding-bottom: 10px;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 12px 0;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .detail-row:last-child {
+            border-bottom: none;
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #28a745;
+        }
+
+        .detail-label {
+            font-weight: bold;
+            color: #555;
+        }
+
+        .detail-value {
+            color: #333;
+        }
+
+        .order-items {
+            background: rgba(248, 249, 250, 0.8);
+            padding: 25px;
+            border-radius: 15px;
+            margin: 25px 0;
+            text-align: left;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .order-items h3 {
+            color: #333;
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.4em;
+            border-bottom: 2px solid #28a745;
+            padding-bottom: 10px;
+        }
+
+        .item {
+            display: flex;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+        }
+
+        .item:last-child {
+            border-bottom: none;
+        }
+
+        .item img {
+            width: 60px;
+            height: 60px;
+            border-radius: 10px;
+            margin-right: 15px;
+            object-fit: contain;
+            background: white;
+            padding: 5px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .item-details {
+            flex: 1;
+        }
+
+        .item-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .item-price {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 30px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #333;
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 215, 0, 0.4);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .btn-secondary:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.4);
+        }
+
+        .btn-outline {
+            background: transparent;
+            color: #666;
+            border: 2px solid #ddd;
+        }
+
+        .btn-outline:hover {
+            background: #f8f9fa;
+            border-color: #28a745;
+            color: #28a745;
+            transform: translateY(-3px);
+        }
+
+        .floating-elements {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .floating-element {
+            position: absolute;
+            font-size: 30px;
+            opacity: 0.1;
+            animation: float 6s ease-in-out infinite;
+        }
+
+        .floating-element:nth-child(1) { top: 10%; left: 10%; animation-delay: 0s; }
+        .floating-element:nth-child(2) { top: 20%; right: 10%; animation-delay: 1s; }
+        .floating-element:nth-child(3) { bottom: 20%; left: 15%; animation-delay: 2s; }
+        .floating-element:nth-child(4) { bottom: 30%; right: 20%; animation-delay: 3s; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-20px); }
+        }
+
+        .delivery-badge {
+            display: inline-block;
+            background: linear-gradient(135deg, #17a2b8, #138496);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .guest-note {
+            background: linear-gradient(135deg, #ffc107, #e0a800);
+            color: #212529;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .confirmation-content {
+                padding: 30px 20px;
+                margin: 10px;
+            }
+
+            .success-icon {
+                font-size: 60px;
+            }
+
+            .confirmation-content h1 {
+                font-size: 2em;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .btn {
+                width: 100%;
+                max-width: 300px;
+                justify-content: center;
+            }
+
+            .item {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .item img {
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .navbar {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+
+            .confirmation-content {
+                padding: 20px 15px;
+            }
+
+            .order-details, .order-items {
+                padding: 20px 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Removed video element -->
+
+    <nav class="navbar">
+        <div>
+            <a href="{{ url_for('index') }}">🏠 Zo-Zi</a>
+            <a href="{{ url_for('search') }}">🛍️ Shop</a>
+            <a href="{{ url_for('contact') }}">📞 Contact</a>
+            {% if user %}
+                <a href="{{ url_for('profile') }}">👤 Profile</a>
+                <a href="{{ url_for('orders') }}">📦 Orders</a>
+                {% if user.is_seller %}
+                    <a href="{{ url_for('seller_dashboard') }}">📊 Dashboard</a>
+                {% endif %}
+                <a href="{{ url_for('logout') }}">🚪 Logout</a>
+            {% else %}
+                <a href="{{ url_for('login') }}">🔐 Login</a>
+                <a href="{{ url_for('signup') }}">📝 Signup</a>
+            {% endif %}
+        </div>
+        <div class="profile" onclick="window.location.href='{{ url_for('profile' if user else 'login') }}'" title="{% if user and user.profile_picture %}Change Profile Picture{% elif user %}Add Profile Picture{% else %}Login to add profile{% endif %}">
+            {% if user and user.profile_picture %}
+                <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+            {% else %}
+                <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%; text-align: center;">+</span>
+            {% endif %}
+        </div>
+        <div class="cart-icon">
+            <a href="{{ url_for('cart') }}">🛒 Cart (<span class="cart-total">{{ cart_item_count }}</span>)</a>
+        </div>
+    </nav>
+
+    <div class="floating-elements">
+        <div class="floating-element">🎉</div>
+        <div class="floating-element">✨</div>
+        <div class="floating-element">🎊</div>
+        <div class="floating-element">🌟</div>
+    </div>
+
+    <div class="confirmation-container">
+        <div class="confirmation-content">
+            <div class="success-icon">✅</div>
+            <h1>Order Confirmed!</h1>
+
+            <p class="thank-you-message">
+                {% if order.is_guest %}
+                    Thank you for your purchase! Your order has been successfully placed.
+                {% else %}
+                    Thank you, <strong>{{ order.customer_name }}</strong>, for your purchase! Your order has been successfully placed.
+                {% endif %}
+            </p>
+
+            {% if order.is_guest %}
+                <div class="guest-note">
+                    📧 Order confirmation will be sent to <strong>{{ order.customer_email }}</strong>
+                </div>
+            {% endif %}
+
+            <div class="order-details">
+                <h3>📋 Order Details</h3>
+                <div class="detail-row">
+                    <span class="detail-label">Order Number:</span>
+                    <span class="detail-value">#{{ order.order_id }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Order Date:</span>
+                    <span class="detail-value">{{ order.order_date }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Customer:</span>
+                    <span class="detail-value">{{ order.customer_name }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Email:</span>
+                    <span class="detail-value">{{ order.customer_email }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Shipping Method:</span>
+                    <span class="detail-value">
+                        {% if order.shipping_fee == 1200 %}
+                            🚀 Overnight Shipping
+                        {% else %}
+                            🚚 Regular Shipping
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Estimated Delivery:</span>
+                    <span class="detail-value">
+                        <span class="delivery-badge">{{ order.estimated_delivery }}</span>
+                    </span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Subtotal:</span>
+                    <span class="detail-value">${{ '{:.2f}'.format(order.total_amount - order.shipping_fee - order.tax + order.discount) }} JMD</span>
+                </div>
+                {% if order.discount > 0 %}
+                <div class="detail-row">
+                    <span class="detail-label">Discount Applied:</span>
+                    <span class="detail-value" style="color: #28a745;">-${{ '{:.2f}'.format(order.discount) }} JMD</span>
+                </div>
+                {% endif %}
+                <div class="detail-row">
+                    <span class="detail-label">Shipping Fee:</span>
+                    <span class="detail-value">${{ '{:.2f}'.format(order.shipping_fee) }} JMD</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Tax (5%):</span>
+                    <span class="detail-value">${{ '{:.2f}'.format(order.tax) }} JMD</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Total Amount:</span>
+                    <span class="detail-value">${{ '{:.2f}'.format(order.total_amount) }} JMD</span>
+                </div>
+            </div>
+
+            <div class="order-items">
+                <h3>📦 Items Ordered ({{ items|length }} item{{ 's' if items|length != 1 else '' }})</h3>
+                {% for item in items %}
+                    <div class="item">
+                        <img src="{{ url_for('static', filename=item.image_url) }}" alt="{{ item.name or item.product_key }}" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                        <div class="item-details">
+                            <div class="item-name">{{ item.name or item.product_key }}</div>
+                            <div class="item-price">
+                                {{ item.quantity }} × ${{ '{:.2f}'.format(item.price) }} JMD = ${{ '{:.2f}'.format(item.quantity * item.price) }} JMD
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="action-buttons">
+                <a href="{{ url_for('index') }}" class="btn btn-primary">
+                    🛒 Continue Shopping
+                </a>
+                {% if not order.is_guest %}
+                    <a href="{{ url_for('orders') }}" class="btn btn-secondary">
+                        📦 View All Orders
+                    </a>
+                {% endif %}
+                <a href="{{ url_for('contact') }}" class="btn btn-outline">
+                    📞 Contact Support
+                </a>
+            </div>
+
+            <div style="margin-top: 30px; padding: 20px; background: rgba(40, 167, 69, 0.1); border-radius: 15px; border: 1px solid rgba(40, 167, 69, 0.3);">
+                <p style="margin: 0; color: #155724; font-weight: bold;">📱 Track Your Order</p>
+                <p style="margin: 5px 0 0 0; color: #155724; font-size: 14px;">
+                    {% if order.is_guest %}
+                        Save your order number <strong>#{{ order.order_id }}</strong> to track your order status.
+                    {% else %}
+                        You can track your order status in your <a href="{{ url_for('orders') }}" style="color: #28a745; font-weight: bold;">Orders page</a>.
+                    {% endif %}
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Removed video initialization code
+
+        // Confetti effect
+        function createConfetti() {
+            const confetti = document.createElement('div');
+            confetti.style.position = 'fixed';
+            confetti.style.left = Math.random() * 100 + '%';
+            confetti.style.animationDuration = Math.random() * 3 + 2 + 's';
+            confetti.style.pointerEvents = 'none';
+            confetti.style.zIndex = '1000';
+            confetti.innerHTML = ['🎉', '🎊', '✨', '🌟', '💫'][Math.floor(Math.random() * 5)];
+            confetti.style.fontSize = '20px';
+            confetti.style.animation = 'fall linear forwards';
+            document.body.appendChild(confetti);
+
+            const keyframes = `
+                @keyframes fall {
+                    to {
+                        transform: translateY(100vh);
+                    }
+                }
+            `;
+            if (!document.querySelector('#confetti-keyframes')) {
+                const style = document.createElement('style');
+                style.id = 'confetti-keyframes';
+                style.textContent = keyframes;
+                document.head.appendChild(style);
+            }
+
+            setTimeout(() => {
+                confetti.remove();
+            }, 5000);
+        }
+
+        // Create confetti on page load
+        for (let i = 0; i < 50; i++) {
+            setTimeout(createConfetti, i * 100);
+        }
+
+        // Auto-redirect after 30 seconds (optional)
+        setTimeout(() => {
+            const userConfirm = confirm('Would you like to continue shopping?');
+            if (userConfirm) {
+                window.location.href = "{{ url_for('index') }}";
+            }
+        }, 30000);
+
+        console.log('🎉 Order confirmed successfully!');
+        console.log('Order ID: {{ order.order_id }}');
+        console.log('Total: ${{ order.total_amount }} JMD');
+    </script>
+</body>
+</html>

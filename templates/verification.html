@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zo-Zi - Verification</title>
+    <style>
+        video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+        .navbar { display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.8); padding: 10px 20px; position: relative; z-index: 2; }
+        .brand { font-size: 24px; font-weight: bold; color: black; }
+        .brand a { text-decoration: none; color: black; }
+        .brand a:hover { color: #FFD700; }
+        .menu-container { position: relative; display: inline-block; }
+        .menu-icon { cursor: pointer; font-size: 24px; }
+        .dropdown-content { display: none; position: absolute; background-color: white; color: green; min-width: 160px; box-shadow: 0px 8px 16px rgba(0,0,0,0.2); border-radius: 5px; }
+        .dropdown-content a { padding: 10px; display: block; color: green; text-decoration: none; }
+        .dropdown-content a:hover { background-color: yellow; }
+        .menu-container:hover .dropdown-content { display: block; }
+        .auth-container { display: flex; align-items: center; }
+        .auth-buttons { margin-left: 10px; padding: 8px; background: yellow; border: none; cursor: pointer; }
+        .profile { width: 40px; height: 40px; border-radius: 50%; background: gray; margin-left: 10px; }
+        .verification-container { max-width: 600px; margin: 50px auto; padding: 20px; background: rgba(255, 255, 255, 0.8); border-radius: 10px; box-shadow: 0 0 10px rgba(0, 0, 0, 0.3); text-align: center; position: relative; z-index: 1; }
+        .verification-container h1 { color: #006400; font-size: 28px; margin-bottom: 20px; }
+        .verification-container p { color: #000; font-size: 16px; margin-bottom: 20px; }
+        .home-btn { background-color: #FFD700; color: #000; padding: 10px 20px; font-size: 16px; border: none; border-radius: 5px; cursor: pointer; }
+        .home-btn:hover { background-color: #FFA500; }
+    </style>
+</head>
+<body>
+    <video autoplay loop muted playsinline id="bgVideo">
+        <source src="{{ url_for('static', filename='flag_vid.webm') }}" type="video/webm">
+    </video>
+    <script>
+        const video = document.getElementById("bgVideo");
+        video.addEventListener("timeupdate", function() {
+            if (video.currentTime >= 17) video.currentTime = 0;
+        });
+    </script>
+    <div class="navbar">
+        <div class="brand"><a href="{{ url_for('index') }}">Zo-Zi</a></div>
+        <div class="menu-container">
+            <div class="menu-icon">☰</div>
+            <div class="dropdown-content">
+                <a href="#">User Account</a>
+                <a href="#">Personal Details</a>
+                <a href="#">Password Reset</a>
+                <a href="{{ url_for('seller_dashboard') }}">Seller Account</a>
+            </div>
+        </div>
+        <div class="auth-container">
+            <button class="auth-buttons">Login</button>
+            <button class="auth-buttons" onclick="window.location.href='{{ url_for('index') }}#buyer-signup'">Sign Up</button>
+            <div class="profile"></div>
+        </div>
+    </div>
+
+    <div class="verification-container">
+        <h1>Signup Successful, {{ first_name }}!</h1>
+        <p>Thank you for signing up with Zo-Zi! A verification email has been sent to <strong>{{ email }}</strong>. Please check your inbox (and spam/junk folder) to verify your account.</p>
+        <p>For testing: <a href="{{ url_for('verify', token='dummy_token', email=email, first_name=first_name) }}">Click here to verify</a></p>
+        <button class="home-btn" onclick="window.location.href='{{ url_for('index') }}'">Return to Home</button>
+    </div>
+</body>
+</html>

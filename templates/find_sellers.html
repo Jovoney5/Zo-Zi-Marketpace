@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Zo-Zi - Find Sellers</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 48px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            font-size: 18px;
+            margin-bottom: 40px;
+        }
+
+        .section-title {
+            font-size: 28px;
+            color: white;
+            margin-top: 50px;
+            margin-bottom: 25px;
+            border-bottom: 3px solid #FFD700;
+            padding-bottom: 10px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .sellers-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .seller-item {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .seller-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4);
+        }
+
+        .seller-item:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.25);
+            background: linear-gradient(135deg, #fff8dc, #ffffff);
+        }
+
+        .seller-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .seller-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            margin-right: 15px;
+            object-fit: cover;
+            border: 3px solid #f8f9fa;
+        }
+
+        .default-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-right: 15px;
+        }
+
+        .seller-name {
+            font-size: 22px;
+            margin: 0 0 5px 0;
+            color: #2c3e50;
+            font-weight: bold;
+        }
+
+        .business-name {
+            font-size: 16px;
+            color: #7f8c8d;
+            margin: 0;
+        }
+
+        .seller-info {
+            margin: 15px 0;
+            color: #555;
+        }
+
+        .info-row {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+            font-size: 14px;
+        }
+
+        .info-icon {
+            margin-right: 8px;
+            font-size: 16px;
+        }
+
+        .seller-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .stat {
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .stat-number {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+
+        .stat-label {
+            font-size: 10px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+        }
+
+        .rating {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+
+        .stars {
+            color: #f39c12;
+            margin-right: 8px;
+        }
+
+        .visit-store-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 25px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+            margin-top: 15px;
+        }
+
+        .visit-store-btn:hover {
+            background: linear-gradient(135deg, #764ba2, #667eea);
+            transform: scale(1.02);
+        }
+
+        .no-sellers {
+            text-align: center;
+            color: rgba(255,255,255,0.8);
+            font-style: italic;
+            padding: 40px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        @media (max-width: 768px) {
+            .sellers-grid {
+                grid-template-columns: 1fr;
+            }
+
+            h1 {
+                font-size: 36px;
+            }
+
+            .seller-stats {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏪 Find Sellers</h1>
+        <p class="subtitle">Discover amazing local sellers and explore stores from across Jamaica</p>
+
+        <section>
+            <h2 class="section-title">🏠 Sellers in {{ user_parish }}</h2>
+            {% if local_sellers %}
+                <div class="sellers-grid">
+                    {% for seller in local_sellers %}
+                        <div class="seller-item" onclick="window.location.href='{{ url_for('seller_store', seller_email=seller.email) }}'">
+                            <div class="seller-header">
+                                {% if seller.profile_picture %}
+                                    <img src="{{ url_for('static', filename=seller.profile_picture) }}"
+                                         alt="{{ seller.business_name or seller.first_name }}"
+                                         class="seller-avatar"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                                    <div class="default-avatar" style="display: none;">
+                                        {{ (seller.business_name or seller.first_name or 'S')[0].upper() }}
+                                    </div>
+                                {% else %}
+                                    <div class="default-avatar">
+                                        {{ (seller.business_name or seller.first_name or 'S')[0].upper() }}
+                                    </div>
+                                {% endif %}
+
+                                <div>
+                                    <h3 class="seller-name">{{ seller.first_name }} {{ seller.last_name }}</h3>
+                                    {% if seller.business_name %}
+                                        <p class="business-name">{{ seller.business_name }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="seller-info">
+                                <div class="info-row">
+                                    <span class="info-icon">📍</span>
+                                    <span>{{ seller.business_address }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-icon">📧</span>
+                                    <span>{{ seller.email }}</span>
+                                </div>
+                            </div>
+
+                            <div class="seller-stats">
+                                <div class="stat">
+                                    <div class="stat-number">{{ seller.product_count }}</div>
+                                    <div class="stat-label">Products</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-number">{{ seller.total_sales }}</div>
+                                    <div class="stat-label">Sales</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-number">{{ seller.rating_count }}</div>
+                                    <div class="stat-label">Reviews</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-number">{{ seller.avg_rating }}</div>
+                                    <div class="stat-label">Rating</div>
+                                </div>
+                            </div>
+
+                            {% if seller.avg_rating > 0 %}
+                            <div class="rating">
+                                <div class="stars">
+                                    {% for i in range(5) %}
+                                        {% if i < seller.avg_rating %}⭐{% else %}☆{% endif %}
+                                    {% endfor %}
+                                </div>
+                                <span>({{ seller.avg_rating }}/5)</span>
+                            </div>
+                            {% endif %}
+
+                            <button class="visit-store-btn" onclick="window.location.href='{{ url_for('seller_store', seller_email=seller.email) }}'">🛍️ Visit Store</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="no-sellers">No sellers found in {{ user_parish }}.</div>
+            {% endif %}
+        </section>
+
+        <section>
+            <h2 class="section-title">🌍 Explore Other Stores</h2>
+            {% if other_sellers %}
+                <div class="sellers-grid">
+                    {% for seller in other_sellers %}
+                        <div class="seller-item" onclick="window.location.href='{{ url_for('seller_store', seller_email=seller.email) }}'">
+                            <div class="seller-header">
+                                {% if seller.profile_picture %}
+                                    <img src="{{ url_for('static', filename=seller.profile_picture) }}"
+                                         alt="{{ seller.business_name or seller.first_name }}"
+                                         class="seller-avatar"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                                    <div class="default-avatar" style="display: none;">
+                                        {{ (seller.business_name or seller.first_name or 'S')[0].upper() }}
+                                    </div>
+                                {% else %}
+                                    <div class="default-avatar">
+                                        {{ (seller.business_name or seller.first_name or 'S')[0].upper() }}
+                                    </div>
+                                {% endif %}
+
+                                <div>
+                                    <h3 class="seller-name">{{ seller.first_name }} {{ seller.last_name }}</h3>
+                                    {% if seller.business_name %}
+                                        <p class="business-name">{{ seller.business_name }}</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="seller-info">
+                                <div class="info-row">
+                                    <span class="info-icon">📍</span>
+                                    <span>{{ seller.business_address }}</span>
+                                </div>
+                                <div class="info-row">
+                                    <span class="info-icon">📧</span>
+                                    <span>{{ seller.email }}</span>
+                                </div>
+                            </div>
+
+                            <div class="seller-stats">
+                                <div class="stat">
+                                    <div class="stat-number">{{ seller.product_count }}</div>
+                                    <div class="stat-label">Products</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-number">{{ seller.total_sales }}</div>
+                                    <div class="stat-label">Sales</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-number">{{ seller.rating_count }}</div>
+                                    <div class="stat-label">Reviews</div>
+                                </div>
+                                <div class="stat">
+                                    <div class="stat-number">{{ seller.avg_rating }}</div>
+                                    <div class="stat-label">Rating</div>
+                                </div>
+                            </div>
+
+                            {% if seller.avg_rating > 0 %}
+                            <div class="rating">
+                                <div class="stars">
+                                    {% for i in range(5) %}
+                                        {% if i < seller.avg_rating %}⭐{% else %}☆{% endif %}
+                                    {% endfor %}
+                                </div>
+                                <span>({{ seller.avg_rating }}/5)</span>
+                            </div>
+                            {% endif %}
+
+                            <button class="visit-store-btn">🛍️ Visit Store</button>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="no-sellers">No other stores available right now.</div>
+            {% endif %}
+        </section>
+    </div>
+</body>
+</html>

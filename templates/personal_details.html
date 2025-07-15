@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zo-Zi - Personal Details</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.8); padding: 10px 20px; z-index: 2; position: relative; }
+        .brand a { font-size: 24px; font-weight: bold; color: black; text-decoration: none; }
+        .brand a:hover { color: #FFD700; }
+        .menu-container { position: relative; }
+        .menu-icon { cursor: pointer; font-size: 24px; }
+        .dropdown-content { display: none; position: absolute; background: white; min-width: 160px; box-shadow: 0 8px 16px rgba(0,0,0,0.2); border-radius: 5px; }
+        .menu-container:hover .dropdown-content { display: block; }
+        .dropdown-content a { color: green; padding: 10px; display: block; text-decoration: none; }
+        .dropdown-content a:hover { background: yellow; }
+        .auth-container { display: flex; align-items: center; }
+        .auth-buttons { margin-left: 10px; padding: 8px; background: yellow; border: none; cursor: pointer; }
+        .profile { width: 40px; height: 40px; border-radius: 50%; margin-left: 10px; }
+        .profile img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+        .details-container { max-width: 600px; margin: 50px auto; padding: 20px; background: rgba(255, 255, 255, 0.8); border-radius: 10px; text-align: center; z-index: 1; position: relative; }
+        .details-container h1 { color: #006400; }
+        .details-container form { display: flex; flex-direction: column; align-items: center; }
+        .details-container input { width: 90%; padding: 10px; margin: 10px 0; border: none; border-radius: 5px; }
+        .details-container button { background: #FFD700; padding: 10px 20-monitor: none; cursor: pointer; margin: 10px 0; }
+        .profile-pic { width: 100px; height: 100px; border-radius: 50%; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <video autoplay loop muted playsinline id="bgVideo">
+        <source src="{{ url_for('static', filename='flag_vid.webm') }}" type="video/webm">
+    </video>
+    <script>
+        const video = document.getElementById("bgVideo");
+        video.addEventListener("timeupdate", function() {
+            if (video.currentTime >= 17) video.currentTime = 0;
+        });
+    </script>
+    <div class="navbar">
+        <div class="brand"><a href="{{ url_for('index') }}">Zo-Zi</a></div>
+        <div class="menu-container">
+            <div class="menu-icon">☰</div>
+            <div class="dropdown-content">
+                <a href="{{ url_for('personal_details') }}">Personal Details</a>
+                <a href="#">Password Reset</a>
+                <a href="#">Seller Account</a>
+            </div>
+        </div>
+        <div class="auth-container">
+            <button class="auth-buttons" onclick="window.location.href='{{ url_for('index') }}'">Logout</button>
+            {% if user.profile_picture %}
+                <div class="profile"><img src="{{ url_for('static', filename='uploads/' + user.profile_picture) }}" alt="Profile"></div>
+            {% else %}
+                <div class="profile" style="background: gray;"></div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="details-container">
+        <h1>Your Personal Details</h1>
+        {% if user.profile_picture %}
+            <img src="{{ url_for('static', filename='uploads/' + user.profile_picture) }}" alt="Profile Picture" class="profile-pic">
+        {% else %}
+            <div class="profile-pic" style="background: gray;"></div>
+        {% endif %}
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="text" name="first_name" value="{{ user.first_name }}" placeholder="First Name" required>
+            <input type="text" name="last_name" value="{{ user.last_name }}" placeholder="Last Name" required>
+            <input type="email" name="email" value="{{ user.email }}" placeholder="Email" required>
+            <input type="tel" name="phone_number" value="{{ user.phone_number }}" placeholder="Phone Number" required>
+            <button type="submit">Update Details</button>
+        </form>
+        <button onclick="window.location.href='{{ url_for('upload_profile_picture') }}'">Change Profile Picture</button>
+    </div>
+</body>
+</html>

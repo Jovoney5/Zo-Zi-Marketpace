@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Receipt #{{ order.get('order_id', 'Not Found') if order else 'Not Found' }} - Zo-Zi</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #d1f2eb;
+            min-height: 100vh;
+            padding-top: 80px;
+        }
+
+        /* Simple Navbar */
+        .navbar {
+            background-color: rgba(51, 51, 51, 0.95);
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            box-sizing: border-box;
+        }
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+        }
+
+        .navbar a:hover {
+            color: #FFD700;
+        }
+
+        .profile {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+
+        .profile img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .cart-total {
+            background: red;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 12px;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Receipt Container */
+        .receipt-container {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        /* Receipt Header */
+        .receipt-header {
+            text-align: center;
+            border-bottom: 2px solid #333;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+
+        .receipt-header h1 {
+            color: #333;
+            margin: 0 0 10px 0;
+            font-size: 2.5em;
+        }
+
+        .receipt-header p {
+            color: #666;
+            margin: 5px 0;
+            font-size: 16px;
+        }
+
+        /* Order Info Section */
+        .order-info {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .info-section h3 {
+            color: #333;
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 5px;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .info-item strong {
+            color: #333;
+        }
+
+        .info-item span {
+            color: #666;
+        }
+
+        /* Order Status */
+        .status-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+
+        .status-pending { background: #ffc107; color: #000; }
+        .status-confirmed { background: #17a2b8; color: white; }
+        .status-shipped { background: #6f42c1; color: white; }
+        .status-delivered { background: #28a745; color: white; }
+        .status-cancelled { background: #dc3545; color: white; }
+        .status-refunded { background: #6c757d; color: white; }
+
+        /* Items Table */
+        .items-section {
+            margin-bottom: 30px;
+        }
+
+        .items-section h3 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+
+        .items-table th,
+        .items-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .items-table th {
+            background: #f8f9fa;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .item-image {
+            width: 50px;
+            height: 50px;
+            border-radius: 5px;
+            object-fit: contain;
+            background: #f8f9fa;
+            padding: 3px;
+        }
+
+        .item-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        /* Totals Section */
+        .totals-section {
+            border: 2px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            background: #f8f9fa;
+            margin-bottom: 30px;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+
+        .total-row.subtotal {
+            color: #666;
+        }
+
+        .total-row.discount {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .total-row.shipping {
+            color: #666;
+        }
+
+        .total-row.tax {
+            color: #666;
+        }
+
+        .total-row.final {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+            border-top: 2px solid #333;
+            padding-top: 10px;
+            margin-top: 15px;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: #FFD700;
+            color: #333;
+        }
+
+        .btn-primary:hover {
+            background: #FFA500;
+            transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: #28a745;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #218838;
+            transform: translateY(-2px);
+        }
+
+        .btn-outline {
+            background: white;
+            color: #333;
+            border: 2px solid #333;
+        }
+
+        .btn-outline:hover {
+            background: #333;
+            color: white;
+        }
+
+        /* Footer */
+        .receipt-footer {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+            border-top: 1px solid #ddd;
+            padding-top: 20px;
+        }
+
+        /* Error State */
+        .error-state {
+            text-align: center;
+            background: white;
+            border-radius: 10px;
+            padding: 50px;
+            margin-bottom: 20px;
+        }
+
+        .error-state h2 {
+            color: #dc3545;
+            margin-bottom: 15px;
+        }
+
+        .error-state p {
+            color: #666;
+            margin-bottom: 25px;
+        }
+
+        /* Print Styles */
+        @media print {
+            body {
+                background: white;
+                padding-top: 0;
+            }
+
+            .navbar,
+            .action-buttons {
+                display: none !important;
+            }
+
+            .receipt-container {
+                box-shadow: none;
+                border: 1px solid #333;
+            }
+
+            .container {
+                max-width: none;
+                padding: 0;
+            }
+
+            .btn {
+                display: none;
+            }
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                padding: 10px;
+            }
+
+            .container {
+                padding: 10px;
+            }
+
+            .receipt-container {
+                padding: 20px;
+            }
+
+            .receipt-header h1 {
+                font-size: 2em;
+            }
+
+            .order-info {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .items-table {
+                font-size: 14px;
+            }
+
+            .items-table th,
+            .items-table td {
+                padding: 8px;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+            }
+
+            .total-row {
+                font-size: 14px;
+            }
+
+            .total-row.final {
+                font-size: 18px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Simple Navbar -->
+    <nav class="navbar">
+        <div>
+            <a href="{{ url_for('index') }}">🏠 Zo-Zi</a>
+            <a href="{{ url_for('index') }}">Shop</a>
+            <a href="{{ url_for('contact') }}">Contact</a>
+            {% if user %}
+                <a href="{{ url_for('orders') }}">My Orders</a>
+                <a href="{{ url_for('profile') }}">Profile</a>
+                {% if user.is_seller %}
+                    <a href="{{ url_for('seller_dashboard') }}">Dashboard</a>
+                {% endif %}
+                <a href="{{ url_for('logout') }}">Logout</a>
+            {% else %}
+                <a href="{{ url_for('login') }}">Login</a>
+                <a href="{{ url_for('signup') }}">Signup</a>
+            {% endif %}
+        </div>
+        <div style="display: flex; align-items: center;">
+            <div class="profile" onclick="window.location.href='{{ url_for('profile' if user else 'login') }}'">
+                {% if user and user.profile_picture %}
+                    <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile">
+                {% else %}
+                    <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%; text-align: center;">+</span>
+                {% endif %}
+            </div>
+            <a href="{{ url_for('cart') }}" style="margin-left: 15px;">
+                🛒 Cart (<span class="cart-total">{{ cart_item_count }}</span>)
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        {% if error %}
+            <!-- Error State -->
+            <div class="error-state">
+                <h2>❌ Receipt Not Found</h2>
+                <p>{{ error }}</p>
+                <a href="{{ url_for('orders') }}" class="btn btn-primary">Back to Orders</a>
+            </div>
+        {% elif order %}
+            <!-- Receipt Container -->
+            <div class="receipt-container" id="receipt">
+                <!-- Receipt Header -->
+                <div class="receipt-header">
+                    <h1>🧾 RECEIPT</h1>
+                    <p><strong>Zo-Zi Marketplace</strong></p>
+                    <p>Jamaica's Premier Online Shopping Platform</p>
+                    <p>📧 support@zozi.com | 📞 1-876-ZO-ZI-SHOP</p>
+                </div>
+
+                <!-- Order Information -->
+                <div class="order-info">
+                    <div class="info-section">
+                        <h3>📋 Order Details</h3>
+                        <div class="info-item">
+                            <strong>Order ID:</strong>
+                            <span>#{{ order.get('order_id', 'N/A') }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Order Date:</strong>
+                            <span>{{ order.get('order_date', 'N/A') }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Status:</strong>
+                            <span class="status-badge status-{{ order.get('status', 'pending') }}">
+                                {{ (order.get('status', 'pending')).title() }}
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Payment Method:</strong>
+                            <span>{{ order.get('payment_method', 'N/A') }}</span>
+                        </div>
+                    </div>
+
+                    <div class="info-section">
+                        <h3>📦 Delivery Information</h3>
+                        <div class="info-item">
+                            <strong>Customer:</strong>
+                            <span>{{ order.get('full_name', 'N/A') }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Email:</strong>
+                            <span>{{ order.get('user_email', 'N/A') }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Address:</strong>
+                            <span>{{ order.get('address', 'N/A') }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Parish:</strong>
+                            <span>{{ order.get('parish', 'N/A') }}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Post Office:</strong>
+                            <span>{{ order.get('post_office', 'N/A') }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Order Items -->
+                <div class="items-section">
+                    <h3>🛍️ Items Purchased</h3>
+                    {% if order.get('items') %}
+                        <table class="items-table">
+                            <thead>
+                                <tr>
+                                    <th>Image</th>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Unit Price</th>
+                                    <th>Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in order.get('items', []) %}
+                                <tr>
+                                    <td>
+                                        <img src="{{ url_for('static', filename=item.get('image_url', 'placeholder.jpg')) }}"
+                                             alt="{{ item.get('product_name', 'Product') }}"
+                                             class="item-image"
+                                             onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}';">
+                                    </td>
+                                    <td>
+                                        <div class="item-name">{{ item.get('product_name') or item.get('product_key', 'Unknown Product') }}</div>
+                                    </td>
+                                    <td>{{ item.get('quantity', 0) }}</td>
+                                    <td>${{ '{:.2f}'.format(item.get('price', 0)) }} JMD</td>
+                                    <td>${{ '{:.2f}'.format((item.get('price', 0) * item.get('quantity', 0))) }} JMD</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p style="text-align: center; color: #666; padding: 20px;">No items found for this order.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Totals Section -->
+                <div class="totals-section">
+                    {% set items_list = order.get('items', []) %}
+                    {% set subtotal = 0 %}
+                    {% for item in items_list %}
+                        {% set subtotal = subtotal + (item.get('price', 0) * item.get('quantity', 0)) %}
+                    {% endfor %}
+                    {% set shipping_fee = 500 %}
+                    {% set tax = subtotal * 0.05 %}
+
+                    <div class="total-row subtotal">
+                        <span>Subtotal:</span>
+                        <span>${{ '{:.2f}'.format(subtotal) }} JMD</span>
+                    </div>
+
+                    {% if order.get('discount') and order.get('discount') > 0 %}
+                    <div class="total-row discount">
+                        <span>🎉 Discount Applied:</span>
+                        <span>-${{ '{:.2f}'.format(order.get('discount', 0)) }} JMD</span>
+                    </div>
+                    {% endif %}
+
+                    <div class="total-row shipping">
+                        <span>Shipping Fee:</span>
+                        <span>${{ '{:.2f}'.format(shipping_fee) }} JMD</span>
+                    </div>
+
+                    <div class="total-row tax">
+                        <span>Tax (5%):</span>
+                        <span>${{ '{:.2f}'.format(tax) }} JMD</span>
+                    </div>
+
+                    <div class="total-row final">
+                        <span>TOTAL PAID:</span>
+                        <span>${{ '{:.2f}'.format(order.get('total', 0)) }} JMD</span>
+                    </div>
+                </div>
+
+                <!-- Receipt Footer -->
+                <div class="receipt-footer">
+                    <p><strong>Thank you for shopping with Zo-Zi! 🎉</strong></p>
+                    <p>For any questions about your order, please contact our support team.</p>
+                    <p><small>This is an official receipt for your purchase. Please keep for your records.</small></p>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="action-buttons">
+                <button onclick="window.print()" class="btn btn-primary">
+                    🖨️ Print Receipt
+                </button>
+                <button onclick="downloadReceipt()" class="btn btn-secondary">
+                    📄 Download PDF
+                </button>
+                <a href="{{ url_for('orders') }}" class="btn btn-outline">
+                    ← Back to Orders
+                </a>
+            </div>
+        {% else %}
+            <!-- No Order Data -->
+            <div class="error-state">
+                <h2>❓ No Receipt Data</h2>
+                <p>Unable to load receipt information.</p>
+                <a href="{{ url_for('orders') }}" class="btn btn-primary">Back to Orders</a>
+            </div>
+        {% endif %}
+    </div>
+
+    <script>
+        // Download receipt as PDF (simple print-to-PDF)
+        function downloadReceipt() {
+            // Simple approach: trigger print dialog
+            // User can select "Save as PDF" in the print dialog
+            window.print();
+        }
+
+        // Alternative download function using HTML2PDF (if you want to add the library)
+        function downloadReceiptAdvanced() {
+            // You can add html2pdf.js library for this
+            // <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+            /*
+            const element = document.getElementById('receipt');
+            const opt = {
+                margin: 1,
+                filename: 'receipt-{{ order.get("order_id", "unknown") if order else "unknown" }}.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
+            */
+        }
+
+        // Log receipt data for debugging
+        console.log('Receipt page loaded for order:', '{{ order.get("order_id", "No order") if order else "No order" }}');
+        {% if order and order.get('items') %}
+        console.log('Order items count:', {{ order.get('items', [])|length }});
+        {% endif %}
+    </script>
+</body>
+</html>

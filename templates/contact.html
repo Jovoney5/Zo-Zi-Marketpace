@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contact Us - Zo-Zi</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f4; padding-top: 80px; position: relative; }
+        .navbar { display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, 0.5); padding: 10px 20px; position: fixed; top: 0; width: 100%; z-index: 10; }
+        .navbar-top { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1200px; }
+        .brand-container { display: flex; align-items: center; }
+        .brand a { font-size: 24px; font-weight: bold; color: black; text-decoration: none; }
+        .brand a:hover { color: #FFD700; }
+        .menu-container { position: relative; display: inline-block; margin-left: 10px; }
+        .menu-icon { cursor: pointer; font-size: 24px; }
+        .dropdown-content { display: none; position: absolute; background-color: rgba(255, 255, 255, 0.5); min-width: 160px; box-shadow: 0px 8px 16px rgba(0,0,0,0.2); border-radius: 5px; z-index: 11; }
+        .dropdown-content a { padding: 10px; display: block; color: green; text-decoration: none; }
+        .dropdown-content a:hover { background-color: yellow; }
+        .menu-container:hover .dropdown-content { display: block; }
+        .nav-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 10px; width: 100%; max-width: 1200px; background: rgba(255, 255, 255, 0.5); }
+        .nav-links a { color: green; text-decoration: none; font-size: 16px; padding: 5px 10px; border-radius: 5px; }
+        .nav-links a:hover { background: #FFD700; color: black; }
+        .search-container { flex-grow: 0.8; margin: 0 20px; position: relative; max-width: 500px; display: flex; align-items: center; }
+        .search-container input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; background: rgba(255, 255, 255, 0.5); }
+        .search-icon { margin-left: 5px; cursor: pointer; font-size: 20px; color: #006400; padding: 5px; }
+        .search-icon:hover { background: #FFD700; border-radius: 5px; }
+        .suggestions { position: absolute; background: rgba(255, 255, 255, 0.5); width: 100%; border: 1px solid #ccc; border-radius: 5px; max-height: 200px; overflow-y: auto; display: none; z-index: 11; top: 100%; }
+        .suggestions a { display: flex; align-items: center; padding: 8px; text-decoration: none; color: black; }
+        .suggestions a img { width: 30px; height: 30px; object-fit: contain; margin-right: 10px; border-radius: 3px; }
+        .suggestions a span { flex-grow: 1; font-size: 14px; }
+        .suggestions a:hover { background: rgba(240, 240, 240, 0.5); }
+        .auth-container { display: flex; align-items: center; margin-right: 26px; }
+        .auth-buttons { margin-left: 10px; padding: 8px 16px; background: yellow; border: none; cursor: pointer; border-radius: 5px; font-weight: bold; }
+        .auth-buttons:hover { background: #FFA500; }
+        .profile { width: 40px; height: 40px; border-radius: 50%; margin-left: 10px; cursor: pointer; background: rgba(255, 255, 255, 0.5); }
+        .profile img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+        .cart-icon, .contact-icon { margin-left: 10px; cursor: pointer; position: relative; }
+        .cart-icon img, .contact-icon img { width: 30px; height: 30px; }
+        .cart-icon .cart-total { position: absolute; top: -10px; right: -10px; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 12px; }
+        .cart-dropdown { display: none; position: absolute; top: 40px; right: 0; background: rgba(255, 255, 255, 0.5); min-width: 300px; box-shadow: 0px 8px 16px rgba(0,0,0,0.2); border-radius: 5px; z-index: 11; padding: 10px; }
+        .cart-dropdown .cart-item { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #ccc; position: relative; }
+        .cart-dropdown .cart-item img { width: 50px; height: 50px; object-fit: contain; margin-right: 10px; }
+        .cart-dropdown .cart-item-details { flex-grow: 1; }
+        .cart-dropdown .cart-item-details p { margin: 0; font-size: 14px; }
+        .cart-dropdown .remove-item { position: absolute; right: 10px; cursor: pointer; font-size: 16px; color: red; }
+        .cart-dropdown .remove-item:hover { color: darkred; }
+        .cart-dropdown .empty-cart { padding: 10px; text-align: center; color: #666; }
+        .cart-dropdown .checkout-button { display: block; background: #FFD700; border: none; padding: 10px; margin: 10px; text-align: center; cursor: pointer; border-radius: 5px; text-decoration: none; color: black; }
+        .cart-dropdown .checkout-button:hover { background: #FFA500; }
+        .chat-container { display: flex; height: 80vh; position: relative; z-index: 1; background: rgba(255, 255, 255, 0.5); }
+        .conversations { width: 30%; overflow-y: auto; border-right: 1px solid #ccc; background: rgba(255, 255, 255, 0.5); }
+        .conversation { padding: 10px; cursor: pointer; }
+        .conversation.unread { background-color: rgba(240, 240, 240, 0.5); }
+        .conversation.active { background-color: rgba(224, 224, 224, 0.5); }
+        .chat-area { width: 70%; padding: 10px; background: rgba(255, 255, 255, 0.5); }
+        .messages { height: 70%; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: rgba(255, 255, 255, 0.5); }
+        .message { margin: 5px 0; padding: 5px; border-radius: 5px; }
+        .message.user { background-color: rgba(224, 247, 250, 0.5); text-align: right; }
+        .message.support { background-color: rgba(240, 240, 240, 0.5); text-align: left; }
+        .chat-input { display: flex; margin-top: 10px; }
+        .chat-input input { flex-grow: 1; padding: 5px; background: rgba(255, 255, 255, 0.5); }
+        .chat-input button { padding: 5px 10px; }
+        [data-unread]:after { content: attr(data-unread); background: red; color: white; border-radius: 50%; padding: 2px 6px; margin-left: 5px; }
+        .background-video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+        @media (max-width: 768px) {
+            body { padding-top: 120px; }
+            .navbar { padding: 10px; }
+            .navbar-top { flex-wrap: wrap; }
+            .nav-links { gap: 10px; }
+            .search-container { margin: 10px 10px; }
+        }
+        @media (max-width: 480px) {
+            body { padding-top: 140px; }
+            .navbar-top { flex-direction: column; align-items: center; gap: 10px; }
+            .search-container { margin: 0 10px; }
+            .search-icon { font-size: 16px; padding: 3px; }
+            .nav-links { flex-direction: column; align-items: center; gap: 8px; }
+        }
+    </style>
+</head>
+<body>
+    <video autoplay muted loop playsinline id="bgVideo" class="background-video">
+        <source src="{{ url_for('static', filename='flag_vid.webm') }}" type="video/webm">
+    </video>
+    <div class="navbar">
+        <div class="navbar-top">
+            <div class="brand-container">
+                <div class="brand"><a href="{{ url_for('index') }}">Zo-Zi</a></div>
+                <div class="menu-container">
+                    <div class="menu-icon">☰</div>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('profile') }}">User Account</a>
+                        <a href="{{ url_for('personal_info') }}">Personal Details</a>
+                        <a href="{{ url_for('orders') }}">Order History</a>
+                        <a href="{{ url_for('password_reset') }}">Password Reset</a>
+                        <a href="{{ url_for('seller_dashboard') }}">Seller Account</a>
+                        <a href="{{ url_for('subscriptions') }}">Subscriptions</a>
+                        <a href="{{ url_for('zozi_assistant') }}">Zo-Zi the Assistant</a>
+                        <a href="{{ url_for('find_sellers') }}">Find Personal Sellers</a>
+                        <a href="{{ url_for('tracking') }}">Tracking</a>
+                    </div>
+                </div>
+            </div>
+            <div class="search-container">
+                <input type="text" id="search" placeholder="Search products...">
+                <span class="search-icon">🔍</span>
+                <div class="suggestions" id="suggestions"></div>
+            </div>
+            <div class="auth-container">
+                {% if user %}
+                    <button class="auth-buttons" onclick="window.location.href='{{ url_for('logout') }}'">Logout</button>
+                {% else %}
+                    <button class="auth-buttons" onclick="window.location.href='{{ url_for('login') }}'">Login</button>
+                {% endif %}
+                <button class="auth-buttons" onclick="window.location.href='{{ url_for('signup') }}'">Sign Up</button>
+                <div class="profile" onclick="window.location.href='{{ url_for('profile' if user else 'login') }}'" title="{% if user and user.profile_picture %}Change Profile Picture{% elif user %}Add Profile Picture{% else %}Login to add profile{% endif %}">
+                    {% if user and user.profile_picture %}
+                        <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile">
+                    {% else %}
+                        <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%;">+</span>
+                    {% endif %}
+                </div>
+                <div class="cart-icon">
+                    <img src="{{ url_for('static', filename='cart icon 3.png') }}" alt="Cart">
+                    <span class="cart-total">{{ cart_item_count }}</span>
+                    <div class="cart-dropdown" id="cartDropdown">
+                        <div id="cartItems"></div>
+                        <a href="{{ url_for('checkout') }}" class="checkout-button">Checkout</a>
+                    </div>
+                </div>
+                <div class="contact-icon" onclick="window.location.href='{{ url_for('contact') }}'">
+                    <img src="{{ url_for('static', filename='customer service.png') }}" alt="Customer Service">
+                </div>
+            </div>
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('index') }}">Home</a>
+            <a href="{{ url_for('tracking') }}">Track Order</a>
+            {% if user %}
+                <a href="{{ url_for('personal_info') }}">Personal Info</a>
+                <a href="{{ url_for('orders') }}">Orders</a>
+            {% endif %}
+            <a href="{{ url_for('find_sellers') }}">Find Sellers</a>
+            <a href="{{ url_for('free') }}">Free</a>
+            <a href="{{ url_for('seller_dashboard') }}">Become a Seller</a>
+            <a href="{{ url_for('contact') }}">Contact</a>
+            <a href="{{ url_for('cancel_refund') }}">Cancel/Refund</a>
+        </div>
+    </div>
+    <div class="chat-container">
+        <div class="conversations">
+            {% for convo in conversations %}
+                <div class="conversation {% if convo.session_id == selected_session %}active{% endif %} {% if convo.unread_count > 0 %}unread{% endif %}" onclick="selectConversation('{{ convo.session_id }}')" {% if convo.unread_count > 0 %}data-unread="{{ convo.unread_count }}"{% endif %}>
+                    {{ convo.user_id }} - {{ convo.last_message.strftime('%Y-%m-%d %H:%M') }}
+                </div>
+            {% endfor %}
+        </div>
+        <div class="chat-area">
+            <div class="messages" id="messages">
+                {% for msg in contact_history %}
+                    <div class="message {{ 'user' if msg.sender == 'user' else 'support' }}">
+                        {{ msg.text }}<br><small>{{ msg.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
+                    </div>
+                {% endfor %}
+            </div>
+            <form class="chat-input" id="message-form" onsubmit="sendMessage(event); return false;">
+                <input type="hidden" name="session_id" value="{{ selected_session }}">
+                <input type="text" id="message-input" name="message" placeholder="Type your message..." required>
+                <button type="submit">Send</button>
+            </form>
+        </div>
+    </div>
+    <script>
+        function selectConversation(sessionId) {
+            window.location.href = "{{ url_for('contact') }}?session_id=" + sessionId;
+        }
+
+        function sendMessage(event) {
+            event.preventDefault();
+            const form = event.target;
+            const formData = new FormData(form);
+            fetch('{{ url_for("contact") }}', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newMessages = doc.querySelector('.messages').innerHTML;
+                document.getElementById('messages').innerHTML = newMessages;
+                document.getElementById('message-input').value = '';
+                const messagesDiv = document.getElementById('messages');
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            })
+            .catch(error => console.error('Error sending message:', error));
+        }
+
+        function loadChatHistory() {
+            const sessionId = "{{ selected_session }}";
+            if (sessionId) {
+                fetch(`{{ url_for('contact') }}?session_id=${sessionId}`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                    .then(response => response.text())
+                    .then(html => {
+                        const parser = new DOMParser();
+                        const doc = parser.parseFromString(html, 'text/html');
+                        const newMessages = doc.querySelector('.messages').innerHTML;
+                        document.getElementById('messages').innerHTML = newMessages;
+                        const messagesDiv = document.getElementById('messages');
+                        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                    })
+                    .catch(error => console.error('Error loading chat history:', error));
+            }
+        }
+
+        setInterval(() => {
+            loadChatHistory();
+        }, 5000);
+
+        const video = document.getElementById("bgVideo");
+        video.addEventListener('timeupdate', () => {
+            if (video.currentTime >= 17) {
+                video.currentTime = 0;
+            }
+        });
+
+        window.onload = () => {
+            loadChatHistory();
+            debouncedUpdateCartDropdown();
+        };
+
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        async function updateCartDropdown(keepOpen = false) {
+            const cartItemsDiv = document.getElementById('cartItems');
+            const cartTotalBadge = document.querySelector('.cart-total');
+            const cartDropdown = document.getElementById('cartDropdown');
+            try {
+                const response = await fetch('/cart/data', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        window.location.href = '{{ url_for('login') }}';
+                        return;
+                    }
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const data = await response.json();
+                if (data.success) {
+                    cartItemsDiv.innerHTML = '';
+                    if (!data.cart_items || data.cart_items.length === 0) {
+                        cartItemsDiv.innerHTML = '<p class="empty-cart">Your cart is empty</p>';
+                        cartTotalBadge.textContent = '0';
+                    } else {
+                        data.cart_items.forEach(item => {
+                            const itemDiv = document.createElement('div');
+                            itemDiv.className = 'cart-item';
+                            itemDiv.innerHTML = `
+                                <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
+                                <div class="cart-item-details">
+                                    <p><a href="/product/${encodeURIComponent(item.product_key.replace(/ /g, '+'))}">${escapeHTML(item.product_key)}</a></p>
+                                    <p>${item.price} JMD x ${item.quantity}</p>
+                                </div>
+                                <span class="remove-item" onclick="removeFromCart('${escapeHTML(item.product_key)}')">x</span>
+                            `;
+                            cartItemsDiv.appendChild(itemDiv);
+                        });
+                        cartTotalBadge.textContent = data.cart_item_count || 0;
+                    }
+                    if (keepOpen) {
+                        cartDropdown.style.display = 'block';
+                    }
+                } else {
+                    throw new Error(data.message || 'Failed to fetch cart data');
+                }
+            } catch (error) {
+                console.error('Update cart dropdown error:', error.message, error.stack);
+                cartItemsDiv.innerHTML = '<p class="empty-cart">Error loading cart</p>';
+                cartTotalBadge.textContent = '0';
+                if (keepOpen) {
+                    cartDropdown.style.display = 'block';
+                }
+            }
+        }
+
+        const debouncedUpdateCartDropdown = debounce(updateCartDropdown, 500);
+
+        const cartIcon = document.querySelector('.cart-icon');
+        const cartDropdown = document.getElementById('cartDropdown');
+        let isUpdating = false;
+
+        cartIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!isUpdating) {
+                isUpdating = true;
+                cartDropdown.style.display = cartDropdown.style.display === 'block' ? 'none' : 'block';
+                if (cartDropdown.style.display === 'block') {
+                    debouncedUpdateCartDropdown(true);
+                }
+                setTimeout(() => { isUpdating = false; }, 600);
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!isUpdating && !cartIcon.contains(e.target) && !cartDropdown.contains(e.target)) {
+                cartDropdown.style.display = 'none';
+            }
+        });
+
+        async function removeFromCart(productKey) {
+            try {
+                const response = await fetch('/update_cart', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        product_key: productKey,
+                        quantity: 0
+                    })
+                });
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(`HTTP error! Status: ${response.status}, Response: ${text.substring(0, 100)}...`);
+                }
+                const data = await response.json();
+                if (data.success) {
+                    document.querySelector('.cart-total').textContent = data.cart_item_count || 0;
+                    await debouncedUpdateCartDropdown(true);
+                } else {
+                    alert(data.message || 'Failed to remove product from cart.');
+                }
+            } catch (error) {
+                console.error('Remove from cart error:', error);
+                alert('Network error while removing from cart.');
+            }
+        }
+
+        const searchInput = document.getElementById('search');
+        const suggestionsDiv = document.getElementById('suggestions');
+        const searchIcon = document.querySelector('.search-icon');
+
+        async function showSuggestions() {
+            const query = searchInput.value;
+            if (query.length < 2) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+            try {
+                const response = await fetch(`/autocomplete?query=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                suggestionsDiv.innerHTML = '';
+                data.forEach(suggestion => {
+                    const a = document.createElement('a');
+                    a.href = `/product/${suggestion.product_key.replace(/ /g, '+')}`;
+                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/placeholder.jpg'"><span>${escapeHTML(suggestion.name)}</span>`;
+                    suggestionsDiv.appendChild(a);
+                });
+                suggestionsDiv.style.display = data.length ? 'block' : 'none';
+            } catch (error) {
+                console.error('Error fetching suggestions:', error);
+                suggestionsDiv.style.display = 'none';
+            }
+        }
+
+        async function triggerSearch() {
+            const query = searchInput.value;
+            if (query.length < 2) {
+                alert('Please enter at least 2 characters to search.');
+                return;
+            }
+            window.location.href = `/search?query=${encodeURIComponent(query)}`;
+        }
+
+        searchInput.addEventListener('input', showSuggestions);
+        searchIcon.addEventListener('click', triggerSearch);
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                triggerSearch();
+            }
+        });
+    </script>
+</body>
+</html>

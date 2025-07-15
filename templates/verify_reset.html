@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YAAD - Verify Reset Code</title>
+    <style>
+        body { background: #f4f4f4; margin: 0; font-family: Arial, sans-serif; }
+        .navbar { display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.8); padding: 10px 20px; position: relative; z-index: 2; }
+        .brand a { font-size: 24px; font-weight: bold; color: black; text-decoration: none; }
+        .brand a:hover { color: #FFD700; }
+        .auth-container { display: flex; align-items: center; }
+        .auth-buttons { margin-left: 10px; padding: 8px; background: yellow; border: none; cursor: pointer; }
+        .auth-buttons:hover { background: #FFA500; }
+        .profile { width: 40px; height: 40px; border-radius: 50%; background: gray; margin-left: 10px; cursor: pointer; }
+        .profile img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+        .form-container { max-width: 400px; margin: 50px auto; padding: 20px; background: rgba(255, 255, 255, 0.8); border-radius: 10px; text-align: center; z-index: 1; position: relative; }
+        .form-container h1 { color: #006400; }
+        .form-container input { width: 90%; padding: 10px; margin: 10px 0; border: none; border-radius: 5px; }
+        .form-container button { background: #FFD700; padding: 10px 20px; border: none; cursor: pointer; }
+        .form-container button:hover { background: #FFA500; }
+        .error { color: red; font-size: 14px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="brand"><a href="{{ url_for('index') }}">YAAD</a></div>
+        <div class="auth-container">
+            <button class="auth-buttons" onclick="window.location.href='{{ url_for('index') }}#buyer-signup'">Sign Up</button>
+            <div class="profile" onclick="window.location.href='{{ url_for('profile') }}'" title="{% if 'user' in session and session['user'].get('profile_picture') %}Change Profile Picture{% else %}Add Profile Picture{% endif %}">
+                {% if 'user' in session and session['user'].get('profile_picture') %}
+                    <img src="{{ url_for('static', filename='uploads/' + session['user']['profile_picture']) }}" alt="Profile">
+                {% else %}
+                    <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%;">+</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="form-container">
+        <h1>Verify Reset Code</h1>
+        <p>Enter the reset code you received.</p>
+        <form method="POST">
+            <input type="text" name="code" placeholder="Enter reset code" required>
+            <button type="submit">Verify Code</button>
+            {% if error %}
+                <p class="error">{{ error }}</p>
+            {% endif %}
+        </form>
+    </div>
+</body>
+</html>

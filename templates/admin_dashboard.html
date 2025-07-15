@@ -1,0 +1,2708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>ZoZi Enhanced Admin Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .admin-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Enhanced Sidebar */
+        .sidebar {
+            width: 300px;
+            background: linear-gradient(180deg, #1a252f 0%, #2c3e50 100%);
+            color: white;
+            padding: 30px 20px;
+            box-shadow: 4px 0 20px rgba(0, 0, 0, 0.2);
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+        }
+
+        .sidebar h1 {
+            font-size: 32px;
+            font-weight: bold;
+            margin-bottom: 40px;
+            text-align: center;
+            color: #FFD700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav-menu {
+            list-style: none;
+        }
+
+        .nav-item {
+            margin-bottom: 8px;
+        }
+
+        .nav-link {
+            display: block;
+            padding: 18px 22px;
+            color: white;
+            text-decoration: none;
+            border-radius: 12px;
+            transition: all 0.3s ease;
+            font-size: 16px;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            color: #1a252f;
+            transform: translateX(8px);
+            box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4);
+        }
+
+        .nav-link i {
+            margin-right: 12px;
+            width: 24px;
+            text-align: center;
+            font-size: 18px;
+        }
+
+        /* Main Content */
+        .main-content {
+            margin-left: 300px;
+            padding: 30px;
+            width: calc(100% - 300px);
+            min-height: 100vh;
+        }
+
+        .content-header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            border-left: 5px solid #FFD700;
+        }
+
+        .content-header h2 {
+            color: #2c3e50;
+            font-size: 36px;
+            margin-bottom: 12px;
+        }
+
+        .content-header p {
+            color: #7f8c8d;
+            font-size: 18px;
+        }
+
+        /* Enhanced Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 40px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            padding: 35px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            border: 1px solid rgba(255, 215, 0, 0.1);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, #FFD700, #FFA500);
+        }
+
+        .stat-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 40px;
+            opacity: 0.1;
+        }
+
+        .stat-value {
+            font-size: 42px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            color: #7f8c8d;
+            font-size: 18px;
+            margin-bottom: 15px;
+            font-weight: 500;
+        }
+
+        .stat-growth {
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .stat-growth.positive {
+            color: #27ae60;
+        }
+
+        .stat-growth.negative {
+            color: #e74c3c;
+        }
+
+        /* Enhanced Chart Containers */
+        .charts-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .parish-analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .chart-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+        }
+
+        .chart-header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .chart-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .chart-subtitle {
+            font-size: 14px;
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+
+        .chart-content {
+            padding: 25px;
+            min-height: 400px;
+            position: relative;
+        }
+
+        .chart-content.large {
+            min-height: 500px;
+        }
+
+        /* Enhanced Tables */
+        .data-section {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+
+        .section-header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .section-title {
+            font-size: 28px;
+            font-weight: 600;
+        }
+
+        .section-controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .search-box {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            min-width: 300px;
+            font-size: 16px;
+        }
+
+        .search-box::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .filter-select {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 25px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+        }
+
+        .table-container {
+            padding: 30px;
+            overflow-x: auto;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 15px;
+        }
+
+        .data-table th {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 18px 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #2c3e50;
+            border-bottom: 3px solid #FFD700;
+            font-size: 16px;
+        }
+
+        .data-table td {
+            padding: 18px 15px;
+            border-bottom: 1px solid #e9ecef;
+            vertical-align: middle;
+        }
+
+        .data-table tbody tr:hover {
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+        }
+
+        /* Enhanced Parish Analytics */
+        .parish-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .parish-stat-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .parish-stat-card:hover {
+            border-color: #FFD700;
+            transform: translateY(-3px);
+        }
+
+        .parish-stat-card .parish-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .parish-stat-card .parish-value {
+            font-size: 32px;
+            font-weight: bold;
+            color: #FFD700;
+            margin-bottom: 5px;
+        }
+
+        .parish-stat-card .parish-label {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+
+        /* Enhanced Badges */
+        .badge {
+            padding: 8px 16px;
+            border-radius: 25px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge.seller {
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+            color: #2e7d32;
+        }
+
+        .badge.user {
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            color: #1565c0;
+        }
+
+        .badge.active {
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+            color: #2e7d32;
+        }
+
+        .badge.inactive {
+            background: linear-gradient(135deg, #ffebee, #ffcdd2);
+            color: #c62828;
+        }
+
+        .badge.pending {
+            background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+            color: #ef6c00;
+        }
+
+        .badge.completed {
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+            color: #2e7d32;
+        }
+
+        .badge.cancelled {
+            background: linear-gradient(135deg, #ffebee, #ffcdd2);
+            color: #c62828;
+        }
+
+        /* Enhanced Action Buttons */
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            margin-right: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            color: white;
+        }
+
+        .btn-warning:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(243, 156, 18, 0.4);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+        }
+
+        .btn-danger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #27ae60, #229954);
+            color: white;
+        }
+
+        .btn-success:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+        }
+
+        /* Loading and Empty States */
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: #7f8c8d;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #FFD700;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px;
+            color: #7f8c8d;
+        }
+
+        .empty-state .icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+            opacity: 0.3;
+        }
+
+        .empty-state h3 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+
+        .empty-state p {
+            font-size: 16px;
+            max-width: 400px;
+            margin: 0 auto;
+        }
+
+        /* Section Toggle */
+        .section {
+            display: none;
+        }
+
+        .section.active {
+            display: block;
+        }
+
+        /* Enhanced Responsive Design */
+        @media (max-width: 1200px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .parish-analytics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+                z-index: 1000;
+            }
+
+            .sidebar.open {
+                transform: translateX(0);
+            }
+
+            .main-content {
+                margin-left: 0;
+                width: 100%;
+                padding: 20px;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .section-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .search-box {
+                min-width: 100%;
+            }
+        }
+
+        /* Activity Feed Enhancement */
+        .activity-feed {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .activity-item {
+            padding: 20px;
+            border-bottom: 1px solid #e9ecef;
+            display: flex;
+            align-items: center;
+            transition: all 0.3s ease;
+        }
+
+        .activity-item:hover {
+            background: #f8f9fa;
+        }
+
+        .activity-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 20px;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        .activity-icon.user-register {
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            color: #1565c0;
+        }
+
+        .activity-icon.seller-register {
+            background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+            color: #2e7d32;
+        }
+
+        .activity-icon.product-upload {
+            background: linear-gradient(135deg, #fff3e0, #ffe0b2);
+            color: #ef6c00;
+        }
+
+        .activity-icon.order-placed {
+            background: linear-gradient(135deg, #f3e5f5, #e1bee7);
+            color: #7b1fa2;
+        }
+
+        .activity-icon.system {
+            background: linear-gradient(135deg, #fff8e1, #ffecb3);
+            color: #f57c00;
+        }
+
+        .activity-content {
+            flex-grow: 1;
+        }
+
+        .activity-title {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 6px;
+            font-size: 16px;
+        }
+
+        .activity-description {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+
+        .activity-time {
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+
+        /* Chart Controls */
+        .chart-controls {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .chart-controls-group {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .control-group label {
+            font-size: 14px;
+            text-transform: uppercase;
+            font-weight: 600;
+            color: #FFD700;
+            letter-spacing: 0.5px;
+        }
+
+        .chart-control {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .chart-control:hover {
+            background: rgba(255, 215, 0, 0.2);
+        }
+
+        .chart-control.active {
+            background: #FFD700;
+            color: #2c3e50;
+        }
+
+        /* Mobile Menu Button */
+        .mobile-menu-btn {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1001;
+            background: #FFD700;
+            color: #2c3e50;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 18px;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-menu-btn {
+                display: block;
+            }
+        }
+    </style>
+</head>
+<body>
+    <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+
+    <div class="admin-container">
+        <!-- Enhanced Sidebar -->
+        <div class="sidebar" id="sidebar">
+            <h1>🏪 ZoZi Admin</h1>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="#dashboard" class="nav-link active" data-section="dashboard">
+                        <i>📊</i> Dashboard Overview
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#parish-analytics" class="nav-link" data-section="parish-analytics">
+                        <i>🗺️</i> Parish Analytics
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#users" class="nav-link" data-section="users">
+                        <i>👥</i> User Management
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#sellers" class="nav-link" data-section="sellers">
+                        <i>🏪</i> Seller Analytics
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#products" class="nav-link" data-section="products">
+                        <i>📦</i> Product Management
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#orders" class="nav-link" data-section="orders">
+                        <i>🛒</i> Order Analytics
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#financials" class="nav-link" data-section="financials">
+                        <i>💰</i> Financial Dashboard
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#demographics" class="nav-link" data-section="demographics">
+                        <i>📈</i> Demographics
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#activity" class="nav-link" data-section="activity">
+                        <i>📋</i> Activity Monitor
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#settings" class="nav-link" data-section="settings">
+                        <i>⚙️</i> Admin Settings
+                    </a>
+                </li>
+                <li class="nav-item" style="margin-top: 30px;">
+                    <a href="/logout" class="nav-link" style="background: linear-gradient(135deg, #e74c3c, #c0392b);">
+                        <i>🚪</i> Logout
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Dashboard Overview Section -->
+            <div id="dashboard" class="section active">
+                <div class="content-header">
+                    <h2>🚀 ZoZi Platform Dashboard</h2>
+                    <p>Comprehensive analytics and insights for your Jamaican marketplace platform</p>
+                </div>
+
+                <!-- Enhanced Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-value" id="totalUsers">0</div>
+                        <div class="stat-label">Total Users</div>
+                        <div class="stat-growth positive" id="userGrowth">
+                            <span>📈</span> +0% this month
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🏪</div>
+                        <div class="stat-value" id="totalSellers">0</div>
+                        <div class="stat-label">Active Sellers</div>
+                        <div class="stat-growth positive" id="sellerGrowth">
+                            <span>📈</span> +0% this month
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📦</div>
+                        <div class="stat-value" id="totalProducts">0</div>
+                        <div class="stat-label">Products Listed</div>
+                        <div class="stat-growth positive" id="productGrowth">
+                            <span>📈</span> +0% this month
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🛒</div>
+                        <div class="stat-value" id="totalOrders">0</div>
+                        <div class="stat-label">Total Orders</div>
+                        <div class="stat-growth positive" id="orderGrowth">
+                            <span>📈</span> +0% this month
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💰</div>
+                        <div class="stat-value" id="totalRevenue">J$0</div>
+                        <div class="stat-label">Total Revenue</div>
+                        <div class="stat-growth positive" id="revenueGrowth">
+                            <span>📈</span> +0% this month
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🏦</div>
+                        <div class="stat-value" id="platformFees">J$0</div>
+                        <div class="stat-label">Platform Fees (5%)</div>
+                        <div class="stat-growth positive">
+                            <span>💎</span> Commission earned
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Grid -->
+                <div class="charts-grid">
+                    <!-- Revenue Chart -->
+                    <div class="chart-container">
+                        <div class="chart-controls">
+                            <div>
+                                <h3 class="chart-title">📈 Revenue Analytics</h3>
+                                <div class="chart-subtitle">Real-time financial performance</div>
+                            </div>
+                            <div class="chart-controls-group">
+                                <div class="control-group">
+                                    <label>Timeframe:</label>
+                                    <select id="timeframeSelect" class="chart-control">
+                                        <option value="7d">7 Days</option>
+                                        <option value="1m">1 Month</option>
+                                        <option value="3m">3 Months</option>
+                                        <option value="6m">6 Months</option>
+                                        <option value="1y" selected>1 Year</option>
+                                        <option value="all">All Time</option>
+                                    </select>
+                                </div>
+                                <div class="control-group">
+                                    <label>Type:</label>
+                                    <select id="chartTypeSelect" class="chart-control">
+                                        <option value="line" selected>Line</option>
+                                        <option value="area">Area</option>
+                                        <option value="bar">Bar</option>
+                                        <option value="candlestick">Candlestick</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="chart-content large">
+                            <div id="revenueChart"></div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">🔔 Recent Activity</div>
+                                <div class="chart-subtitle">Platform activity feed</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <div class="activity-feed" id="recentActivity">
+                                <div class="loading">
+                                    <div class="spinner"></div>
+                                    Loading recent activity...
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Stats Row -->
+                <div class="parish-analytics-grid">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">📍 Top Parishes</div>
+                                <div class="chart-subtitle">Most active regions</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="topParishesChart" height="300"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">🏷️ Category Performance</div>
+                                <div class="chart-subtitle">Sales by category</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="categoryPerformanceChart" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Parish Analytics Section -->
+            <div id="parish-analytics" class="section">
+                <div class="content-header">
+                    <h2>🗺️ Parish Analytics Dashboard</h2>
+                    <p>Detailed geographic distribution and performance analysis across Jamaica</p>
+                </div>
+
+                <!-- Parish Stats Grid -->
+                <div class="parish-stats-grid" id="parishStatsGrid">
+                    <!-- Will be populated dynamically -->
+                </div>
+
+                <!-- Parish Charts -->
+                <div class="parish-analytics-grid">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">👥 Buyers by Parish</div>
+                                <div class="chart-subtitle">User distribution across Jamaica</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="buyersParishChart" height="400"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">🏪 Sellers by Parish</div>
+                                <div class="chart-subtitle">Vendor distribution</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="sellersParishChart" height="400"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">🛒 Orders by Parish</div>
+                                <div class="chart-subtitle">Purchase patterns by location</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="ordersParishChart" height="400"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">💰 Revenue by Parish</div>
+                                <div class="chart-subtitle">Financial performance by region</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="revenueParishChart" height="400"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Parish Comparison Table -->
+                <div class="data-section">
+                    <div class="section-header">
+                        <div class="section-title">📊 Parish Performance Comparison</div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Parish</th>
+                                    <th>Buyers</th>
+                                    <th>Sellers</th>
+                                    <th>Orders</th>
+                                    <th>Revenue</th>
+                                    <th>Avg Order Value</th>
+                                    <th>Market Share</th>
+                                </tr>
+                            </thead>
+                            <tbody id="parishComparisonTable">
+                                <tr>
+                                    <td colspan="7" class="loading">
+                                        <div class="spinner"></div>
+                                        Loading parish data...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users Section -->
+            <div id="users" class="section">
+                <div class="content-header">
+                    <h2>👥 User Management</h2>
+                    <p>Comprehensive user analytics and management tools</p>
+                </div>
+
+                <div class="data-section">
+                    <div class="section-header">
+                        <div class="section-title">All Platform Users</div>
+                        <div class="section-controls">
+                            <input type="text" class="search-box" placeholder="Search users by name, email, phone..." id="userSearch">
+                            <select class="filter-select" id="userTypeFilter">
+                                <option value="">All Users</option>
+                                <option value="buyer">Buyers Only</option>
+                                <option value="seller">Sellers Only</option>
+                                <option value="flagged">Flagged Users</option>
+                            </select>
+                            <select class="filter-select" id="userParishFilter">
+                                <option value="">All Parishes</option>
+                                <option value="Kingston">Kingston</option>
+                                <option value="Saint Andrew">Saint Andrew</option>
+                                <option value="Saint Catherine">Saint Catherine</option>
+                                <option value="Clarendon">Clarendon</option>
+                                <option value="Manchester">Manchester</option>
+                                <option value="Saint Ann">Saint Ann</option>
+                                <option value="Saint Mary">Saint Mary</option>
+                                <option value="Saint James">Saint James</option>
+                                <option value="Hanover">Hanover</option>
+                                <option value="Westmoreland">Westmoreland</option>
+                                <option value="Saint Elizabeth">Saint Elizabeth</option>
+                                <option value="Trelawny">Trelawny</option>
+                                <option value="Saint Thomas">Saint Thomas</option>
+                                <option value="Portland">Portland</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>User Info</th>
+                                    <th>Contact</th>
+                                    <th>Location</th>
+                                    <th>Type</th>
+                                    <th>Orders</th>
+                                    <th>Products</th>
+                                    <th>Total Spent</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="usersTableBody">
+                                <tr>
+                                    <td colspan="9" class="loading">
+                                        <div class="spinner"></div>
+                                        Loading users...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Sellers Section -->
+            <div id="sellers" class="section">
+                <div class="content-header">
+                    <h2>🏪 Seller Analytics</h2>
+                    <p>Track seller performance and manage vendor accounts</p>
+                </div>
+
+                <!-- Seller Performance Grid -->
+                <div class="parish-analytics-grid">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">⭐ Top Performing Sellers</div>
+                                <div class="chart-subtitle">By revenue and ratings</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="topSellersChart" height="300"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">📊 Seller Distribution</div>
+                                <div class="chart-subtitle">Sellers by parish</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="sellerDistributionChart" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="data-section">
+                    <div class="section-header">
+                        <div class="section-title">Seller Management</div>
+                        <div class="section-controls">
+                            <input type="text" class="search-box" placeholder="Search sellers..." id="sellerSearch">
+                            <select class="filter-select" id="sellerParishFilter">
+                                <option value="">All Parishes</option>
+                                <!-- Parish options will be populated -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Seller Info</th>
+                                    <th>Business Details</th>
+                                    <th>Location</th>
+                                    <th>Products</th>
+                                    <th>Sales</th>
+                                    <th>Revenue</th>
+                                    <th>Rating</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sellersTableBody">
+                                <tr>
+                                    <td colspan="9" class="loading">
+                                        <div class="spinner"></div>
+                                        Loading sellers...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Products Section -->
+            <div id="products" class="section">
+                <div class="content-header">
+                    <h2>📦 Product Management</h2>
+                    <p>Monitor inventory, sales performance, and product analytics</p>
+                </div>
+
+                <!-- Product Stats -->
+                <div class="parish-analytics-grid">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">🏷️ Products by Category</div>
+                                <div class="chart-subtitle">Inventory distribution</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="productsCategoryChart" height="300"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">📈 Best Selling Products</div>
+                                <div class="chart-subtitle">Top 10 by sales volume</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="bestSellingChart" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="data-section">
+                    <div class="section-header">
+                        <div class="section-title">Product Inventory</div>
+                        <div class="section-controls">
+                            <input type="text" class="search-box" placeholder="Search products..." id="productSearch">
+                            <select class="filter-select" id="productCategoryFilter">
+                                <option value="">All Categories</option>
+                                <option value="Men Clothing">Men Clothing</option>
+                                <option value="Women Clothing">Women Clothing</option>
+                                <option value="Beauty & Health">Beauty & Health</option>
+                                <option value="Shoes">Shoes</option>
+                                <option value="Jewelry">Jewelry</option>
+                                <option value="Kids">Kids</option>
+                                <option value="Sports & Outdoors">Sports & Outdoors</option>
+                                <option value="Home & Kitchen">Home & Kitchen</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Seller</th>
+                                    <th>Category</th>
+                                    <th>Price</th>
+                                    <th>Stock</th>
+                                    <th>Sold</th>
+                                    <th>Revenue</th>
+                                    <th>Listed</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="productsTableBody">
+                                <tr>
+                                    <td colspan="10" class="loading">
+                                        <div class="spinner"></div>
+                                        Loading products...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Orders Section -->
+            <div id="orders" class="section">
+                <div class="content-header">
+                    <h2>🛒 Order Analytics</h2>
+                    <p>Track orders, manage transactions, and analyze buying patterns</p>
+                </div>
+
+                <!-- Order Charts -->
+                <div class="parish-analytics-grid">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">📊 Orders by Status</div>
+                                <div class="chart-subtitle">Order fulfillment overview</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="orderStatusChart" height="300"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">💳 Payment Methods</div>
+                                <div class="chart-subtitle">Payment preferences</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="paymentMethodsChart" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="data-section">
+                    <div class="section-header">
+                        <div class="section-title">Order Management</div>
+                        <div class="section-controls">
+                            <input type="text" class="search-box" placeholder="Search orders..." id="orderSearch">
+                            <select class="filter-select" id="orderStatusFilter">
+                                <option value="">All Orders</option>
+                                <option value="pending">Pending</option>
+                                <option value="confirmed">Confirmed</option>
+                                <option value="shipped">Shipped</option>
+                                <option value="delivered">Delivered</option>
+                                <option value="cancelled">Cancelled</option>
+                                <option value="refunded">Refunded</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Customer</th>
+                                    <th>Parish</th>
+                                    <th>Items</th>
+                                    <th>Total</th>
+                                    <th>Payment</th>
+                                    <th>Date</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ordersTableBody">
+                                <tr>
+                                    <td colspan="9" class="loading">
+                                        <div class="spinner"></div>
+                                        Loading orders...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financials Section -->
+            <div id="financials" class="section">
+                <div class="content-header">
+                    <h2>💰 Financial Dashboard</h2>
+                    <p>Platform revenue, fees, payouts, and financial analytics</p>
+                </div>
+
+                <!-- Financial Stats -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">💰</div>
+                        <div class="stat-value" id="totalRevenueFinancial">J$0</div>
+                        <div class="stat-label">Total Platform Revenue</div>
+                        <div class="stat-growth positive">
+                            <span>📈</span> All-time earnings
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🏦</div>
+                        <div class="stat-value" id="platformFeesFinancial">J$0</div>
+                        <div class="stat-label">Platform Fees (5%)</div>
+                        <div class="stat-growth positive">
+                            <span>💎</span> Commission earned
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💸</div>
+                        <div class="stat-value" id="sellerPayouts">J$0</div>
+                        <div class="stat-label">Seller Payouts</div>
+                        <div class="stat-growth positive">
+                            <span>🤝</span> Paid to vendors
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">↩️</div>
+                        <div class="stat-value" id="totalRefunds">J$0</div>
+                        <div class="stat-label">Total Refunds</div>
+                        <div class="stat-growth negative">
+                            <span>📉</span> Customer returns
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-value" id="netProfit">J$0</div>
+                        <div class="stat-label">Net Platform Profit</div>
+                        <div class="stat-growth positive">
+                            <span>🎯</span> Bottom line
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📈</div>
+                        <div class="stat-value" id="avgOrderValue">J$0</div>
+                        <div class="stat-label">Avg Order Value</div>
+                        <div class="stat-growth positive">
+                            <span>💡</span> Per transaction
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Financial Charts -->
+                <div class="parish-analytics-grid">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">📈 Monthly Revenue</div>
+                                <div class="chart-subtitle">Last 12 months performance</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="monthlyRevenueChart" height="400"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">💰 Revenue Breakdown</div>
+                                <div class="chart-subtitle">Platform vs seller earnings</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="revenueBreakdownChart" height="400"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Demographics Section -->
+            <div id="demographics" class="section">
+                <div class="content-header">
+                    <h2>📈 Demographics & Insights</h2>
+                    <p>User behavior, trends, and demographic analysis</p>
+                </div>
+
+                <!-- Demographics Charts -->
+                <div class="parish-analytics-grid">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">👨‍👩‍👧‍👦 User Demographics</div>
+                                <div class="chart-subtitle">Age and gender distribution</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="userDemographicsChart" height="300"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">🕒 Shopping Patterns</div>
+                                <div class="chart-subtitle">Peak shopping hours</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="shoppingPatternsChart" height="300"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">📱 Device Usage</div>
+                                <div class="chart-subtitle">Mobile vs desktop usage</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="deviceUsageChart" height="300"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">📈 Growth Trends</div>
+                                <div class="chart-subtitle">User acquisition over time</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <canvas id="growthTrendsChart" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity Monitor Section -->
+            <div id="activity" class="section">
+                <div class="content-header">
+                    <h2>📋 Activity Monitor</h2>
+                    <p>Real-time platform activity and system logs</p>
+                </div>
+
+                <div class="data-section">
+                    <div class="section-header">
+                        <div class="section-title">Platform Activity Stream</div>
+                        <div class="section-controls">
+                            <select class="filter-select" id="activityTypeFilter">
+                                <option value="">All Activities</option>
+                                <option value="user_register">User Registrations</option>
+                                <option value="seller_register">Seller Registrations</option>
+                                <option value="product_upload">Product Uploads</option>
+                                <option value="order_placed">Orders Placed</option>
+                                <option value="admin_action">Admin Actions</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="chart-content">
+                        <div class="activity-feed" style="max-height: 700px;" id="activityLog">
+                            <div class="loading">
+                                <div class="spinner"></div>
+                                Loading activity log...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Section -->
+            <div id="settings" class="section">
+                <div class="content-header">
+                    <h2>⚙️ Admin Settings</h2>
+                    <p>Manage admin accounts and platform configuration</p>
+                </div>
+
+                <!-- Add Admin Form -->
+                <div class="data-section">
+                    <div class="section-header">
+                        <div class="section-title">Add New Admin User</div>
+                    </div>
+                    <div class="table-container">
+                        <div style="max-width: 600px; margin-bottom: 30px;">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+                                <input type="email" id="adminEmail" placeholder="Admin Email" style="padding: 15px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px;">
+                                <input type="password" id="adminPassword" placeholder="Password" style="padding: 15px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px;">
+                            </div>
+                            <div style="margin-bottom: 20px;">
+                                <select id="adminLevel" style="width: 100%; padding: 15px; border: 2px solid #e9ecef; border-radius: 8px; font-size: 16px;">
+                                    <option value="admin">Admin</option>
+                                    <option value="super_admin">Super Admin</option>
+                                </select>
+                            </div>
+                            <button id="addAdminBtn" class="btn btn-success" style="padding: 15px 30px; font-size: 16px;">Add Admin User</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Admin Users List -->
+                <div class="data-section">
+                    <div class="section-header">
+                        <div class="section-title">Current Admin Users</div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Email</th>
+                                    <th>Level</th>
+                                    <th>Created By</th>
+                                    <th>Created Date</th>
+                                    <th>Last Login</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminUsersTable">
+                                <tr>
+                                    <td colspan="7" class="loading">
+                                        <div class="spinner"></div>
+                                        Loading admin users...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/apexcharts@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        // Global variables
+        let currentSection = 'dashboard';
+        let charts = {};
+        let revenueChart = null;
+
+        // Jamaica parishes list
+        const JAMAICA_PARISHES = [
+            'Kingston', 'Saint Andrew', 'Saint Catherine', 'Clarendon', 'Manchester',
+            'Saint Ann', 'Saint Mary', 'Saint James', 'Hanover', 'Westmoreland',
+            'Saint Elizabeth', 'Trelawny', 'Saint Thomas', 'Portland'
+        ];
+
+        // Mobile sidebar toggle
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('open');
+        }
+
+        // Enhanced API helper function
+        async function apiCall(endpoint, options = {}) {
+            try {
+                const response = await fetch(endpoint, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                        ...options.headers
+                    },
+                    ...options
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.message || 'API request failed');
+                }
+
+                return data;
+            } catch (error) {
+                console.error(`API call to ${endpoint} failed:`, error);
+                return { success: false, error: error.message, data: null };
+            }
+        }
+
+        // Enhanced notification system
+        function showNotification(message, type = 'info', duration = 5000) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 15px 25px;
+                border-radius: 8px;
+                color: white;
+                font-weight: 600;
+                z-index: 10000;
+                opacity: 0;
+                transform: translateY(-20px);
+                transition: all 0.3s ease;
+                max-width: 400px;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            `;
+
+            const colors = {
+                success: '#27ae60',
+                error: '#e74c3c',
+                warning: '#f39c12',
+                info: '#3498db'
+            };
+            notification.style.background = colors[type] || colors.info;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+
+            setTimeout(() => {
+                notification.style.opacity = '1';
+                notification.style.transform = 'translateY(0)';
+            }, 100);
+
+            setTimeout(() => {
+                notification.style.opacity = '0';
+                notification.style.transform = 'translateY(-20px)';
+                setTimeout(() => notification.remove(), 300);
+            }, duration);
+        }
+
+        // Navigation system
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const section = link.dataset.section;
+                if (section) {
+                    showSection(section);
+                }
+            });
+        });
+
+        function showSection(sectionName) {
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            document.querySelector(`[data-section="${sectionName}"]`)?.classList.add('active');
+
+            document.querySelectorAll('.section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById(sectionName)?.classList.add('active');
+
+            currentSection = sectionName;
+            loadSectionData(sectionName);
+
+            if (window.innerWidth <= 768) {
+                document.getElementById('sidebar').classList.remove('open');
+            }
+        }
+
+        // Load section-specific data
+        async function loadSectionData(section) {
+            switch (section) {
+                case 'dashboard':
+                    await loadDashboard();
+                    break;
+                case 'parish-analytics':
+                    await loadParishAnalytics();
+                    break;
+                case 'users':
+                    await loadUsers();
+                    break;
+                case 'sellers':
+                    await loadSellers();
+                    break;
+                case 'products':
+                    await loadProducts();
+                    break;
+                case 'orders':
+                    await loadOrders();
+                    break;
+                case 'financials':
+                    await loadFinancials();
+                    break;
+                case 'demographics':
+                    await loadDemographics();
+                    break;
+                case 'activity':
+                    await loadActivityLog();
+                    break;
+                case 'settings':
+                    await loadAdminUsers();
+                    break;
+            }
+        }
+
+        // Dashboard functions - UPDATED TO USE REAL DATA
+        async function loadDashboard() {
+            try {
+                // Load real dashboard stats
+                const response = await apiCall('/admin/api/dashboard_stats');
+                if (response.success) {
+                    updateDashboardStats(response);
+                } else {
+                    console.error('Error loading dashboard stats:', response.error);
+                    showNotification('Error loading dashboard data', 'error');
+                }
+
+                // Load charts with real data
+                await createRevenueChart();
+                await loadRecentActivity();
+                await createQuickCharts();
+
+            } catch (error) {
+                console.error('Error loading dashboard:', error);
+                showNotification('Error loading dashboard data', 'error');
+            }
+        }
+
+        function updateDashboardStats(data) {
+            document.getElementById('totalUsers').textContent = data.totalUsers || 0;
+            document.getElementById('totalSellers').textContent = data.totalSellers || 0;
+            document.getElementById('totalProducts').textContent = data.totalProducts || 0;
+            document.getElementById('totalOrders').textContent = data.totalOrders || 0;
+            document.getElementById('totalRevenue').textContent = data.totalRevenue || 'J$0.00';
+            document.getElementById('platformFees').textContent = data.platformFees || 'J$0.00';
+            document.getElementById('userGrowth').innerHTML = `<span>📈</span> ${data.userGrowth || '+0%'} this month`;
+            document.getElementById('sellerGrowth').innerHTML = `<span>📈</span> ${data.sellerGrowth || '+0%'} this month`;
+            document.getElementById('productGrowth').innerHTML = `<span>📈</span> ${data.productGrowth || '+0%'} this month`;
+            document.getElementById('orderGrowth').innerHTML = `<span>📈</span> ${data.orderGrowth || '+0%'} this month`;
+            document.getElementById('revenueGrowth').innerHTML = `<span>📈</span> ${data.revenueGrowth || '+0%'} this month`;
+        }
+
+        // FIXED: Revenue chart with real data
+        async function createRevenueChart() {
+            try {
+                const response = await apiCall('/admin/api/revenue_data?timeframe=1y&chart_type=line');
+
+                let chartData = [];
+                if (response.success && response.data && response.data.length > 0) {
+                    chartData = response.data;
+                } else {
+                    // Show empty state for no revenue data
+                    chartData = [{
+                        x: new Date().getTime(),
+                        y: 0
+                    }];
+                }
+
+                const options = {
+                    series: [{
+                        name: 'Revenue (JMD)',
+                        data: chartData
+                    }],
+                    chart: {
+                        type: 'area',
+                        height: 400,
+                        background: 'transparent',
+                        toolbar: { show: true }
+                    },
+                    colors: ['#FFD700'],
+                    fill: {
+                        type: 'gradient',
+                        gradient: {
+                            shadeIntensity: 1,
+                            opacityFrom: 0.7,
+                            opacityTo: 0.1
+                        }
+                    },
+                    stroke: {
+                        curve: 'smooth',
+                        width: 3
+                    },
+                    xaxis: {
+                        type: 'datetime'
+                    },
+                    yaxis: {
+                        labels: {
+                            formatter: function (value) {
+                                return 'J$' + value.toLocaleString();
+                            }
+                        }
+                    },
+                    tooltip: {
+                        y: {
+                            formatter: function (value) {
+                                return 'J$' + value.toLocaleString();
+                            }
+                        }
+                    },
+                    annotations: chartData.length <= 1 ? {
+                        yaxis: [{
+                            y: 0,
+                            borderColor: '#999',
+                            label: {
+                                show: true,
+                                text: 'No revenue data yet - Start selling to see revenue!',
+                                style: {
+                                    color: "#fff",
+                                    background: '#00E396'
+                                }
+                            }
+                        }]
+                    } : {}
+                };
+
+                if (revenueChart) revenueChart.destroy();
+                revenueChart = new ApexCharts(document.getElementById('revenueChart'), options);
+                revenueChart.render();
+            } catch (error) {
+                console.error('Error creating revenue chart:', error);
+                document.getElementById('revenueChart').innerHTML = `
+                    <div class="empty-state">
+                        <div class="icon">📊</div>
+                        <h3>Revenue Chart</h3>
+                        <p>Revenue data will appear here as orders are placed</p>
+                    </div>
+                `;
+            }
+        }
+
+        // FIXED: Recent activity with real data
+        async function loadRecentActivity() {
+            try {
+                const response = await apiCall('/admin/api/recent_activity');
+                const container = document.getElementById('recentActivity');
+
+                if (response.success && response.activities?.length > 0) {
+                    container.innerHTML = '';
+                    response.activities.slice(0, 8).forEach(activity => {
+                        const activityItem = createActivityItem(activity);
+                        container.appendChild(activityItem);
+                    });
+                } else {
+                    container.innerHTML = createEmptyActivityState();
+                }
+            } catch (error) {
+                console.error('Error loading recent activity:', error);
+                document.getElementById('recentActivity').innerHTML = createEmptyActivityState();
+            }
+        }
+
+        function createActivityItem(activity) {
+            const item = document.createElement('div');
+            item.className = 'activity-item';
+
+            const iconMap = {
+                'user_register': { icon: '👤', class: 'user-register' },
+                'seller_register': { icon: '🏪', class: 'seller-register' },
+                'product_upload': { icon: '📦', class: 'product-upload' },
+                'order_placed': { icon: '🛒', class: 'order-placed' },
+                'admin_action': { icon: '⚙️', class: 'system' },
+                'default': { icon: '📋', class: 'system' }
+            };
+
+            const activityType = activity.action || activity.action_type || 'default';
+            const icon = iconMap[activityType] || iconMap.default;
+
+            item.innerHTML = `
+                <div class="activity-icon ${icon.class}">${icon.icon}</div>
+                <div class="activity-content">
+                    <div class="activity-title">${activity.action_type || activity.action || 'Platform Activity'}</div>
+                    <div class="activity-description">${activity.description || activity.user || 'Activity performed'}</div>
+                    <div class="activity-time">${activity.time || 'Recently'}</div>
+                </div>
+            `;
+
+            return item;
+        }
+
+        function createEmptyActivityState() {
+            return `
+                <div class="empty-state">
+                    <div class="icon">🚀</div>
+                    <h3>Platform Ready!</h3>
+                    <p>Activity will appear here as users interact with your marketplace</p>
+                </div>
+            `;
+        }
+
+        // FIXED: Quick charts with real data
+        async function createQuickCharts() {
+            try {
+                // Get real analytics data
+                const analyticsResponse = await apiCall('/admin/api/analytics');
+                const parishResponse = await apiCall('/admin/api/parish_analytics');
+
+                if (analyticsResponse.success && analyticsResponse.category_data?.length > 0) {
+                    // Real category performance chart
+                    const categories = analyticsResponse.category_data.slice(0, 6);
+                    await createChart('categoryPerformanceChart', 'bar', {
+                        labels: categories.map(cat => cat.category || 'Unknown'),
+                        datasets: [{
+                            label: 'Products',
+                            data: categories.map(cat => cat.products_count || 0),
+                            backgroundColor: '#4ECDC4'
+                        }]
+                    });
+                } else {
+                    // Empty state for categories
+                    document.getElementById('categoryPerformanceChart').parentElement.innerHTML = `
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">🏷️ Category Performance</div>
+                                <div class="chart-subtitle">Products by category</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <div class="empty-state">
+                                <div class="icon">🏷️</div>
+                                <h3>No Categories Yet</h3>
+                                <p>Category data will appear as products are added</p>
+                            </div>
+                        </div>
+                    `;
+                }
+
+                if (parishResponse.success && parishResponse.buyers_by_parish?.length > 0) {
+                    // Real parish distribution chart
+                    const topParishes = parishResponse.buyers_by_parish.slice(0, 6);
+                    await createChart('topParishesChart', 'doughnut', {
+                        labels: topParishes.map(parish => parish.parish),
+                        datasets: [{
+                            data: topParishes.map(parish => parish.buyer_count),
+                            backgroundColor: [
+                                '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1',
+                                '#96CEB4', '#FECA57'
+                            ]
+                        }]
+                    });
+                } else {
+                    // Empty state for parishes
+                    document.getElementById('topParishesChart').parentElement.innerHTML = `
+                        <div class="chart-header">
+                            <div>
+                                <div class="chart-title">📍 Top Parishes</div>
+                                <div class="chart-subtitle">User distribution</div>
+                            </div>
+                        </div>
+                        <div class="chart-content">
+                            <div class="empty-state">
+                                <div class="icon">📍</div>
+                                <h3>No Parish Data Yet</h3>
+                                <p>Parish distribution will appear as users register</p>
+                            </div>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error creating quick charts:', error);
+            }
+        }
+
+        // FIXED: Parish Analytics with real data
+        async function loadParishAnalytics() {
+            try {
+                const response = await apiCall('/admin/api/parish_analytics');
+
+                if (response.success) {
+                    createParishStatsGrid(response);
+                    createParishCharts(response);
+                    createParishComparisonTable(response);
+                } else {
+                    // Show empty states for parish analytics
+                    showEmptyParishAnalytics();
+                }
+            } catch (error) {
+                console.error('Error loading parish analytics:', error);
+                showEmptyParishAnalytics();
+                showNotification('Error loading parish analytics', 'error');
+            }
+        }
+
+        function showEmptyParishAnalytics() {
+            document.getElementById('parishStatsGrid').innerHTML = `
+                <div class="empty-state" style="grid-column: 1 / -1; padding: 40px;">
+                    <div class="icon">🗺️</div>
+                    <h3>No Parish Data Yet</h3>
+                    <p>Parish analytics will appear as users register from different locations</p>
+                </div>
+            `;
+        }
+
+        function createParishStatsGrid(data) {
+            const grid = document.getElementById('parishStatsGrid');
+            grid.innerHTML = '';
+
+            if (!data.parish_stats || data.parish_stats.length === 0) {
+                showEmptyParishAnalytics();
+                return;
+            }
+
+            // Get top 6 parishes by total activity
+            const topParishes = data.parish_stats
+                .sort((a, b) => (b.buyers + b.sellers + b.orders) - (a.buyers + a.sellers + a.orders))
+                .slice(0, 6);
+
+            topParishes.forEach(parish => {
+                const card = document.createElement('div');
+                card.className = 'parish-stat-card';
+                card.innerHTML = `
+                    <div class="parish-name">${parish.parish}</div>
+                    <div class="parish-value">${parish.buyers + parish.sellers}</div>
+                    <div class="parish-label">Total Users</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        function createParishCharts(data) {
+            // Only create charts if we have data
+            if (data.buyers_by_parish && data.buyers_by_parish.length > 0) {
+                createChart('buyersParishChart', 'doughnut', {
+                    labels: data.buyers_by_parish.map(item => item.parish),
+                    datasets: [{
+                        data: data.buyers_by_parish.map(item => item.buyer_count),
+                        backgroundColor: generateColors(data.buyers_by_parish.length)
+                    }]
+                });
+            }
+
+            if (data.sellers_by_parish && data.sellers_by_parish.length > 0) {
+                createChart('sellersParishChart', 'pie', {
+                    labels: data.sellers_by_parish.map(item => item.parish),
+                    datasets: [{
+                        data: data.sellers_by_parish.map(item => item.seller_count),
+                        backgroundColor: generateColors(data.sellers_by_parish.length)
+                    }]
+                });
+            }
+
+            if (data.orders_by_parish && data.orders_by_parish.length > 0) {
+                createChart('ordersParishChart', 'bar', {
+                    labels: data.orders_by_parish.map(item => item.parish),
+                    datasets: [{
+                        label: 'Orders',
+                        data: data.orders_by_parish.map(item => item.order_count),
+                        backgroundColor: '#4ECDC4'
+                    }]
+                }, {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false
+                });
+            }
+
+            if (data.revenue_by_parish && data.revenue_by_parish.length > 0) {
+                createChart('revenueParishChart', 'bar', {
+                    labels: data.revenue_by_parish.map(item => item.parish),
+                    datasets: [{
+                        label: 'Revenue (JMD)',
+                        data: data.revenue_by_parish.map(item => item.revenue),
+                        backgroundColor: '#FFD700'
+                    }]
+                }, {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                callback: function(value) {
+                                    return 'J$' + value.toLocaleString();
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        function createParishComparisonTable(data) {
+            const tbody = document.getElementById('parishComparisonTable');
+            tbody.innerHTML = '';
+
+            if (!data.parish_stats || data.parish_stats.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="empty-state">
+                            <div class="icon">🗺️</div>
+                            <h3>No Parish Data</h3>
+                            <p>Parish comparison will appear as users register</p>
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            const totalRevenue = data.parish_stats.reduce((sum, parish) => sum + (parish.revenue || 0), 0);
+
+            data.parish_stats.forEach(parish => {
+                const avgOrderValue = parish.orders > 0 ? parish.revenue / parish.orders : 0;
+                const marketShare = totalRevenue > 0 ? (parish.revenue / totalRevenue * 100) : 0;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${parish.parish}</strong></td>
+                    <td>${parish.buyers.toLocaleString()}</td>
+                    <td>${parish.sellers}</td>
+                    <td>${parish.orders.toLocaleString()}</td>
+                    <td>J$${parish.revenue.toLocaleString()}</td>
+                    <td>J$${avgOrderValue.toLocaleString()}</td>
+                    <td>${marketShare.toFixed(1)}%</td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Generic chart creation function
+        async function createChart(canvasId, type, data, options = {}) {
+            const ctx = document.getElementById(canvasId)?.getContext('2d');
+            if (!ctx) return;
+
+            if (charts[canvasId]) {
+                charts[canvasId].destroy();
+            }
+
+            const defaultOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: type === 'bar' ? 'top' : 'right'
+                    }
+                }
+            };
+
+            charts[canvasId] = new Chart(ctx, {
+                type,
+                data,
+                options: { ...defaultOptions, ...options }
+            });
+        }
+
+        function generateColors(count) {
+            const colors = [
+                '#FFD700', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4',
+                '#FECA57', '#FF9FF3', '#54A0FF', '#5F27CD', '#00D2D3',
+                '#FF9F43', '#26de81', '#cd84f1', '#ffdd59', '#0fb9b1'
+            ];
+            return colors.slice(0, count);
+        }
+
+        // FIXED: Load Users with real data
+        // FIXED: Load Users with proper error handling
+async function loadUsers() {
+    const tbody = document.getElementById('usersTableBody');
+    if (!tbody) {
+        console.error('usersTableBody element not found!');
+        return;
+    }
+
+    tbody.innerHTML = '<tr><td colspan="9" class="loading"><div class="spinner"></div>Loading users...</td></tr>';
+
+    try {
+        console.log('🔄 Calling /admin/api/users...');
+        const response = await apiCall('/admin/api/users');
+        console.log('📊 Users API response:', response);
+
+        tbody.innerHTML = '';
+
+        if (response.success && response.users && response.users.length > 0) {
+            console.log(`✅ Found ${response.users.length} users`);
+            response.users.forEach(user => {
+                const row = createUserRow(user);
+                tbody.appendChild(row);
+            });
+        } else {
+            console.log('❌ No users found or API error');
+            tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><div class="icon">👥</div><h3>No users yet</h3><p>Users will appear here as they register</p></td></tr>';
+        }
+    } catch (error) {
+        console.error('❌ Error loading users:', error);
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#e74c3c;">Error loading users. Check console for details.</td></tr>';
+    }
+}
+
+        function createUserRow(user) {
+    const row = document.createElement('tr');
+
+    // Format the location (parish or business address)
+    const location = user.business_address || user.parish || 'N/A';
+
+    // Determine user type
+    const userType = user.is_seller ? 'Seller' : 'Buyer';
+    const userTypeBadge = user.is_seller ? 'seller' : 'user';
+
+    // Status based on flags
+    const status = user.flag_count > 0 ? 'Flagged' : 'Active';
+    const statusBadge = user.flag_count > 0 ? 'inactive' : 'active';
+
+    row.innerHTML = `
+        <td>
+            <div><strong>${user.first_name || ''} ${user.last_name || ''}</strong></div>
+            <div style="font-size: 12px; color: #666;">${user.email}</div>
+        </td>
+        <td>
+            <div>${user.phone_number || 'N/A'}</div>
+            <div style="font-size: 12px; color: #666;">${user.whatsapp_number || ''}</div>
+        </td>
+        <td>${location}</td>
+        <td><span class="badge ${userTypeBadge}">${userType}</span></td>
+        <td>${user.order_count || 0}</td>
+        <td>${user.products_listed || 0}</td>
+        <td>J$${(user.total_spent || 0).toFixed(2)}</td>
+        <td><span class="badge ${statusBadge}">${status}</span></td>
+        <td>
+            <button class="btn btn-primary" onclick="viewUser('${user.email}')">View</button>
+            <button class="btn btn-warning" onclick="flagUser('${user.email}')">Flag</button>
+        </td>
+    `;
+    return row;
+}
+
+        // Load other sections with real data
+        // COMPLETE ALL MISSING JAVASCRIPT FUNCTIONS
+        // Replace your existing loadProducts, loadSellers, etc. with these:
+
+        // FIXED: Load Products with real data
+        async function loadProducts() {
+            const tbody = document.getElementById('productsTableBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = '<tr><td colspan="10" class="loading"><div class="spinner"></div>Loading products...</td></tr>';
+
+            try {
+                const response = await apiCall('/admin/api/products');
+                tbody.innerHTML = '';
+
+                if (response.success && response.products && response.products.length > 0) {
+                    response.products.forEach(product => {
+                        const row = createProductRow(product);
+                        tbody.appendChild(row);
+                    });
+                    console.log(`Loaded ${response.products.length} products`);
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="10" class="empty-state"><div class="icon">📦</div><h3>No products yet</h3><p>Products will appear here as sellers add them</p></td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading products:', error);
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#e74c3c;">Error loading products</td></tr>';
+            }
+        }
+
+        function createProductRow(product) {
+            const row = document.createElement('tr');
+
+            // Format posted date
+            const postedDate = product.posted_date ?
+                new Date(product.posted_date).toLocaleDateString() : 'Unknown';
+
+            // Calculate status based on stock
+            const status = (product.amount > 0) ? 'In Stock' : 'Out of Stock';
+            const statusClass = (product.amount > 0) ? 'active' : 'inactive';
+
+            row.innerHTML = `
+                <td>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <img src="/static/${product.image_url}" alt="${product.name}"
+                             style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px;"
+                             onerror="this.src='/static/placeholder.jpg'">
+                        <div>
+                            <strong>${product.name}</strong>
+                            <div style="font-size: 12px; color: #666;">Key: ${product.product_key}</div>
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <div><strong>${product.seller_business_name || product.seller_first_name || ''} ${product.seller_last_name || ''}</strong></div>
+                    <div style="font-size: 12px; color: #666;">${product.seller_email}</div>
+                </td>
+                <td><span class="badge">${product.category || 'Uncategorized'}</span></td>
+                <td>J$${product.price}</td>
+                <td>${product.amount || 0}</td>
+                <td>${product.total_sold || product.sold || 0}</td>
+                <td>J$${(product.total_revenue || 0).toFixed(2)}</td>
+                <td>${postedDate}</td>
+                <td><span class="badge ${statusClass}">${status}</span></td>
+                <td>
+                    <button class="btn btn-primary" onclick="viewProduct('${product.product_key}')">View</button>
+                    <button class="btn btn-warning" onclick="editProduct('${product.product_key}')">Edit</button>
+                </td>
+            `;
+            return row;
+        }
+
+        // FIXED: Load Sellers with real data - OPTIMIZED VERSION
+async function loadSellers() {
+    const tbody = document.getElementById('sellersTableBody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '<tr><td colspan="9" class="loading"><div class="spinner"></div>Loading sellers...</td></tr>';
+
+    try {
+        // 🎯 Call the dedicated sellers endpoint (not users)
+        const response = await apiCall('/admin/api/sellers');
+        tbody.innerHTML = '';
+
+        if (response.success && response.sellers && response.sellers.length > 0) {
+            response.sellers.forEach(seller => {
+                const row = createSellerRow(seller);
+                tbody.appendChild(row);
+            });
+            console.log(`Loaded ${response.sellers.length} sellers`);
+        } else {
+            tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><div class="icon">🏪</div><h3>No sellers yet</h3><p>Sellers will appear here as they register</p></td></tr>';
+        }
+    } catch (error) {
+        console.error('Error loading sellers:', error);
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#e74c3c;">Error loading sellers</td></tr>';
+    }
+}
+
+        function createSellerRow(seller) {
+            const row = document.createElement('tr');
+
+            row.innerHTML = `
+                <td>
+                    <div><strong>${seller.first_name || ''} ${seller.last_name || ''}</strong></div>
+                    <div style="font-size: 12px; color: #666;">${seller.email}</div>
+                </td>
+                <td>
+                    <div><strong>${seller.business_name || 'N/A'}</strong></div>
+                    <div style="font-size: 12px; color: #666;">${seller.business_address || seller.parish || 'N/A'}</div>
+                </td>
+                <td>${seller.business_address || seller.parish || 'N/A'}</td>
+                <td>${seller.products_listed || 0}</td>
+                <td>0</td>
+                <td>J$${(seller.total_spent || 0).toFixed(2)}</td>
+                <td>
+                    <div style="display: flex; align-items: center;">
+                        <span style="color: #ddd;">☆☆☆☆☆</span>
+                        <span style="margin-left: 5px; font-size: 12px; color: #666;">(0)</span>
+                    </div>
+                </td>
+                <td><span class="badge ${seller.flag_count > 0 ? 'inactive' : 'active'}">${seller.flag_count > 0 ? 'Flagged' : 'Active'}</span></td>
+                <td>
+                    <button class="btn btn-primary" onclick="viewSeller('${seller.email}')">View</button>
+                    <button class="btn btn-warning" onclick="flagSeller('${seller.email}')">Flag</button>
+                </td>
+            `;
+            return row;
+        }
+
+        // FIXED: Load Orders with real data
+        async function loadOrders() {
+            const tbody = document.getElementById('ordersTableBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = '<tr><td colspan="9" class="loading"><div class="spinner"></div>Loading orders...</td></tr>';
+
+            try {
+                const response = await apiCall('/admin/api/orders');
+                tbody.innerHTML = '';
+
+                if (response.success && response.orders && response.orders.length > 0) {
+                    response.orders.forEach(order => {
+                        const row = createOrderRow(order);
+                        tbody.appendChild(row);
+                    });
+                    console.log(`Loaded ${response.orders.length} orders`);
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><div class="icon">🛒</div><h3>No orders yet</h3><p>Orders will appear here as customers make purchases</p></td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading orders:', error);
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#e74c3c;">Error loading orders</td></tr>';
+            }
+        }
+
+        function createOrderRow(order) {
+            const row = document.createElement('tr');
+
+            // Format order date
+            const orderDate = order.order_date ?
+                new Date(order.order_date).toLocaleDateString() : 'Unknown';
+
+            // Status badge
+            const statusClass = {
+                'pending': 'pending',
+                'confirmed': 'active',
+                'shipped': 'active',
+                'delivered': 'completed',
+                'cancelled': 'cancelled',
+                'refunded': 'cancelled'
+            }[order.status] || 'pending';
+
+            row.innerHTML = `
+                <td>
+                    <div><strong>#${order.order_id.substring(0, 8)}</strong></div>
+                    <div style="font-size: 12px; color: #666;">${order.order_id}</div>
+                </td>
+                <td>
+                    <div><strong>${order.first_name || ''} ${order.last_name || ''}</strong></div>
+                    <div style="font-size: 12px; color: #666;">${order.user_email}</div>
+                </td>
+                <td>${order.parish || 'N/A'}</td>
+                <td>${order.item_count || 0} items</td>
+                <td>J$${order.total}</td>
+                <td>${order.payment_method || 'N/A'}</td>
+                <td>${orderDate}</td>
+                <td><span class="badge ${statusClass}">${order.status || 'pending'}</span></td>
+                <td>
+                    <button class="btn btn-primary" onclick="viewOrder('${order.order_id}')">View</button>
+                    <button class="btn btn-warning" onclick="updateOrderStatus('${order.order_id}')">Update</button>
+                </td>
+            `;
+            return row;
+        }
+
+        // FIXED: Load Financials with real data
+        async function loadFinancials() {
+            try {
+                const response = await apiCall('/admin/api/financials');
+
+                if (response.success) {
+                    // Update financial stats
+                    document.getElementById('totalRevenueFinancial').textContent = `J$${response.total_revenue.toFixed(2)}`;
+                    document.getElementById('platformFeesFinancial').textContent = `J$${response.platform_fees.toFixed(2)}`;
+                    document.getElementById('sellerPayouts').textContent = `J$${response.seller_payouts.toFixed(2)}`;
+                    document.getElementById('totalRefunds').textContent = `J$${response.total_refunds.toFixed(2)}`;
+                    document.getElementById('netProfit').textContent = `J$${response.net_profit.toFixed(2)}`;
+
+                    // Calculate average order value
+                    const avgOrderValue = response.total_revenue > 0 ? response.total_revenue / Math.max(1, response.monthly_data.reduce((sum, month) => sum + month.orders, 0)) : 0;
+                    document.getElementById('avgOrderValue').textContent = `J$${avgOrderValue.toFixed(2)}`;
+
+                    // Create monthly revenue chart
+                    createMonthlyRevenueChart(response.monthly_data);
+                    createRevenueBreakdownChart(response);
+                } else {
+                    console.error('Error loading financials:', response.message);
+                }
+            } catch (error) {
+                console.error('Error loading financials:', error);
+            }
+        }
+
+        function createMonthlyRevenueChart(monthlyData) {
+            if (!monthlyData || monthlyData.length === 0) {
+                const container = document.getElementById('monthlyRevenueChart');
+                if (container) {
+                    container.innerHTML = '<div class="empty-state"><div class="icon">📊</div><h3>No Revenue Data</h3><p>Revenue charts will appear as orders are placed</p></div>';
+                }
+                return;
+            }
+
+            createChart('monthlyRevenueChart', 'line', {
+                labels: monthlyData.map(item => item.month),
+                datasets: [{
+                    label: 'Monthly Revenue (JMD)',
+                    data: monthlyData.map(item => item.revenue),
+                    borderColor: '#FFD700',
+                    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            }, {
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return 'J$' + value.toLocaleString();
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function createRevenueBreakdownChart(financialData) {
+            createChart('revenueBreakdownChart', 'doughnut', {
+                labels: ['Platform Fees (5%)', 'Seller Payouts (95%)', 'Refunds'],
+                datasets: [{
+                    data: [
+                        financialData.platform_fees,
+                        financialData.seller_payouts,
+                        financialData.total_refunds
+                    ],
+                    backgroundColor: ['#FFD700', '#4ECDC4', '#FF6B6B']
+                }]
+            });
+        }
+
+        // FIXED: Load Demographics with sample data
+        async function loadDemographics() {
+            console.log('Loading demographics...');
+
+            // Create sample demographic charts since we don't have this data yet
+            createChart('userDemographicsChart', 'bar', {
+                labels: ['18-25', '26-35', '36-45', '46-55', '55+'],
+                datasets: [{
+                    label: 'Users by Age Group',
+                    data: [25, 35, 20, 15, 5],
+                    backgroundColor: '#4ECDC4'
+                }]
+            });
+
+            createChart('shoppingPatternsChart', 'line', {
+                labels: ['6AM', '9AM', '12PM', '3PM', '6PM', '9PM'],
+                datasets: [{
+                    label: 'Shopping Activity',
+                    data: [5, 15, 30, 25, 45, 35],
+                    borderColor: '#FFD700',
+                    backgroundColor: 'rgba(255, 215, 0, 0.1)',
+                    fill: true
+                }]
+            });
+
+            createChart('deviceUsageChart', 'pie', {
+                labels: ['Mobile', 'Desktop', 'Tablet'],
+                datasets: [{
+                    data: [65, 30, 5],
+                    backgroundColor: ['#FF6B6B', '#4ECDC4', '#FFD700']
+                }]
+            });
+
+            createChart('growthTrendsChart', 'line', {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun'],
+                datasets: [{
+                    label: 'New Users',
+                    data: [10, 15, 25, 20, 30, 35],
+                    borderColor: '#4ECDC4',
+                    backgroundColor: 'rgba(76, 205, 196, 0.1)',
+                    fill: true
+                }]
+            });
+        }
+
+        // FIXED: Load Activity Log with real data
+        async function loadActivityLog() {
+            const container = document.getElementById('activityLog');
+            if (!container) return;
+
+            container.innerHTML = '<div class="loading"><div class="spinner"></div>Loading activity log...</div>';
+
+            try {
+                const response = await apiCall('/admin/api/recent_activity');
+
+                if (response.success && response.activities && response.activities.length > 0) {
+                    container.innerHTML = '';
+                    response.activities.forEach(activity => {
+                        const activityItem = createActivityItem(activity);
+                        container.appendChild(activityItem);
+                    });
+                } else {
+                    container.innerHTML = createEmptyActivityState();
+                }
+            } catch (error) {
+                console.error('Error loading activity log:', error);
+                container.innerHTML = createEmptyActivityState();
+            }
+        }
+
+        // FIXED: Load Admin Users with real data
+        async function loadAdminUsers() {
+            const tbody = document.getElementById('adminUsersTable');
+            if (!tbody) return;
+
+            tbody.innerHTML = '<tr><td colspan="7" class="loading"><div class="spinner"></div>Loading admin users...</td></tr>';
+
+            try {
+                const response = await apiCall('/admin/api/admin_users');
+                tbody.innerHTML = '';
+
+                if (response.success && response.admin_users && response.admin_users.length > 0) {
+                    response.admin_users.forEach(admin => {
+                        const row = createAdminUserRow(admin);
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><div class="icon">⚙️</div><h3>No admin users</h3><p>Admin users will appear here</p></td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading admin users:', error);
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#e74c3c;">Error loading admin users</td></tr>';
+            }
+        }
+
+        function createAdminUserRow(admin) {
+            const row = document.createElement('tr');
+
+            const createdDate = admin.created_at ?
+                new Date(admin.created_at).toLocaleDateString() : 'Unknown';
+            const lastLogin = admin.last_login ?
+                new Date(admin.last_login).toLocaleDateString() : 'Never';
+
+            row.innerHTML = `
+                <td>${admin.email}</td>
+                <td><span class="badge ${admin.admin_level === 'super_admin' ? 'active' : 'user'}">${admin.admin_level}</span></td>
+                <td>${admin.created_by || 'System'}</td>
+                <td>${createdDate}</td>
+                <td>${lastLogin}</td>
+                <td><span class="badge ${admin.is_active ? 'active' : 'inactive'}">${admin.is_active ? 'Active' : 'Inactive'}</span></td>
+                <td>
+                    <button class="btn btn-primary" onclick="viewAdmin('${admin.email}')">View</button>
+                    ${admin.admin_level !== 'super_admin' ? `<button class="btn btn-danger" onclick="deactivateAdmin('${admin.email}')">Deactivate</button>` : ''}
+                </td>
+            `;
+            return row;
+        }
+
+        // Action functions
+        async function viewProduct(productKey) {
+            window.open(`/product/${encodeURIComponent(productKey.replace(/ /g, '+'))}`, '_blank');
+        }
+
+        async function editProduct(productKey) {
+            showNotification(`Edit product: ${productKey}`, 'info');
+        }
+
+        async function viewSeller(email) {
+            window.open(`/seller/${email}`, '_blank');
+        }
+
+        async function flagSeller(email) {
+            const reason = prompt('Enter reason for flagging seller:');
+            if (reason) {
+                showNotification(`Seller ${email} flagged: ${reason}`, 'warning');
+            }
+        }
+
+        async function viewOrder(orderId) {
+            showNotification(`Viewing order: ${orderId}`, 'info');
+        }
+
+        async function updateOrderStatus(orderId) {
+            const newStatus = prompt('Enter new status (pending, confirmed, shipped, delivered, cancelled):');
+            if (newStatus) {
+                showNotification(`Order ${orderId} status updated to: ${newStatus}`, 'success');
+            }
+        }
+
+        async function viewAdmin(email) {
+            showNotification(`Viewing admin: ${email}`, 'info');
+        }
+
+        async function deactivateAdmin(email) {
+            if (confirm(`Are you sure you want to deactivate admin: ${email}?`)) {
+                showNotification(`Admin ${email} deactivated`, 'warning');
+            }
+        }
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSectionData('dashboard');
+        });
+
+        // Search functionality
+        function setupSearchFilters() {
+            const searchInputs = document.querySelectorAll('[id$="Search"]');
+            searchInputs.forEach(input => {
+                input.addEventListener('input', debounce((e) => {
+                    const tableId = e.target.id.replace('Search', 'TableBody');
+                    filterTable(tableId, e.target.value);
+                }, 300));
+            });
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        function filterTable(tableBodyId, query) {
+            const tbody = document.getElementById(tableBodyId);
+            if (!tbody) return;
+
+            const rows = tbody.querySelectorAll('tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(query.toLowerCase()) ? '' : 'none';
+            });
+        }
+
+        // Setup search filters after DOM load
+        document.addEventListener('DOMContentLoaded', setupSearchFilters);
+    </script>
+</body>
+</html>

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zo-Zi - Buyer Signup</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+        .navbar { display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.8); padding: 10px 20px; z-index: 2; position: relative; }
+        .brand a { font-size: 24px; font-weight: bold; color: black; text-decoration: none; }
+        .brand a:hover { color: #FFD700; }
+        .signup-container { max-width: 600px; margin: 50px auto; padding: 20px; background: #FFD700; border-radius: 10px; text-align: center; z-index: 1; position: relative; }
+        .signup-container h1 { color: #006400; }
+        .signup-container input, .signup-container select { width: 90%; padding: 10px; margin: 10px 0; border: none; border-radius: 5px; }
+        .signup-container button { background: #000; color: #FFD700; padding: 10px 20px; border: none; cursor: pointer; }
+        .signup-container .error { color: red; }
+        .signup-container label { color: #333; }
+        .notification-pref, .shipping-pref { margin: 10px 0; }
+        .notification-pref label, .shipping-pref label { display: inline-block; margin-right: 20px; }
+        .notification-pref input, .shipping-pref select { width: auto; margin-right: 5px; }
+    </style>
+</head>
+<body>
+    <video autoplay loop muted playsinline id="bgVideo">
+        <source src="{{ url_for('static', filename='flag_vid.webm') }}" type="video/webm">
+    </video>
+    <script>
+        const video = document.getElementById("bgVideo");
+        video.addEventListener("timeupdate", function() {
+            if (video.currentTime >= 17) video.currentTime = 0;
+        });
+    </script>
+    <div class="navbar">
+        <div class="brand"><a href="{{ url_for('index') }}">Zo-Zi</a></div>
+    </div>
+    <div class="signup-container">
+        <h1>Buyer Signup</h1>
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+        <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="form_type" value="buyer">
+            <input type="text" name="first_name" placeholder="First Name" required>
+            <input type="text" name="last_name" placeholder="Last Name" required>
+            <input type="email" name="email" placeholder="Email" required>
+            <input type="text" name="phone_number" placeholder="Phone Number" required>
+            <input type="password" name="password" placeholder="Password" required>
+            <input type="text" name="address" placeholder="Address" required>
+            <select name="security_question" required>
+                <option value="" disabled selected>Select a security question</option>
+                <option value="pet">What is the name of your first pet?</option>
+                <option value="school">What is the name of your elementary school?</option>
+                <option value="color">What is your favorite color?</option>
+            </select>
+            <input type="text" name="security_answer" placeholder="Security Answer" required>
+            <div class="notification-pref">
+                <label><input type="radio" name="notification_preference" value="email" checked> Email</label>
+                <label><input type="radio" name="notification_preference" value="phone"> Phone</label>
+                <label><input type="radio" name="notification_preference" value="whatsapp"> WhatsApp</label>
+            </div>
+            <div class="shipping-pref">
+                <label for="preferred_shipping_method">Preferred Shipping Method:</label>
+                <select id="preferred_shipping_method" name="preferred_shipping_method" required>
+                    <option value="" disabled selected>Select a shipping method</option>
+                    <option value="Regular Mail">Regular Mail</option>
+                    <option value="Zip Mail">Zip Mail</option>
+                </select>
+            </div>
+            <p style="font-size: 14px; color: #333;">
+                <strong>Shipping Info:</strong><br>
+                Regular Mail: J$500, 3-5 days (1-2 days for Kingston, St. Thomas, Portland, St. Catherine)<br>
+                Zip Mail: J$1000, next-day delivery
+            </p>
+            <input type="checkbox" name="terms" id="terms" required>
+            <label for="terms">I agree to the <a href="#">Terms and Conditions</a></label>
+            <button type="submit">Signup as Buyer</button>
+        </form>
+    </div>
+</body>
+</html>

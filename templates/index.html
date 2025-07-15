@@ -1,0 +1,696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Zo-Zi - Home</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #d1f2eb; padding-top: 80px; }
+
+        /* Toast Notification Styles */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 10000;
+            transform: translateX(400px);
+            opacity: 0;
+            transition: all 0.3s ease-in-out;
+            font-family: 'Arial', sans-serif;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 350px;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+        }
+
+        .toast-icon {
+            font-size: 20px;
+            animation: bounce 0.5s ease-in-out;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+
+        .toast-message {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .background-image { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+        .navbar { display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, 0.8); padding: 10px 20px; position: fixed; top: 0; width: 100%; z-index: 10; }
+        .navbar-top { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1200px; }
+        .brand-container { display: flex; align-items: center; }
+        .brand a { font-size: 24px; font-weight: bold; color: black; text-decoration: none; }
+        .brand a:hover { color: #FFD700; }
+        .menu-container { position: relative; display: inline-block; margin-left: 10px; }
+        .menu-icon { cursor: pointer; font-size: 24px; }
+        .dropdown-content { display: none; position: absolute; background-color: white; min-width: 160px; box-shadow: 0px 8px 16px rgba(0,0,0,0.2); border-radius: 5px; z-index: 11; }
+        .dropdown-content a { padding: 10px; display: block; color: green; text-decoration: none; }
+        .dropdown-content a:hover { background-color: yellow; }
+        .menu-container:hover .dropdown-content { display: block; }
+        .nav-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 10px; width: 100%; max-width: 1200px; }
+        .nav-links a { color: green; text-decoration: none; font-size: 16px; padding: 5px 10px; border-radius: 5px; }
+        .nav-links a:hover { background: #FFD700; color: black; }
+        .search-container { flex-grow: 0.8; margin: 0 20px; position: relative; max-width: 500px; display: flex; align-items: center; }
+        .search-container input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; }
+        .search-icon { margin-left: 5px; cursor: pointer; font-size: 20px; color: #006400; padding: 5px; }
+        .search-icon:hover { background: #FFD700; border-radius: 5px; }
+        .suggestions { position: absolute; background: white; width: 100%; border: 1px solid #ccc; border-radius: 5px; max-height: 200px; overflow-y: auto; display: none; z-index: 11; top: 100%; }
+        .suggestions a { display: flex; align-items: center; padding: 8px; text-decoration: none; color: black; }
+        .suggestions a img { width: 30px; height: 30px; object-fit: contain; margin-right: 10px; border-radius: 3px; }
+        .suggestions a span { flex-grow: 1; font-size: 14px; }
+        .suggestions a:hover { background: #f0f0f0; }
+        .auth-container { display: flex; align-items: center; margin-right: 26px; }
+        .auth-buttons { margin-left: 10px; padding: 8px 16px; background: yellow; border: none; cursor: pointer; border-radius: 5px; font-weight: bold; }
+        .auth-buttons:hover { background: #FFA500; }
+        .profile { width: 40px; height: 40px; border-radius: 50%; margin-left: 10px; cursor: pointer; }
+        .profile img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+        .cart-icon, .contact-icon { margin-left: 10px; cursor: pointer; position: relative; }
+        .cart-icon img, .contact-icon img { width: 30px; height: 30px; }
+        .cart-icon .cart-total { position: absolute; top: -10px; right: -10px; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 12px; }
+        .cart-dropdown { display: none; position: absolute; top: 40px; right: 0; background: white; min-width: 300px; box-shadow: 0px 8px 16px rgba(0,0,0,0.2); border-radius: 5px; z-index: 11; padding: 10px; }
+        .cart-dropdown .cart-item { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #ccc; position: relative; }
+        .cart-dropdown .cart-item img { width: 50px; height: 50px; object-fit: contain; margin-right: 10px; }
+        .cart-dropdown .cart-item-details { flex-grow: 1; }
+        .cart-dropdown .cart-item-details p { margin: 0; font-size: 14px; }
+        .cart-dropdown .remove-item { position: absolute; right: 10px; cursor: pointer; font-size: 16px; color: red; }
+        .cart-dropdown .remove-item:hover { color: darkred; }
+        .cart-dropdown .empty-cart { padding: 10px; text-align: center; color: #666; }
+        .cart-dropdown .checkout-button { display: block; background: #FFD700; border: none; padding: 10px; margin: 10px; text-align: center; cursor: pointer; text-decoration: none; color: black; border-radius: 5px; }
+        .cart-dropdown .checkout-button:hover { background: #FFA500; }
+        .marketplace-header { background: rgba(0, 100, 0, 0.7); color: #FFD700; text-align: center; padding: 8px 8px 4px; margin: 0; min-height: 120px; display: flex; flex-direction: column; justify-content: center; }
+        .marketplace-header h1 { font-size: 36px; font-weight: 700; font-family: "Helvetica Neue", Arial, sans-serif; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3); margin: 0; }
+        .marketplace-subheader { color: #1A1A1A; font-size: 22px; margin: 5px 0 10px; font-weight: 700; text-shadow: none; letter-spacing: 0.5px; }
+        .hero-container { max-width: 1200px; margin: 20px auto; text-align: center; display: flex; justify-content: center; gap: 20px; }
+        .hero-image { max-width: 600px; max-height: 460px; object-fit: contain; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+        .hero-tile { max-width: 300px; max-height: 460px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); cursor: pointer; position: relative; overflow: hidden; text-align: center; }
+        .hero-tile img { width: 100%; height: 100%; object-fit: cover; }
+        .hero-tile p { position: absolute; bottom: 10px; width: 100%; margin: 0; font-size: 18px; font-weight: bold; color: white; background: rgba(0, 0, 0, 0.6); padding: 10px; }
+        .hero-tile:hover { transform: scale(1.05); transition: transform 0.3s ease; }
+        .signup-action { text-align: center; margin: 20px 0; }
+        .signup-action .auth-buttons { padding: 12px 24px; font-size: 18px; }
+        .category-section { display: flex; justify-content: center; align-items: center; margin: 10px 0; max-width: 1200px; margin-left: auto; margin-right: auto; }
+        .all-category { margin-right: 10px; }
+        .category-rows { display: flex; flex-direction: column; }
+        .category-row { display: flex; justify-content: center; flex-wrap: wrap; margin: 10px 0; }
+        .category-circle { margin: 10px; text-align: center; cursor: pointer; }
+        .category-circle img { width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 2px solid #FFD700; }
+        .category-circle p { margin: 5px 0 0; font-size: 14px; color: black; font-weight: bold; }
+        .products-container { max-width: 1200px; margin: 20px auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; min-height: 400px; }
+        .product-card { background: white; border-radius: 10px; overflow: hidden; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); will-change: opacity; cursor: pointer; transition: transform 0.3s ease, box-shadow 0.3s ease; }
+        .product-card:hover { transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0,0,0,0.15); }
+        .product-card.hidden { display: none; }
+        .product-card img { width: 100%; max-height: 200px; object-fit: contain; }
+        .product-card h3 { margin: 10px 0; font-size: 16px; color: black; }
+        .product-card p { margin: 0 10px 10px; font-size: 14px; color: #666; }
+        .product-card .price { font-weight: bold; color: black; }
+        .product-card .rating { margin: 5px 0; font-size: 14px; color: black; }
+        .product-card .rating .stars { color: black; }
+        .product-card .rating .sold { color: black; }
+        .product-card .product-actions { display: flex; gap: 5px; padding: 10px; }
+        .product-card button { background: #FFD700; border: none; padding: 8px 12px; cursor: pointer; flex: 1; border-radius: 5px; font-weight: bold; transition: all 0.3s ease; }
+        .product-card button:hover { background: #FFA500; transform: translateY(-2px); }
+        .error { color: red; text-align: center; margin: 20px; }
+        @media (max-width: 768px) {
+            body { padding-top: 120px; }
+            .navbar { padding: 10px; }
+            .navbar-top { flex-wrap: wrap; }
+            .marketplace-header { padding: 6px 6px 3px; min-height: 100px; }
+            .marketplace-header h1 { font-size: 30px; }
+            .marketplace-subheader { font-size: 20px; font-weight: 700; }
+            .hero-image, .hero-tile { max-width: 250px; max-height: 160px; }
+            .category-section { flex-direction: column; }
+            .category-row { justify-content: center; }
+            .nav-links { gap: 10px; }
+            .search-container { margin: 10px 10px; }
+            .signup-action .auth-buttons { padding: 10px 20px; font-size: 16px; }
+        }
+        @media (max-width: 480px) {
+            body { padding-top: 140px; }
+            .navbar-top { flex-direction: column; align-items: center; gap: 10px; }
+            .marketplace-header { padding: 4px 4px 2px; min-height: 80px; }
+            .marketplace-header h1 { font-size: 24px; }
+            .marketplace-subheader { font-size: 18px; font-weight: 700; }
+            .hero-image, .hero-tile { max-width: 200px; max-height: 130px; }
+            .search-container { margin: 0 10px; }
+            .search-icon { font-size: 16px; padding: 3px; }
+            .nav-links { flex-direction: column; align-items: center; gap: 8px; }
+            .signup-action .auth-buttons { padding: 8px 16px; font-size: 14px; }
+        }
+    </style>
+</head>
+<body>
+    <img src="{{ url_for('static', filename='A.JPG') }}" alt="" class="background-image">
+
+    <div class="navbar">
+        <div class="navbar-top">
+            <div class="brand-container">
+                <div class="brand"><a href="{{ url_for('index') }}">Zo-Zi</a></div>
+                <div class="menu-container">
+                    <div class="menu-icon">☰</div>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('profile') }}">User Account</a>
+                        <a href="{{ url_for('personal_info') }}">Personal Details</a>
+                        <a href="{{ url_for('orders') }}">Order History</a>
+                        <a href="{{ url_for('find_sellers') }}">Find Sellers</a>
+                        <a href="{{ url_for('password_reset') }}">Password Reset</a>
+                        <a href="{{ url_for('seller_dashboard') }}">Seller Account</a>
+                        <a href="{{ url_for('subscriptions') }}">Subscriptions</a>
+                        <a href="{{ url_for('zozi_assistant') }}">Zo-Zi the Assistant</a>
+                        <a href="{{ url_for('find_sellers') }}">Find Personal Sellers</a>
+                        <a href="{{ url_for('tracking') }}">Tracking</a>
+                    </div>
+                </div>
+            </div>
+            <div class="search-container">
+                <input type="text" id="search" placeholder="Search products..." name="search">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <span class="search-icon">🔍</span>
+                <div class="suggestions" id="suggestions"></div>
+            </div>
+            <div class="auth-container">
+                {% if user %}
+                    <button class="auth-buttons" onclick="window.location.href='{{ url_for('logout') }}'">Logout</button>
+                {% else %}
+                    <button class="auth-buttons" onclick="window.location.href='{{ url_for('login') }}'">Login</button>
+                {% endif %}
+                <button class="auth-buttons" onclick="window.location.href='{{ url_for('signup') }}'">Sign Up</button>
+                <div class="profile" onclick="window.location.href='{{ url_for('profile' if user else 'login') }}'" title="{% if user and user.profile_picture %}Change Profile Picture{% elif user %}Add Profile Picture{% else %}Login to add profile{% endif %}">
+                    {% if user and user.profile_picture %}
+                        <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile">
+                    {% else %}
+                        <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%;">+</span>
+                    {% endif %}
+                </div>
+                <div class="cart-icon">
+                    <img src="{{ url_for('static', filename='cart icon 3.png') }}" alt="Cart">
+                    <span class="cart-total">{{ cart_item_count }}</span>
+                    <div class="cart-dropdown" id="cartDropdown">
+                        <div id="cartItems"></div>
+                        <a href="{{ url_for('checkout') }}" class="checkout-button">Checkout</a>
+                    </div>
+                </div>
+                <div class="contact-icon" onclick="window.location.href='{{ url_for('contact') }}'">
+                    <img src="{{ url_for('static', filename='customer service.png') }}" alt="Customer Service">
+                </div>
+            </div>
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('index') }}">Home</a>
+            <a href="{{ url_for('tracking') }}">Track Order</a>
+            {% if user %}
+                <a href="{{ url_for('personal_info') }}">Personal Info</a>
+                <a href="{{ url_for('orders') }}">Orders</a>
+            {% endif %}
+            <a href="{{ url_for('find_sellers') }}">Find Sellers</a>
+            <a href="{{ url_for('free') }}">Free</a>
+            <a href="{{ url_for('seller_dashboard') }}">Become a Seller</a>
+            <a href="{{ url_for('contact') }}">Contact</a>
+            <a href="{{ url_for('cancel_refund') }}">cancel_refund</a>
+        </div>
+    </div>
+
+    <div class="marketplace-header">
+        <h1>The Official Jamaican Marketplace</h1>
+        <p class="marketplace-subheader">Empowering You Economically</p>
+    </div>
+
+    <div class="hero-container">
+        <a href="{{ url_for('handmade') }}" class="hero-tile">
+            <img src="{{ url_for('static', filename='wood.PNG') }}" alt="Island Hand-Made">
+            <p>Island Hand-Made</p>
+        </a>
+        <img src="{{ url_for('static', filename='hero.PNG') }}" alt="Hero Image" class="hero-image">
+        <img src="{{ url_for('static', filename='packages.PNG') }}" alt="Packages Image" class="hero-image">
+    </div>
+
+    {% if not user %}
+        <div class="signup-action">
+            <button class="auth-buttons" onclick="window.location.href='{{ url_for('signup') }}'">SIGN UP</button>
+        </div>
+    {% endif %}
+
+    <div class="category-section">
+        <div class="all-category">
+            <div class="category-circle" data-category="All">
+                <img src="{{ url_for('static', filename='jam all.jpg') }}" alt="All" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                <p>All</p>
+            </div>
+        </div>
+        <div class="category-rows">
+            <div class="category-row">
+                <div class="category-circle" data-category="Women Clothing">
+                    <img src="{{ url_for('static', filename='womens_bodycon_dress_2.jpeg') }}" alt="Women Clothing">
+                    <p>Women Clothing</p>
+                </div>
+                <div class="category-circle" data-category="Beachwear">
+                    <img src="{{ url_for('static', filename='kini 5.jpeg') }}" alt="Beachwear">
+                    <p>Beachwear</p>
+                </div>
+                <div class="category-circle" data-category="Kids">
+                    <img src="{{ url_for('static', filename='girl sweater.webp') }}" alt="Kids">
+                    <p>Kids</p>
+                </div>
+                <div class="category-circle" data-category="Men Clothing">
+                    <img src="{{ url_for('static', filename='mens jeans .jpeg') }}" alt="Men Clothing">
+                    <p>Men Clothing</p>
+                </div>
+                <div class="category-circle" data-category="Shoes">
+                    <img src="{{ url_for('static', filename='all star shoes.jpeg') }}" alt="Shoes">
+                    <p>Shoes</p>
+                </div>
+                <div class="category-circle" data-category="Underwear & Sleepwear">
+                    <img src="{{ url_for('static', filename='bra-11.webp') }}" alt="Underwear & Sleepwear">
+                    <p>Underwear & Sleepwear</p>
+                </div>
+                <div class="category-circle" data-category="Home & Kitchen">
+                    <img src="{{ url_for('static', filename='kitchen silver wear.jpeg') }}" alt="Home & Kitchen">
+                    <p>Home & Kitchen</p>
+                </div>
+            </div>
+            <div class="category-row">
+                <div class="category-circle" data-category="Jewelry & Accessories">
+                    <img src="{{ url_for('static', filename='ear ring jewelry.jpeg') }}" alt="Jewelry & Accessories">
+                    <p>Jewelry & Accessories</p>
+                </div>
+                <div class="category-circle" data-category="Beauty & Health">
+                    <img src="{{ url_for('static', filename='red lip balm.jpeg') }}" alt="Beauty & Health">
+                    <p>Beauty & Health</p>
+                </div>
+                <div class="category-circle" data-category="Baby & Maternity">
+                    <img src="{{ url_for('static', filename='baby gift set 5.jpeg') }}" alt="Baby & Maternity">
+                    <p>Baby & Maternity</p>
+                </div>
+                <div class="category-circle" data-category="Sports & Outdoors">
+                    <img src="{{ url_for('static', filename='dumbell 10lbs.webp') }}" alt="Sports & Outdoors">
+                    <p>Sports & Outdoors</p>
+                </div>
+                <div class="category-circle" data-category="Home Textiles">
+                    <img src="{{ url_for('static', filename='thread 1.webp') }}" alt="Home Textiles">
+                    <p>Home Textiles</p>
+                </div>
+                <div class="category-circle" data-category="Electronics">
+                    <img src="{{ url_for('static', filename='earphone apple 1.webp') }}" alt="Electronics">
+                    <p>Electronics</p>
+                </div>
+                <div class="category-circle" data-category="Tools & Home Improvement">
+                    <img src="{{ url_for('static', filename='drill .jpeg') }}" alt="Tools & Home Improvement">
+                    <p>Tools & Home Improvement</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="products-container">
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+        {% for key, product in products.items() %}
+            <div class="product-card" data-category="{% if product.category == 'Jewelry' %}Jewelry & Accessories{% elif product.category == 'Home & Kitchen' %}Home Textiles{% else %}{{ product.category }}{% endif %}" data-product-key="{{ key }}">
+                <img src="{{ url_for('static', filename=product.image_url) }}" alt="{{ product.name }}" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                <h3>{{ product.name }}</h3>
+                <p>{{ product.description }}</p>
+                <p class="price">{{ product.price }} JMD</p>
+                <p class="rating">
+                    <span class="stars">★★★★★</span>
+                    <span class="sold">(100 sold)</span>
+                </p>
+                <div class="product-actions">
+                    <button onclick="event.stopPropagation(); handleAddToCart('{{ key | replace('\'', '\\\'') }}')">Add to Cart</button>
+                    <button onclick="event.stopPropagation(); buyNow('{{ key | replace('\'', '\\\'') }}', {{ product.price }}, '{{ product.image_url }}')">Buy Now</button>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <script>
+        // Get CSRF token
+        function getCSRFToken() {
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            return meta ? meta.getAttribute('content') : '';
+        }
+
+        // Show toast notification
+        function showToast(title, message, type = 'success') {
+            const existingToast = document.querySelector('.toast');
+            if (existingToast) {
+                existingToast.remove();
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+
+            toast.innerHTML = `
+                <div class="toast-icon">${icon}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 100);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 2000);
+        }
+
+        // Utility function to escape HTML to prevent XSS
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Debounce function to limit updateCart calls
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // Navigate to product page
+        function goToProduct(productKey) {
+            const cleanProductKey = productKey.replace(/'/g, '').trim();
+            const encodedKey = encodeURIComponent(cleanProductKey.replace(/ /g, '+'));
+            const productUrl = `/product/${encodedKey}`;
+
+            console.log('Navigating to product:', productUrl);
+            window.location.href = productUrl;
+        }
+
+        // Handle add to cart from home page
+        async function handleAddToCart(productKey) {
+            try {
+                const response = await fetch('/cart', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify({
+                        product_key: productKey,
+                        quantity: 1
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    showToast('Added to Cart! 🛒', 'Product successfully added to your cart');
+
+                    // Update cart badge
+                    const cartBadges = document.querySelectorAll('.cart-total, .cart-count, .cart-item-count');
+                    cartBadges.forEach(badge => {
+                        badge.textContent = data.cart_item_count || 0;
+                        badge.style.animation = 'bounce 0.5s ease-in-out';
+                        setTimeout(() => badge.style.animation = '', 500);
+                    });
+
+                    // Update cart dropdown if present
+                    updateCartDisplay();
+                } else {
+                    showToast('Error', data.message || 'Failed to add to cart', 'error');
+                }
+            } catch (error) {
+                console.error('Add to cart error:', error);
+                showToast('Error', 'Something went wrong. Please try again.', 'error');
+            }
+        }
+
+        // Buy now (add to cart and redirect to checkout)
+        async function buyNow(productKey, price, imageUrl) {
+            try {
+                const response = await fetch('/cart', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify({
+                        product_key: productKey,
+                        quantity: 1
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    document.querySelector('.cart-total').textContent = data.cart_item_count || 0;
+                    updateCartDisplay();
+                    showToast('Added to Cart! 🛒', 'Redirecting to checkout...');
+                    setTimeout(() => {
+                        window.location.href = '{{ url_for('checkout') }}';
+                    }, 1000);
+                } else {
+                    showToast('Error', data.message || 'Failed to add product to cart.', 'error');
+                }
+            } catch (error) {
+                console.error('Buy now error:', error);
+                showToast('Error', 'Network error while adding to cart.', 'error');
+            }
+        }
+
+        // Remove from cart
+        async function removeFromCart(productKey) {
+            try {
+                const response = await fetch('/update_cart', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify({
+                        product_key: productKey,
+                        quantity: 0
+                    })
+                });
+
+                const data = await response.json();
+                if (data.success) {
+                    document.querySelector('.cart-total').textContent = data.cart_item_count || 0;
+                    updateCartDisplay();
+                    showToast('Item Removed', 'Item removed from cart');
+                } else {
+                    showToast('Error', data.message || 'Failed to remove product from cart.', 'error');
+                }
+            } catch (error) {
+                console.error('Remove from cart error:', error);
+                showToast('Error', 'Network error while removing from cart.', 'error');
+            }
+        }
+
+        // Update cart display
+        async function updateCartDisplay() {
+            try {
+                const response = await fetch('/cart/data', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.success) {
+                    // Update cart badges
+                    const cartBadges = document.querySelectorAll('.cart-total, .cart-count, .cart-item-count');
+                    cartBadges.forEach(badge => {
+                        badge.textContent = data.cart_item_count || 0;
+                    });
+
+                    // Update cart dropdown if it exists
+                    updateCartDropdown(data);
+                }
+            } catch (error) {
+                console.error('Update cart display error:', error);
+            }
+        }
+
+        // Update cart dropdown
+        function updateCartDropdown(data) {
+            const cartItemsDiv = document.getElementById('cartItems');
+
+            if (!cartItemsDiv) return;
+
+            cartItemsDiv.innerHTML = '';
+
+            if (!data.cart_items || data.cart_items.length === 0) {
+                cartItemsDiv.innerHTML = '<p class="empty-cart">Your cart is empty</p>';
+            } else {
+                data.cart_items.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'cart-item';
+
+                    const baseProductKey = item.product_key.split(' (')[0];
+                    const productUrl = `/product/${encodeURIComponent(baseProductKey.replace(/ /g, '+'))}`;
+
+                    itemDiv.innerHTML = `
+                        <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.name || item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
+                        <div class="cart-item-details">
+                            <p><a href="${productUrl}">${escapeHTML(item.name || item.product_key)}</a></p>
+                            <p>${item.price} JMD x ${item.quantity}</p>
+                        </div>
+                        <span class="remove-item" onclick="removeFromCart('${escapeHTML(item.product_key)}')">x</span>
+                    `;
+                    cartItemsDiv.appendChild(itemDiv);
+                });
+            }
+        }
+
+        // Cart dropdown toggle
+        function initializeCartDropdown() {
+            const cartIcon = document.querySelector('.cart-icon');
+            const cartDropdown = document.getElementById('cartDropdown');
+
+            if (!cartIcon || !cartDropdown) return;
+
+            cartIcon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const isVisible = cartDropdown.style.display === 'block';
+                cartDropdown.style.display = isVisible ? 'none' : 'block';
+
+                if (!isVisible) {
+                    updateCartDisplay();
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!cartIcon.contains(e.target) && !cartDropdown.contains(e.target)) {
+                    cartDropdown.style.display = 'none';
+                }
+            });
+        }
+
+        // Search functionality
+        const searchInput = document.getElementById('search');
+        const suggestionsDiv = document.getElementById('suggestions');
+        const searchIcon = document.querySelector('.search-icon');
+
+        async function showSuggestions() {
+            const query = searchInput.value;
+            if (query.length < 2) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+            try {
+                const response = await fetch(`/autocomplete?query=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                suggestionsDiv.innerHTML = '';
+                data.forEach(suggestion => {
+                    const a = document.createElement('a');
+                    a.href = `/product/${suggestion.product_key.replace(/ /g, '+')}`;
+                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/placeholder.jpg'"><span>${escapeHTML(suggestion.name)}</span>`;
+                    suggestionsDiv.appendChild(a);
+                });
+                suggestionsDiv.style.display = data.length ? 'block' : 'none';
+            } catch (error) {
+                console.error('Error loading suggestions:', error);
+                suggestionsDiv.style.display = 'none';
+            }
+        }
+
+        async function triggerSearch() {
+            const query = searchInput.value;
+            if (query.length < 2) {
+                showToast('Search Error', 'Please enter at least 2 characters to search.', 'error');
+                return;
+            }
+            window.location.href = `/search?query=${encodeURIComponent(query)}`;
+        }
+
+        searchInput.addEventListener('input', showSuggestions);
+        searchIcon.addEventListener('click', triggerSearch);
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                triggerSearch();
+            }
+        });
+
+        // Category Filtering
+        document.querySelectorAll('.category-circle').forEach(circle => {
+            circle.addEventListener('click', function() {
+                const selectedCategory = this.dataset.category;
+                document.querySelectorAll('.product-card').forEach(product => {
+                    if (selectedCategory === 'All' || product.dataset.category === selectedCategory) {
+                        product.classList.remove('hidden');
+                    } else {
+                        product.classList.add('hidden');
+                    }
+                });
+            });
+        });
+
+        // Initialize everything when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Update cart display
+            updateCartDisplay();
+
+            // Initialize cart dropdown
+            initializeCartDropdown();
+
+            // Fix product card clicks
+            const productCards = document.querySelectorAll('.product-card');
+            productCards.forEach(card => {
+                const productKey = card.getAttribute('data-product-key');
+
+                if (productKey) {
+                    card.addEventListener('click', function(e) {
+                        // Don't navigate if clicking on buttons
+                        if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                            return;
+                        }
+
+                        e.preventDefault();
+                        goToProduct(productKey);
+                    });
+                }
+            });
+        });
+
+        // Update cart when page becomes visible
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                updateCartDisplay();
+            }
+        });
+
+        // Update cart when page gains focus
+        window.addEventListener('focus', function() {
+            updateCartDisplay();
+        });
+    </script>
+</body>
+</html>

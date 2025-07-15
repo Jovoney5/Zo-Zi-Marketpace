@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>My Orders - Zo-Zi</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #d1f2eb;
+            min-height: 100vh;
+            padding-top: 80px;
+        }
+
+        /* Simple Navbar */
+        .navbar {
+            background-color: rgba(51, 51, 51, 0.95);
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 1000;
+            box-sizing: border-box;
+        }
+
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+        }
+
+        .navbar a:hover {
+            color: #FFD700;
+        }
+
+        .profile {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+
+        .profile img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        .cart-total {
+            background: red;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 12px;
+        }
+
+        /* Main Container */
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .page-title {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+
+        /* Simple Filter */
+        .filter-bar {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .filter-bar select {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-left: 10px;
+        }
+
+        /* Simple Order Card */
+        .order {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .order-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .order-id {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .order-date {
+            color: #666;
+            font-size: 14px;
+        }
+
+        .order-status {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .status-pending { background: #ffc107; color: #000; }
+        .status-confirmed { background: #17a2b8; color: white; }
+        .status-shipped { background: #6f42c1; color: white; }
+        .status-delivered { background: #28a745; color: white; }
+        .status-cancelled { background: #dc3545; color: white; }
+        .status-refunded { background: #6c757d; color: white; }
+
+        /* Order Info */
+        .order-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 15px;
+        }
+
+        .order-info div {
+            flex: 1;
+        }
+
+        .order-info strong {
+            color: #333;
+        }
+
+        /* Order Items */
+        .order-items h4 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .item {
+            display: flex;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .item:last-child {
+            border-bottom: none;
+        }
+
+        .item img {
+            width: 60px;
+            height: 60px;
+            border-radius: 5px;
+            object-fit: contain;
+            margin-right: 15px;
+            background: #f8f9fa;
+            padding: 5px;
+        }
+
+        .item-name {
+            font-weight: bold;
+            color: #333;
+        }
+
+        .item-price {
+            color: #666;
+            font-size: 14px;
+        }
+
+        /* Simple Buttons */
+        .order-actions {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: #FFD700;
+            color: #333;
+        }
+
+        .btn-primary:hover {
+            background: #FFA500;
+        }
+
+        .btn-outline {
+            background: white;
+            color: #28a745;
+            border: 2px solid #28a745;
+        }
+
+        .btn-outline:hover {
+            background: #28a745;
+            color: white;
+        }
+
+        /* Empty State */
+        .no-orders {
+            text-align: center;
+            padding: 50px;
+            background: white;
+            border-radius: 10px;
+        }
+
+        .no-orders h3 {
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .no-orders p {
+            color: #666;
+            margin-bottom: 20px;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                padding: 10px;
+            }
+
+            .container {
+                padding: 10px;
+            }
+
+            .page-title {
+                font-size: 2em;
+            }
+
+            .order-header {
+                flex-direction: column;
+                text-align: center;
+                gap: 10px;
+            }
+
+            .order-info {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .item {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .item img {
+                margin-right: 0;
+                margin-bottom: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Simple Navbar -->
+    <nav class="navbar">
+        <div>
+            <a href="{{ url_for('index') }}">🏠 Zo-Zi</a>
+            <a href="{{ url_for('index') }}">Shop</a>
+            <a href="{{ url_for('contact') }}">Contact</a>
+            {% if user %}
+                <a href="{{ url_for('profile') }}">Profile</a>
+                {% if user.is_seller %}
+                    <a href="{{ url_for('seller_dashboard') }}">Dashboard</a>
+                {% endif %}
+                <a href="{{ url_for('logout') }}">Logout</a>
+            {% else %}
+                <a href="{{ url_for('login') }}">Login</a>
+                <a href="{{ url_for('signup') }}">Signup</a>
+            {% endif %}
+        </div>
+        <div style="display: flex; align-items: center;">
+            <div class="profile" onclick="window.location.href='{{ url_for('profile' if user else 'login') }}'">
+                {% if user and user.profile_picture %}
+                    <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile">
+                {% else %}
+                    <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%; text-align: center;">+</span>
+                {% endif %}
+            </div>
+            <a href="{{ url_for('cart') }}" style="margin-left: 15px;">
+                🛒 Cart (<span class="cart-total">{{ cart_item_count }}</span>)
+            </a>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container">
+        <h1 class="page-title">My Orders</h1>
+
+        <!-- Simple Filter -->
+        {% if available_statuses %}
+        <div class="filter-bar">
+            <label>Filter by Status:</label>
+            <select onchange="window.location.href='{{ url_for('orders') }}?status=' + this.value">
+                <option value="">All Orders</option>
+                {% for status in available_statuses %}
+                    <option value="{{ status }}" {% if status == status_filter %}selected{% endif %}>
+                        {{ status.title() }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <!-- Orders List -->
+        {% if orders %}
+            {% for order in orders %}
+            <div class="order">
+                <!-- Order Header -->
+                <div class="order-header">
+                    <div>
+                        <div class="order-id">Order #{{ order['order_id'] }}</div>
+                        <div class="order-date">{{ order['date'] }} at {{ order['time'] }}</div>
+                    </div>
+                    <div class="order-status status-{{ order['status'] }}">
+                        {{ order['status_text'] }}
+                    </div>
+                </div>
+
+                <!-- Order Info -->
+                <div class="order-info">
+                    <div><strong>Total:</strong> ${{ '{:.2f}'.format(order['total']) }} JMD</div>
+                    <div><strong>Items:</strong> {{ order['item_count'] }}</div>
+                    <div><strong>Shipping:</strong> {{ order['shipping_type'] }}</div>
+                    <div><strong>Payment:</strong> {{ order['payment_method'] }}</div>
+                </div>
+
+                {% if order['discount'] > 0 %}
+                <div style="background: #d4edda; color: #155724; padding: 10px; border-radius: 5px; margin: 10px 0; text-align: center;">
+                    🎉 You saved ${{ '{:.2f}'.format(order['discount']) }} JMD!
+                </div>
+                {% endif %}
+
+                <!-- Order Items -->
+                <div class="order-items">
+                    <h4>Items Ordered:</h4>
+                    {% for item in order['items'] %}
+                    <div class="item">
+                        <!-- Debug: Show image URL in console -->
+                        <script>console.log('Image URL for {{ item.product_name }}:', '{{ item.image_url }}');</script>
+
+                        <!-- Fixed image display with multiple fallbacks -->
+                        <img src="{{ url_for('static', filename=item.image_url) }}"
+                             alt="{{ item.product_name }}"
+                             onerror="this.onerror=null;
+                                     this.src='{{ url_for('static', filename='placeholder.jpg') }}';
+                                     console.log('Image failed to load:', '{{ item.image_url }}');"
+                             onload="console.log('Image loaded successfully:', '{{ item.image_url }}');">
+
+                        <div style="flex: 1;">
+                            <div class="item-name">{{ item.product_name }}</div>
+                            <div class="item-price">Qty: {{ item.quantity }} × ${{ '{:.2f}'.format(item.price) }} = ${{ '{:.2f}'.format(item.total_price) }} JMD</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- Order Actions -->
+                <div class="order-actions">
+                    <a href="{{ url_for('receipt', order_id=order['order_id']) }}" class="btn btn-primary">View Receipt</a>
+                    {% if order['status'] in ['pending', 'confirmed'] %}
+                        <a href="{{ url_for('cancel_refund') }}" class="btn btn-outline">Cancel Order</a>
+                    {% endif %}
+                    <a href="{{ url_for('contact') }}" class="btn btn-outline">Contact Support</a>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <!-- No Orders -->
+            <div class="no-orders">
+                <h3>📦 No Orders Found</h3>
+                {% if status_filter %}
+                    <p>No orders found with status: {{ status_filter.title() }}</p>
+                    <a href="{{ url_for('orders') }}" class="btn btn-primary">Show All Orders</a>
+                {% else %}
+                    <p>You haven't placed any orders yet.</p>
+                    <a href="{{ url_for('index') }}" class="btn btn-primary">Start Shopping</a>
+                {% endif %}
+            </div>
+        {% endif %}
+
+        <!-- Simple Pagination -->
+        {% if total_pages > 1 %}
+        <div style="text-align: center; margin-top: 30px;">
+            {% if page > 1 %}
+                <a href="{{ url_for('orders', page=page-1, status=status_filter) }}" class="btn btn-outline">← Previous</a>
+            {% endif %}
+            <span style="margin: 0 20px;">Page {{ page }} of {{ total_pages }}</span>
+            {% if page < total_pages %}
+                <a href="{{ url_for('orders', page=page+1, status=status_filter) }}" class="btn btn-outline">Next →</a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        console.log('Orders page loaded - {{ orders|length }} orders displayed');
+    </script>
+</body>
+</html>

@@ -1,0 +1,1263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Checkout - Zo-Zi</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+        }
+
+        /* Toast Notification Styles */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+            z-index: 10000;
+            transform: translateX(400px);
+            opacity: 0;
+            transition: all 0.3s ease-in-out;
+            font-family: 'Arial', sans-serif;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 350px;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+        }
+
+        .toast-icon {
+            font-size: 20px;
+            animation: bounce 0.5s ease-in-out;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+
+        .toast-message {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .navbar {
+            background-color: #333;
+            color: white;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .navbar a {
+            color: white;
+            text-decoration: none;
+            margin: 0 15px;
+        }
+        .navbar a:hover {
+            text-decoration: underline;
+        }
+        .cart-icon {
+            position: relative;
+        }
+        .cart-total {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: red;
+            color: white;
+            border-radius: 50%;
+            padding: 5px 8px;
+            font-size: 12px;
+        }
+        .cart-dropdown {
+            display: none;
+            position: absolute;
+            top: 40px;
+            right: 0;
+            background: white;
+            border: 1px solid #ccc;
+            width: 300px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+            color: black;
+        }
+        .cart-dropdown .cart-item {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+        }
+        .cart-dropdown .cart-item img {
+            width: 50px;
+            height: 50px;
+            margin-right: 10px;
+            object-fit: contain;
+        }
+        .cart-dropdown .cart-item-details {
+            flex: 1;
+        }
+        .cart-dropdown .cart-item-details p {
+            margin: 0;
+            font-size: 12px;
+        }
+        .cart-dropdown .cart-item-details a {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .cart-dropdown .cart-item-details a:hover {
+            text-decoration: underline;
+        }
+        .cart-dropdown .remove-item {
+            cursor: pointer;
+            color: red;
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .cart-dropdown .remove-item:hover {
+            color: darkred;
+        }
+        .cart-dropdown .cart-footer {
+            padding: 10px;
+            text-align: right;
+        }
+        .cart-dropdown .empty-cart {
+            padding: 10px;
+            text-align: center;
+            color: #666;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        /* User Type Selection */
+        .user-type-selection {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+
+        .user-type-option {
+            flex: 1;
+            max-width: 250px;
+            padding: 20px;
+            border: 3px solid #ddd;
+            border-radius: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .user-type-option:hover {
+            border-color: #28a745;
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        }
+
+        .user-type-option.active {
+            border-color: #28a745;
+            background: linear-gradient(135deg, #e8f5e8, #f0f8f0);
+        }
+
+        .user-type-icon {
+            font-size: 40px;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        .user-type-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .user-type-desc {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .checkout-form {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        .cart-summary, .form-details {
+            flex: 1;
+            min-width: 300px;
+        }
+        .cart-summary {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .cart-summary h2, .form-details h2 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #28a745;
+            padding-bottom: 10px;
+        }
+        .cart-item {
+            display: flex;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #dee2e6;
+            transition: background-color 0.3s ease;
+        }
+        .cart-item:hover {
+            background-color: rgba(40, 167, 69, 0.05);
+            border-radius: 8px;
+            padding: 15px 10px;
+            margin: 0 -10px;
+        }
+        .cart-item img {
+            width: 70px;
+            height: 70px;
+            margin-right: 15px;
+            border-radius: 8px;
+            object-fit: contain;
+            background: white;
+            padding: 5px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .cart-item-details {
+            flex: 1;
+        }
+        .cart-item-details p {
+            margin: 5px 0;
+        }
+        .cart-item-details a {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .cart-item-details a:hover {
+            text-decoration: underline;
+            color: #0056b3;
+        }
+        .remove-item {
+            cursor: pointer;
+            color: #dc3545;
+            font-weight: bold;
+            font-size: 18px;
+            padding: 5px 10px;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        .remove-item:hover {
+            background-color: #dc3545;
+            color: white;
+            transform: scale(1.1);
+        }
+        .form-details {
+            background: white;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .form-section {
+            display: none;
+        }
+        .form-section.active {
+            display: block;
+        }
+        .form-details label {
+            display: block;
+            margin: 15px 0 8px;
+            font-weight: bold;
+            color: #333;
+        }
+        .form-details input, .form-details select {
+            width: 100%;
+            padding: 12px 15px;
+            margin-bottom: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+            box-sizing: border-box;
+        }
+        .form-details input:focus, .form-details select:focus {
+            border-color: #28a745;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+        }
+        .form-details .note {
+            font-size: 12px;
+            color: #28a745;
+            margin: -10px 0 15px 0;
+            font-style: italic;
+        }
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        .required {
+            color: red;
+        }
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 25px;
+        }
+        .form-details button {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            flex: 1;
+            min-width: 150px;
+        }
+        .form-details button[type="submit"] {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+        }
+        .form-details button[type="submit"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+        .form-details button[type="submit"]:disabled {
+            background: #6c757d;
+            transform: none;
+            cursor: not-allowed;
+        }
+        .form-details .cancel-button {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: white;
+        }
+        .form-details .cancel-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+        }
+        .form-details .continue-button {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #333;
+        }
+        .form-details .continue-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3);
+        }
+        .login-section {
+            text-align: center;
+        }
+        .login-form {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        .guest-option {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border: 2px dashed #ddd;
+        }
+        .guest-option-text {
+            color: #666;
+            margin-bottom: 10px;
+        }
+        .error {
+            color: #dc3545;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 8px;
+        }
+        .field-error {
+            color: #dc3545;
+            font-size: 12px;
+            margin-top: -10px;
+            margin-bottom: 10px;
+            display: none;
+        }
+        .loading {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+        .background-video {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1;
+            opacity: 0.3;
+        }
+        .profile {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-left: 10px;
+            cursor: pointer;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .profile img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+        .shipping-option {
+            display: flex;
+            align-items: center;
+            margin: 15px 0;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .shipping-option:hover {
+            border-color: #28a745;
+            background-color: rgba(40, 167, 69, 0.05);
+        }
+        .shipping-option input[type="radio"] {
+            margin-right: 15px;
+            transform: scale(1.2);
+        }
+        .shipping-option label {
+            margin: 0;
+            cursor: pointer;
+            font-weight: normal;
+        }
+        .shipping-option.selected {
+            border-color: #28a745;
+            background-color: rgba(40, 167, 69, 0.1);
+        }
+        .total-section {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        .total-section p {
+            margin: 8px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .total-section .final-total {
+            font-size: 20px;
+            font-weight: bold;
+            border-top: 2px solid rgba(255,255,255,0.3);
+            padding-top: 15px;
+            margin-top: 15px;
+        }
+
+        @media (max-width: 768px) {
+            .checkout-form {
+                flex-direction: column;
+            }
+            .user-type-selection {
+                flex-direction: column;
+            }
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            .button-group {
+                flex-direction: column;
+            }
+            .form-details button {
+                flex: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <video id="bgVideo" autoplay muted loop class="background-video">
+        <source src="{{ url_for('static', filename='flag_vid.webm') }}" type="video/webm">
+    </video>
+
+    <nav class="navbar">
+        <div>
+            <a href="{{ url_for('index') }}">Zo-Zi</a>
+            <a href="{{ url_for('search') }}">Shop</a>
+            <a href="{{ url_for('contact') }}">Contact</a>
+            {% if user %}
+                <a href="{{ url_for('profile') }}">Profile</a>
+                <a href="{{ url_for('orders') }}">Orders</a>
+                {% if user.is_seller %}
+                    <a href="{{ url_for('seller_dashboard') }}">Dashboard</a>
+                {% endif %}
+                <a href="{{ url_for('logout') }}">Logout</a>
+            {% else %}
+                <a href="{{ url_for('login') }}">Login</a>
+                <a href="{{ url_for('signup') }}">Signup</a>
+            {% endif %}
+        </div>
+        <div class="profile" onclick="window.location.href='{{ url_for('profile' if user else 'login') }}'" title="{% if user and user.profile_picture %}Change Profile Picture{% elif user %}Add Profile Picture{% else %}Login to add profile{% endif %}">
+            {% if user and user.profile_picture %}
+                <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+            {% else %}
+                <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%; text-align: center;">+</span>
+            {% endif %}
+        </div>
+        <div class="cart-icon">
+            <a href="{{ url_for('cart') }}">Cart (<span class="cart-total">{{ cart_item_count }}</span>)</a>
+            <div class="cart-dropdown" id="cartDropdown">
+                <div id="cartItems"></div>
+                <div class="cart-footer">
+                    <p id="cartTotal">Total: {{ cart_total }} JMD</p>
+                    <a href="{{ url_for('cart') }}">View Cart</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <h1>🛒 Checkout</h1>
+        {% if error %}
+            <p class="error" id="formError">{{ error }}</p>
+        {% else %}
+            <p class="error" id="formError" style="display: none;"></p>
+        {% endif %}
+
+        <!-- User Type Selection -->
+        {% if not user %}
+        <div class="user-type-selection">
+            <div class="user-type-option" data-type="guest">
+                <span class="user-type-icon">👤</span>
+                <div class="user-type-title">Guest Checkout</div>
+                <div class="user-type-desc">Quick checkout without creating an account</div>
+            </div>
+            <div class="user-type-option" data-type="login">
+                <span class="user-type-icon">🔐</span>
+                <div class="user-type-title">Login & Checkout</div>
+                <div class="user-type-desc">Access your account and saved information</div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="checkout-form">
+            <div class="cart-summary">
+                <h2>📦 Order Summary</h2>
+                {% for item in cart_items %}
+                    <div class="cart-item">
+                        <img src="{{ url_for('static', filename=item.image_url) }}" alt="{{ item.name or item.product_key }}" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                        <div class="cart-item-details">
+                            {% set base_product_key = item.product_key.split(' (')[0] %}
+                            <p><a href="{{ url_for('product', product_key=base_product_key|replace(' ', '+')) }}">{{ item.name or item.product_key }}</a></p>
+                            <p><strong>${{ item.price }} JMD</strong> × {{ item.quantity }}</p>
+                        </div>
+                        <span class="remove-item" onclick="removeFromCart('{{ item.product_key | safe }}')">×</span>
+                    </div>
+                {% endfor %}
+
+                <div class="total-section">
+                    <p><span>Subtotal:</span> <span>${{ cart_total }} JMD</span></p>
+                    {% if discount %}
+                        <p><span>Discount Applied:</span> <span>-${{ discount }} JMD</span></p>
+                    {% endif %}
+                    <p><span>Shipping Fee:</span> <span id="shippingFeeDisplay">$500 JMD</span></p>
+                    <p><span>Handling Fee (5%):</span> <span id="handlingFee">{% if cart_total %}${{ (cart_total * 0.05)|round(2) }}{% else %}$0.00{% endif %} JMD</span></p>
+                    <p class="final-total"><span>Total:</span> <span id="total">{% if cart_total %}${{ (cart_total + 500 + (cart_total * 0.05))|round(2) }}{% else %}$0.00{% endif %} JMD</span></p>
+                    {% if discount %}
+                        <p class="final-total"><span>Final Total:</span> <span id="adjustedTotal">{% if cart_total %}${{ (cart_total - discount + 500 + (cart_total * 0.05))|round(2) }}{% else %}$0.00{% endif %} JMD</span></p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="form-details">
+                <!-- Guest Checkout Form -->
+                <div id="guest-section" class="form-section {% if not user %}active{% endif %}">
+                    <h2>👤 Guest Checkout</h2>
+                    <form method="POST" action="{{ url_for('checkout') }}" id="guestCheckoutForm">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="user_type" value="guest">
+
+                        <div class="form-row">
+                            <div>
+                                <label for="guest_first_name">First Name <span class="required">*</span></label>
+                                <input type="text" id="guest_first_name" name="guest_first_name" required>
+                            </div>
+                            <div>
+                                <label for="guest_last_name">Last Name <span class="required">*</span></label>
+                                <input type="text" id="guest_last_name" name="guest_last_name" required>
+                            </div>
+                        </div>
+
+                        <label for="guest_email">📧 Email Address <span class="required">*</span></label>
+                        <input type="email" id="guest_email" name="guest_email" required>
+
+                        <label for="guest_phone">📱 Phone Number <span class="required">*</span></label>
+                        <input type="tel" id="guest_phone" name="guest_phone" required>
+
+                        <label for="guest_address">🏠 Address <span class="required">*</span></label>
+                        <input type="text" id="guest_address" name="guest_address" required>
+
+                        <label for="guest_parish">🗺️ Parish <span class="required">*</span></label>
+                        <select id="guest_parish" name="guest_parish" required>
+                            <option value="" disabled selected>Select a parish</option>
+                            {% for parish in parishes %}
+                                <option value="{{ parish }}">{{ parish }}</option>
+                            {% endfor %}
+                        </select>
+
+                        <label for="guest_post_office">🏤 Post Office <span class="required">*</span></label>
+                        <select id="guest_post_office" name="guest_post_office" required disabled>
+                            <option value="" disabled selected>Select a post office</option>
+                        </select>
+
+                        <label>🚚 Shipping Options</label>
+                        <div class="shipping-option" onclick="selectShipping('regular', this)">
+                            <input type="radio" name="shipping_option" value="regular" onchange="updateShipping('regular', 500)">
+                            <label>
+                                <strong>Regular Shipping - $500 JMD</strong><br>
+                                <small>Delivery in 3-5 business days</small>
+                            </label>
+                        </div>
+                        <div class="shipping-option" onclick="selectShipping('overnight', this)">
+                            <input type="radio" name="shipping_option" value="overnight" onchange="updateShipping('overnight', 1200)">
+                            <label>
+                                <strong>Overnight Shipping - $1200 JMD</strong><br>
+                                <small>Next business day delivery</small>
+                            </label>
+                        </div>
+
+                        <label for="guest_payment_method">💳 Payment Method <span class="required">*</span></label>
+                        <select id="guest_payment_method" name="payment_method" required>
+                            <option value="" disabled selected>Select a payment method</option>
+                            <option value="skrill">💰 Skrill</option>
+                            <option value="cash_on_delivery">💵 Cash on Delivery</option>
+                            <option value="bank_transfer">🏦 Bank Transfer</option>
+                        </select>
+
+                        <div class="button-group">
+                            <button type="submit">🛍️ Place Order as Guest</button>
+                            <button type="button" class="cancel-button" onclick="window.location.href='{{ url_for('cart') }}'">❌ Cancel</button>
+                            <button type="button" class="continue-button" onclick="window.location.href='{{ url_for('index') }}'">🛒 Continue Shopping</button>
+                        </div>
+                    </form>
+
+                    <div class="guest-option">
+                        <p class="guest-option-text">Want to save your information for future orders?</p>
+                        <button type="button" class="continue-button" onclick="window.location.href='{{ url_for('signup') }}'">Create Account</button>
+                    </div>
+                </div>
+
+                <!-- Login Form -->
+                <div id="login-section" class="form-section">
+                    <h2>🔐 Login to Continue</h2>
+                    <div class="login-section">
+                        <form method="POST" action="{{ url_for('login') }}" class="login-form">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                            <label for="login_identifier">Email or Phone Number</label>
+                            <input type="text" id="login_identifier" name="identifier" required>
+
+                            <label for="login_password">Password</label>
+                            <input type="password" id="login_password" name="password" required>
+
+                            <div class="button-group">
+                                <button type="submit">🔓 Login & Checkout</button>
+                                <button type="button" class="continue-button" onclick="window.location.href='{{ url_for('signup') }}'">📝 Create Account</button>
+                            </div>
+                        </form>
+
+                        <div class="guest-option">
+                            <p class="guest-option-text">Don't want to create an account?</p>
+                            <button type="button" class="cancel-button" onclick="switchToGuest()">👤 Continue as Guest</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- User Checkout Form (for logged-in users) -->
+                {% if user %}
+                <div id="user-section" class="form-section active">
+                    <h2>🚚 Shipping & Payment</h2>
+                    <form method="POST" action="{{ url_for('checkout') }}" id="userCheckoutForm">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="user_type" value="user">
+
+                        <label for="full_name">👤 Full Name</label>
+                        <input type="text" id="full_name" name="full_name" value="{{ user.first_name + ' ' + user.last_name if user.first_name and user.last_name else '' }}" required>
+
+                        <label for="phone_number">📱 Phone Number</label>
+                        <input type="text" id="phone_number" name="phone_number" value="{{ user.phone_number or '' }}" required>
+
+                        <label for="address">🏠 Address</label>
+                        <input type="text" id="address" name="address" value="{{ user.address or '' }}" required>
+
+                        <label for="parish">🗺️ Parish</label>
+                        <select id="parish" name="parish" required>
+                            <option value="" disabled selected>Select a parish</option>
+                            {% for parish in parishes %}
+                                <option value="{{ parish }}">{{ parish }}</option>
+                            {% endfor %}
+                        </select>
+                        <p class="note">📍 Delivery will be made to this parish</p>
+
+                        <label for="post_office">🏤 Post Office</label>
+                        <select id="postOffice" name="post_office" required disabled>
+                            <option value="" disabled selected>Select a post office</option>
+                        </select>
+                        <p class="note">📦 Pick up your order at this location</p>
+
+                        <label>🚚 Shipping Options</label>
+                        <div class="shipping-option" onclick="selectShipping('regular', this)">
+                            <input type="radio" name="shipping_option" value="regular" onchange="updateShipping('regular', 500)">
+                            <label>
+                                <strong>Regular Shipping - $500 JMD</strong><br>
+                                <small>Delivery in 3-5 business days</small>
+                            </label>
+                        </div>
+                        <div class="shipping-option" onclick="selectShipping('overnight', this)">
+                            <input type="radio" name="shipping_option" value="overnight" onchange="updateShipping('overnight', 1200)">
+                            <label>
+                                <strong>Overnight Shipping - $1200 JMD</strong><br>
+                                <small>Next business day delivery</small>
+                            </label>
+                        </div>
+
+                        <label for="payment_method">💳 Payment Method</label>
+                        <select id="payment_method" name="payment_method" required>
+                            <option value="" disabled selected>Select a payment method</option>
+                            <option value="skrill">💰 Skrill</option>
+                            <option value="cash_on_delivery">💵 Cash on Delivery</option>
+                            <option value="bank_transfer">🏦 Bank Transfer</option>
+                        </select>
+
+                        <div class="button-group">
+                            <button type="submit" id="placeOrderBtn">🛍️ Place Order</button>
+                            <button type="button" class="cancel-button" onclick="window.location.href='{{ url_for('cart') }}'">❌ Cancel Order</button>
+                            <button type="button" class="continue-button" onclick="window.location.href='{{ url_for('index') }}'">🛒 Continue Shopping</button>
+                        </div>
+                    </form>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get CSRF token
+        function getCSRFToken() {
+            return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        }
+
+        // Show toast notification
+        function showToast(title, message, type = 'success') {
+            const existingToast = document.querySelector('.toast');
+            if (existingToast) {
+                existingToast.remove();
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+
+            const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+
+            toast.innerHTML = `
+                <div class="toast-icon">${icon}</div>
+                <div class="toast-content">
+                    <div class="toast-title">${title}</div>
+                    <div class="toast-message">${message}</div>
+                </div>
+            `;
+
+            document.body.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 100);
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 2000);
+        }
+
+        // Utility function to escape HTML to prevent XSS
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // User type selection
+        {% if not user %}
+        document.querySelectorAll('.user-type-option').forEach(option => {
+            option.addEventListener('click', function() {
+                const type = this.dataset.type;
+
+                // Remove active class from all options
+                document.querySelectorAll('.user-type-option').forEach(opt => {
+                    opt.classList.remove('active');
+                });
+
+                // Add active class to selected option
+                this.classList.add('active');
+
+                // Hide all form sections
+                document.querySelectorAll('.form-section').forEach(section => {
+                    section.classList.remove('active');
+                });
+
+                // Show selected form section
+                document.getElementById(type + '-section').classList.add('active');
+            });
+        });
+
+        function switchToGuest() {
+            document.querySelectorAll('.user-type-option').forEach(opt => {
+                opt.classList.remove('active');
+            });
+            document.querySelector('[data-type="guest"]').classList.add('active');
+
+            document.querySelectorAll('.form-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            document.getElementById('guest-section').classList.add('active');
+        }
+        {% endif %}
+
+        // Initialize video loop
+        const video = document.getElementById("bgVideo");
+        function loopVideo() {
+            if (video.currentTime >= 17) {
+                video.currentTime = 0;
+                video.play().catch(() => {});
+            }
+        }
+        setInterval(loopVideo, 100);
+        video.addEventListener("play", () => setInterval(loopVideo, 100));
+
+        // Cart removal
+        async function removeFromCart(productKey) {
+            try {
+                const response = await fetch('/update_cart', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify({
+                        product_key: productKey,
+                        quantity: 0
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.success) {
+                    document.querySelector('.cart-total').textContent = data.cart_item_count || 0;
+                    await updateCartDisplay();
+                    updateCartSummary(data);
+                    showToast('Item Removed', 'Product removed from cart');
+                } else {
+                    showToast('Error', data.message || 'Failed to remove product from cart.', 'error');
+                }
+            } catch (error) {
+                console.error('Remove from cart error:', error);
+                showToast('Error', 'Network error while removing from cart.', 'error');
+            }
+        }
+
+        // Update cart summary
+        function updateCartSummary(data) {
+            const cartSummary = document.querySelector('.cart-summary');
+            const cartItems = data.cart_items || [];
+
+            // Clear and rebuild cart summary
+            cartSummary.innerHTML = '<h2>📦 Order Summary</h2>';
+
+            if (cartItems.length === 0) {
+                cartSummary.innerHTML += '<p style="text-align: center; color: #666; padding: 40px;">Your cart is empty 🛒</p>';
+                return;
+            }
+
+            // Add cart items
+            cartItems.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'cart-item';
+
+                // Extract base product key for proper URL
+                const baseProductKey = item.product_key.split(' (')[0];
+                const productUrl = `/product/${encodeURIComponent(baseProductKey.replace(/ /g, '+'))}`;
+
+                itemDiv.innerHTML = `
+                    <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.name || item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
+                    <div class="cart-item-details">
+                        <p><a href="${productUrl}">${escapeHTML(item.name || item.product_key)}</a></p>
+                        <p><strong>${item.price} JMD</strong> × ${item.quantity}</p>
+                    </div>
+                    <span class="remove-item" onclick="removeFromCart('${escapeHTML(item.product_key)}')">×</span>
+                `;
+                cartSummary.appendChild(itemDiv);
+            });
+
+            // Calculate totals
+            let shippingFee = 500;
+            const shippingRadios = document.getElementsByName('shipping_option');
+            for (let radio of shippingRadios) {
+                if (radio.checked) {
+                    shippingFee = radio.value === 'overnight' ? 1200 : 500;
+                    break;
+                }
+            }
+
+            const subtotal = data.cart_total || 0;
+            const discount = data.discount || 0;
+            const tax = subtotal * 0.05;
+            const total = subtotal + shippingFee + tax;
+            const finalTotal = total - discount;
+
+            // Add totals section
+            const totalSection = document.createElement('div');
+            totalSection.className = 'total-section';
+            totalSection.innerHTML = `
+                <p><span>Subtotal:</span> <span>${subtotal} JMD</span></p>
+                ${discount ? `<p><span>Discount Applied:</span> <span>-${discount} JMD</span></p>` : ''}
+                <p><span>Shipping Fee:</span> <span id="shippingFeeDisplay">${shippingFee} JMD</span></p>
+                <p><span>Handling Fee (5%):</span> <span id="handlingFee">${tax.toFixed(2)} JMD</span></p>
+                <p class="final-total"><span>Total:</span> <span id="total">${total.toFixed(2)} JMD</span></p>
+                ${discount ? `<p class="final-total"><span>Final Total:</span> <span id="adjustedTotal">${finalTotal.toFixed(2)} JMD</span></p>` : ''}
+            `;
+            cartSummary.appendChild(totalSection);
+        }
+
+        // Universal cart update function
+        async function updateCartDisplay() {
+            try {
+                const response = await fetch('/cart/data', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.success) {
+                    // Update cart badge/counter
+                    const cartBadges = document.querySelectorAll('.cart-total, .cart-count, .cart-item-count, .cart-badge');
+                    cartBadges.forEach(badge => {
+                        badge.textContent = data.cart_item_count || 0;
+                    });
+
+                    // Update cart dropdown if it exists
+                    updateCartDropdown(data);
+
+                    return data;
+                } else {
+                    throw new Error(data.message || 'Failed to fetch cart data');
+                }
+            } catch (error) {
+                console.error('Update cart display error:', error);
+                // Set cart to 0 on error
+                const cartBadges = document.querySelectorAll('.cart-total, .cart-count, .cart-item-count, .cart-badge');
+                cartBadges.forEach(badge => {
+                    badge.textContent = '0';
+                });
+                return null;
+            }
+        }
+
+        // Update cart dropdown
+        function updateCartDropdown(data) {
+            const cartItemsDiv = document.getElementById('cartItems');
+            const cartTotalDiv = document.getElementById('cartTotal');
+
+            if (!cartItemsDiv) return; // No dropdown on this page
+
+            cartItemsDiv.innerHTML = '';
+
+            if (!data.cart_items || data.cart_items.length === 0) {
+                cartItemsDiv.innerHTML = '<p class="empty-cart">Your cart is empty</p>';
+                if (cartTotalDiv) cartTotalDiv.textContent = 'Total: $0 JMD';
+            } else {
+                data.cart_items.forEach(item => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'cart-item';
+
+                    // Extract base product key for proper URL
+                    const baseProductKey = item.product_key.split(' (')[0];
+                    const productUrl = `/product/${encodeURIComponent(baseProductKey.replace(/ /g, '+'))}`;
+
+                    itemDiv.innerHTML = `
+                        <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.name || item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
+                        <div class="cart-item-details">
+                            <p><a href="${productUrl}">${escapeHTML(item.name || item.product_key)}</a></p>
+                            <p>${item.price} JMD × ${item.quantity}</p>
+                        </div>
+                        <span class="remove-item" onclick="removeFromCart('${escapeHTML(item.product_key)}')">×</span>
+                    `;
+                    cartItemsDiv.appendChild(itemDiv);
+                });
+
+                if (cartTotalDiv) {
+                    cartTotalDiv.textContent = `Total: ${data.cart_total || 0} JMD`;
+                }
+            }
+        }
+
+        // Cart dropdown toggle
+        const cartIcon = document.querySelector('.cart-icon');
+        const cartDropdown = document.getElementById('cartDropdown');
+        cartIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            cartDropdown.style.display = cartDropdown.style.display === 'block' ? 'none' : 'block';
+            if (cartDropdown.style.display === 'block') {
+                updateCartDisplay();
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!cartIcon.contains(e.target) && !cartDropdown.contains(e.target)) {
+                cartDropdown.style.display = 'none';
+            }
+        });
+
+        // Parish and post office handling for all forms
+        const parishSelects = document.querySelectorAll('#parish, #guest_parish');
+        const postOfficeSelects = document.querySelectorAll('#postOffice, #guest_post_office');
+        const parishPostOffices = {{ parish_post_offices | tojson }};
+
+        function updatePostOfficeOptions(parishSelect, postOfficeSelect) {
+            const selectedParish = parishSelect.value;
+            postOfficeSelect.innerHTML = '<option value="" disabled selected>Select a post office</option>';
+            if (selectedParish && parishPostOffices[selectedParish]) {
+                parishPostOffices[selectedParish].forEach(office => {
+                    const option = document.createElement('option');
+                    option.value = office;
+                    option.textContent = office;
+                    postOfficeSelect.appendChild(option);
+                });
+                postOfficeSelect.disabled = false;
+            } else {
+                postOfficeSelect.disabled = true;
+            }
+        }
+
+        // Set up parish change listeners
+        parishSelects.forEach((parishSelect, index) => {
+            parishSelect.addEventListener('change', () => {
+                updatePostOfficeOptions(parishSelect, postOfficeSelects[index]);
+            });
+        });
+
+        // Shipping option selection
+        function selectShipping(option, element) {
+            // Remove selected class from all shipping options
+            document.querySelectorAll('.shipping-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+
+            // Add selected class to clicked option
+            element.classList.add('selected');
+
+            // Check the radio button
+            const radio = element.querySelector('input[type="radio"]');
+            radio.checked = true;
+
+            // Update shipping costs
+            const fee = option === 'overnight' ? 1200 : 500;
+            updateShipping(option, fee);
+        }
+
+        // Update shipping costs
+        function updateShipping(option, fee) {
+            const subtotal = {{ cart_total or 0 }};
+            const tax = (subtotal * 0.05).toFixed(2);
+            const discount = {{ discount or 0 }};
+            const total = (subtotal + fee + parseFloat(tax)).toFixed(2);
+            const adjustedTotal = (subtotal + fee + parseFloat(tax) - discount).toFixed(2);
+
+            // Update display elements
+            const shippingFeeDisplay = document.getElementById('shippingFeeDisplay');
+            const handlingFeeDisplay = document.getElementById('handlingFee');
+            const totalDisplay = document.getElementById('total');
+            const adjustedTotalDisplay = document.getElementById('adjustedTotal');
+
+            if (shippingFeeDisplay) shippingFeeDisplay.textContent = `${fee} JMD`;
+            if (handlingFeeDisplay) handlingFeeDisplay.textContent = `${tax} JMD`;
+            if (totalDisplay) totalDisplay.textContent = `${total} JMD`;
+            if (adjustedTotalDisplay) adjustedTotalDisplay.textContent = `${adjustedTotal} JMD`;
+        }
+
+        // Form validation
+        function validateGuestForm() {
+            const requiredFields = [
+                'guest_first_name', 'guest_last_name', 'guest_email',
+                'guest_phone', 'guest_address', 'guest_parish',
+                'guest_post_office', 'guest_payment_method'
+            ];
+
+            let isValid = true;
+
+            requiredFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (!field.value.trim()) {
+                    field.style.borderColor = '#dc3545';
+                    isValid = false;
+                } else {
+                    field.style.borderColor = '#e9ecef';
+                }
+            });
+
+            // Validate email format
+            const emailField = document.getElementById('guest_email');
+            const emailPattern = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+            if (!emailPattern.test(emailField.value)) {
+                emailField.style.borderColor = '#dc3545';
+                showToast('Invalid Email', 'Please enter a valid email address.', 'error');
+                isValid = false;
+            }
+
+            // Check shipping option
+            const shippingOption = document.querySelector('input[name="shipping_option"]:checked');
+            if (!shippingOption) {
+                showToast('Shipping Required', 'Please select a shipping option.', 'error');
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
+        function validateUserForm() {
+            const requiredFields = ['full_name', 'phone_number', 'address', 'parish', 'postOffice', 'payment_method'];
+            let isValid = true;
+
+            requiredFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (!field.value.trim()) {
+                    field.style.borderColor = '#dc3545';
+                    isValid = false;
+                } else {
+                    field.style.borderColor = '#e9ecef';
+                }
+            });
+
+            const shippingOption = document.querySelector('input[name="shipping_option"]:checked');
+            if (!shippingOption) {
+                showToast('Shipping Required', 'Please select a shipping option.', 'error');
+                isValid = false;
+            }
+
+            return isValid;
+        }
+
+        // Simple form validation before submission
+        document.getElementById('guestCheckoutForm')?.addEventListener('submit', function(e) {
+            if (!validateGuestForm()) {
+                e.preventDefault();
+                showToast('Form Error', 'Please fill in all required fields correctly.', 'error');
+                return;
+            }
+            // Let the browser handle the form submission naturally
+        });
+
+        document.getElementById('userCheckoutForm')?.addEventListener('submit', function(e) {
+            if (!validateUserForm()) {
+                e.preventDefault();
+                showToast('Form Error', 'Please fill in all required fields correctly.', 'error');
+                return;
+            }
+            // Let the browser handle the form submission naturally
+        });
+
+        // Initialize page
+        window.onload = function() {
+            updateCartDisplay();
+
+            // Set default shipping option for all forms
+            const regularShippingInputs = document.querySelectorAll('input[value="regular"]');
+            regularShippingInputs.forEach(input => {
+                input.checked = true;
+                input.closest('.shipping-option').classList.add('selected');
+            });
+            updateShipping('regular', 500);
+
+            // Add click handlers to shipping options
+            document.querySelectorAll('.shipping-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    const radio = this.querySelector('input[type="radio"]');
+                    const value = radio.value;
+                    selectShipping(value, this);
+                });
+            });
+
+            // Initialize post office options
+            parishSelects.forEach((parishSelect, index) => {
+                if (parishSelect.value) {
+                    updatePostOfficeOptions(parishSelect, postOfficeSelects[index]);
+                }
+            });
+        };
+
+        // Update cart when page becomes visible
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                updateCartDisplay();
+            }
+        });
+
+        // Update cart when page gains focus
+        window.addEventListener('focus', function() {
+            updateCartDisplay();
+        });
+
+        // Handle cancel and continue buttons
+        document.addEventListener('DOMContentLoaded', function() {
+            // Cancel buttons
+            document.querySelectorAll('.cancel-button').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.location.href = '{{ url_for('index') }}';
+                });
+            });
+
+            // Continue shopping buttons
+            document.querySelectorAll('.continue-button').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    window.location.href = '{{ url_for('index') }}';
+                });
+            });
+        });
+    </script>
+</body>
+</html>

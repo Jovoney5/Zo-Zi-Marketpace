@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zo-Zi - Product Listing</title>
+    <style>
+        video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+        .navbar { display: flex; align-items: center; justify-content: space-between; background: rgba(255, 255, 255, 0.8); padding: 10px 20px; position: relative; z-index: 2; }
+        .brand a { font-size: 24px; font-weight: bold; color: black; text-decoration: none; }
+        .brand a:hover { color: #FFD700; }
+        .menu-container { position: relative; }
+        .menu-icon { cursor: pointer; font-size: 24px; }
+        .dropdown-content { display: none; position: absolute; background: white; min-width: 160px; box-shadow: 0 8px 16px rgba(0,0,0,0.2); border-radius: 5px; }
+        .dropdown-content a { color: green; padding: 10px; display: block; text-decoration: none; }
+        .dropdown-content a:hover { background: yellow; }
+        .menu-container:hover .dropdown-content { display: block; }
+        .auth-container { display: flex; align-items: center; }
+        .auth-buttons { margin-left: 10px; padding: 8px; background: yellow; border: none; cursor: pointer; }
+        .auth-buttons:hover { background: #FFA500; }
+        .profile { width: 40px; height: 40px; border-radius: 50%; margin-left: 10px; cursor: pointer; }
+        .profile img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+        .balance-display { margin-left: 10px; font-size: 16px; color: #006400; font-weight: bold; }
+        .listing-container { max-width: 1200px; margin: 50px auto; padding: 20px; background: rgba(255, 255, 255, 0.8); border-radius: 10px; z-index: 1; position: relative; }
+        .listing-container h1 { color: #006400; text-align: center; }
+        .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px; }
+        .product-card { background: white; padding: 15px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); text-align: center; }
+        .product-card img { max-width: 100%; height: auto; border-radius: 5px; }
+        .product-card h3 { color: #006400; margin: 10px 0; }
+        .product-card p { margin: 5px 0; color: #333; }
+        .edit-button { background: #FFD700; padding: 8px 15px; border: none; cursor: pointer; border-radius: 5px; text-decoration: none; color: black; display: inline-block; margin-top: 10px; }
+        .edit-button:hover { background: #FFA500; }
+    </style>
+</head>
+<body>
+    <video autoplay loop muted playsinline id="bgVideo">
+        <source src="{{ url_for('static', filename='flag_vid.webm') }}" type="video/webm">
+    </video>
+
+    <div class="navbar">
+        <div class="brand"><a href="{{ url_for('index') }}">Zo-Zi</a></div>
+        <div class="menu-container">
+            <div class="menu-icon">☰</div>
+            <div class="dropdown-content">
+                <a href="{{ url_for('profile') }}">User Account</a>
+                <a href="{{ url_for('profile') }}">Personal Details</a>
+                <a href="{{ url_for('password_reset') }}">Password Reset</a>
+                <a href="{{ url_for('seller_dashboard') }}">Seller Account</a>
+            </div>
+        </div>
+        <div class="auth-container">
+            <button class="auth-buttons" onclick="window.location.href='{{ url_for('logout') }}'">Logout</button>
+            <button class="auth-buttons" onclick="window.location.href='{{ url_for('index') }}#buyer-signup'">Sign Up</button>
+            <div class="profile" onclick="window.location.href='{{ url_for('profile') }}'" title="{% if 'user' in session and session['user'].get('profile_picture') %}Change Profile Picture{% else %}Add Profile Picture{% endif %}">
+                {% if 'user' in session and session['user'].get('profile_picture') %}
+                    <img src="{{ url_for('static', filename='uploads/' + session['user']['profile_picture']) }}" alt="Profile">
+                {% else %}
+                    <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%;">+</span>
+                {% endif %}
+            </div>
+            <div class="balance-display">
+                Cart: ${{ cart_total }} JMD {% if discount > 0 %}(Discount: -${{ discount }} JMD){% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="listing-container">
+        <h1>Your Product Listings</h1>
+        <div class="product-grid">
+            {% for key, product in seller_products.items() %}
+                <div class="product-card">
+                    <img src="{{ url_for('static', filename=product.image_url) }}" alt="{{ product.name }}">
+                    <h3>{{ product.name }}</h3>
+                    <p>Original Price: ${{ product.original_cost }} JMD</p>
+                    <p>Selling Price: ${{ product.price }} JMD</p>
+                    <p>ROI: {{ "%.1f"|format(product.roi) }}%</p>
+                    <p>Shipping from: {{ product.shipping }}</p>
+                    <p>Sold: {{ product.sold }} | Clicks: {{ product.clicks }} | Likes: {{ product.likes }}</p>
+                    <a href="{{ url_for('edit_product', product_key=key) }}" class="edit-button">Edit</a>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById("bgVideo");
+        video.addEventListener("timeupdate", function() {
+            if (video.currentTime >= 17) video.currentTime = 0;
+        });
+    </script>
+</body>
+</html>

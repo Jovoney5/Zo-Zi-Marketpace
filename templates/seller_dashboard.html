@@ -1,0 +1,1088 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZoZi - Seller Dashboard</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f4; padding-top: 80px; }
+        video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+        .navbar { display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, 0.8); padding: 10px 20px; position: fixed; top: 0; width: 100%; z-index: 10; }
+        .navbar-top { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1200px; }
+        .brand-container { display: flex; align-items: center; }
+        .brand a { font-size: 24px; font-weight: bold; color: black; text-decoration: none; }
+        .brand a:hover { color: #FFD700; }
+        .tagline { font-size: 12px; color: #666; margin-left: 10px; font-style: italic; }
+        .menu-container { position: relative; display: inline-block; margin-left: 10px; }
+        .menu-icon { cursor: pointer; font-size: 24px; }
+        .dropdown-content { display: none; position: absolute; background-color: white; min-width: 160px; box-shadow: 0px 8px 16px rgba(0,0,0,0.2); border-radius: 5px; z-index: 11; }
+        .dropdown-content a { padding: 10px; display: block; color: green; text-decoration: none; }
+        .dropdown-content a:hover { background-color: yellow; }
+        .menu-container:hover .dropdown-content { display: block; }
+        .nav-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 10px; width: 100%; max-width: 1200px; }
+        .nav-links a { color: green; text-decoration: none; font-size: 16px; padding: 5px 10px; border-radius: 5px; }
+        .nav-links a:hover { background: #FFD700; color: black; }
+        .search-container { flex-grow: 0.8; margin: 0 20px; position: relative; max-width: 500px; display: flex; align-items: center; }
+        .search-container input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; }
+        .search-icon { margin-left: 5px; cursor: pointer; font-size: 20px; color: #006400; padding: 5px; }
+        .search-icon:hover { background: #FFD700; border-radius: 5px; }
+        .suggestions { position: absolute; background: white; width: 100%; border: 1px solid #ccc; border-radius: 5px; max-height: 200px; overflow-y: auto; display: none; z-index: 11; top: 100%; }
+        .suggestions a { display: flex; align-items: center; padding: 8px; text-decoration: none; color: black; }
+        .suggestions a img { width: 30px; height: 30px; object-fit: contain; margin-right: 10px; border-radius: 3px; }
+        .suggestions a span { flex-grow: 1; font-size: 14px; }
+        .suggestions a:hover { background: #f0f0f0; }
+        .auth-container { display: flex; align-items: center; margin-right: 26px; }
+        .auth-buttons { margin-left: 10px; padding: 8px 16px; background: yellow; border: none; cursor: pointer; border-radius: 5px; font-weight: bold; }
+        .auth-buttons:hover { background: #FFA500; }
+        .profile { width: 40px; height: 40px; border-radius: 50%; margin-left: 10px; cursor: pointer; }
+        .profile img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+        .cart-icon, .contact-icon { margin-left: 10px; cursor: pointer; position: relative; }
+        .cart-icon img, .contact-icon img { width: 30px; height: 30px; }
+        .cart-icon .cart-total { position: absolute; top: -10px; right: -10px; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 12px; }
+        .cart-dropdown { display: none; position: absolute; top: 40px; right: 0; background: white; min-width: 300px; box-shadow: 0px 8px 16px rgba(0,0,0,0.2); border-radius: 5px; z-index: 11; padding: 10px; }
+        .cart-dropdown .cart-item { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #ccc; position: relative; }
+        .cart-dropdown .cart-item img { width: 50px; height: 50px; object-fit: contain; margin-right: 10px; }
+        .cart-dropdown .cart-item-details { flex-grow: 1; }
+        .cart-dropdown .cart-item-details p { margin: 0; font-size: 14px; }
+        .cart-dropdown .remove-item { position: absolute; right: 10px; cursor: pointer; font-size: 16px; color: red; }
+        .cart-dropdown .remove-item:hover { color: darkred; }
+        .cart-dropdown .empty-cart { padding: 10px; text-align: center; color: #666; }
+        .cart-dropdown .checkout-button { display: block; background: #FFD700; border: none; padding: 10px; margin: 10px; text-align: center; cursor: pointer; border-radius: 5px; text-decoration: none; color: black; }
+        .cart-dropdown .checkout-button:hover { background: #FFA500; }
+
+        .dashboard-container { max-width: 1600px; margin: 50px auto; padding: 20px; background: rgba(255, 255, 255, 0.95); border-radius: 10px; position: relative; z-index: 1; }
+        .dashboard-container h1 { color: #006400; text-align: center; font-size: 36px; margin-bottom: 30px; }
+
+        /* Financial Overview Section */
+        .financial-overview { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .financial-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 15px; text-align: center; box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+        .financial-card.earnings { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); }
+        .financial-card.balance { background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); }
+        .financial-card.pending { background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); }
+        .financial-value { font-size: 32px; font-weight: bold; margin: 10px 0; }
+        .financial-label { font-size: 16px; opacity: 0.9; }
+
+        /* Withdrawal Section */
+        .withdrawal-section { background: white; padding: 30px; border-radius: 15px; margin-bottom: 30px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .withdrawal-section h2 { color: #006400; margin-bottom: 20px; }
+        .withdrawal-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .withdrawal-option { border: 2px solid #ddd; padding: 20px; border-radius: 10px; cursor: pointer; transition: all 0.3s ease; text-align: center; }
+        .withdrawal-option:hover { border-color: #006400; background: #f8f9fa; }
+        .withdrawal-option.selected { border-color: #006400; background: #e8f5e8; }
+        .withdrawal-form { display: grid; grid-template-columns: 1fr auto; gap: 15px; align-items: end; }
+        .form-group { display: flex; flex-direction: column; }
+        .form-group label { margin-bottom: 5px; font-weight: bold; }
+        .form-group input { padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 16px; }
+        .withdraw-btn { background: #006400; color: white; padding: 12px 30px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; }
+        .withdraw-btn:hover { background: #005000; }
+        .withdraw-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* Tabs */
+        .dashboard-tabs { display: flex; gap: 10px; margin-bottom: 30px; }
+        .tab-button { background: #f8f9fa; border: 1px solid #ddd; padding: 12px 24px; border-radius: 5px 5px 0 0; cursor: pointer; font-weight: bold; }
+        .tab-button.active { background: #006400; color: white; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        .dashboard-actions { text-align: center; margin-bottom: 20px; }
+        .dashboard-actions button { background: #FFD700; padding: 12px 24px; border: none; cursor: pointer; border-radius: 5px; margin: 0 10px; font-size: 18px; }
+        .dashboard-actions button:hover { background: #FFA500; }
+        .dashboard-actions button.active { background: #FFA500; }
+        .selected-product { text-align: center; margin-bottom: 10px; }
+        .selected-product h2 { color: #006400; font-size: 20px; margin: 0; }
+
+        /* Product Display Section */
+        .product-display {
+            display: none;
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            border: 2px solid #006400;
+        }
+        .product-display.show { display: block; }
+        .product-info { display: flex; align-items: center; justify-content: center; gap: 25px; flex-wrap: wrap; }
+        .product-image {
+            width: 150px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            border: 3px solid #FFD700;
+        }
+        .product-details {
+            flex: 1;
+            max-width: 400px;
+            text-align: left;
+        }
+        .product-details h3 {
+            color: #006400;
+            font-size: 24px;
+            margin: 0 0 10px 0;
+            font-weight: bold;
+        }
+        .product-details p {
+            color: #333;
+            font-size: 16px;
+            line-height: 1.5;
+            margin: 8px 0;
+        }
+        .product-price {
+            color: #28a745;
+            font-size: 20px;
+            font-weight: bold;
+        }
+        .product-category {
+            background: #006400;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        .stats-table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 20px; }
+        .stats-table th, .stats-table td { padding: 20px; text-align: left; border-bottom: 2px solid #ddd; }
+        .stats-table th { background: #FFD700; color: #000; font-weight: bold; }
+        .stats-table td { font-size: 18px; }
+        .stats-table tr:hover { background: #f5f5f5; cursor: pointer; }
+        .stats-table tr.selected { background: #FFD700; }
+        .edit-btn { background: #006400; color: #FFD700; padding: 10px 20px; border: none; cursor: pointer; border-radius: 5px; font-size: 18px; }
+        .edit-btn:hover { background: #FFD700; color: #006400; }
+        .chart-container { margin-top: 30px; padding: 20px; min-height: 400px; border: 1px solid #ddd; display: flex; align-items: flex-start; justify-content: center; padding-left: 0; margin-left: 0; }
+        .chart-type-controls { display: flex; flex-direction: column; width: 100px; margin-right: 10px; margin-left: 0; }
+        .chart-type-controls button { background: #006400; color: #FFD700; padding: 10px 20px; margin: 5px 0; border: none; cursor: pointer; border-radius: 5px; font-size: 16px; }
+        .chart-type-controls button:hover { background: #FFD700; color: #006400; }
+        .chart-type-controls button.active { background: #FFA500; }
+        .chart-content { display: flex; flex-direction: column; align-items: center; max-width: 800px; width: 100%; }
+        .chart-controls { margin-bottom: 20px; text-align: center; width: 100%; }
+        .chart-controls button { background: #006400; color: #FFD700; padding: 10px 20px; margin: 0 5px; border: none; cursor: pointer; border-radius: 5px; font-size: 16px; }
+        .chart-controls button:hover { background: #FFD700; color: #006400; }
+        .chart-controls button.active { background: #FFA500; }
+        #metricsChart { max-width: 800px; min-height: 350px; width: 100%; }
+        .metric-list { display: flex; flex-direction: column; width: 150px; margin-left: 20px; }
+        .metric-list button { background: #006400; color: #FFD700; padding: 10px 20px; margin: 5px 0; border: none; cursor: pointer; border-radius: 5px; font-size: 16px; }
+        .metric-list button:hover { background: #FFD700; color: #006400; }
+        .metric-list button.active { background: #FFA500; }
+        .error-message { color: red; font-size: 16px; margin-top: 10px; text-align: center; width: 100%; }
+
+        /* Transaction History */
+        .transaction-history { background: white; padding: 20px; border-radius: 10px; margin-top: 20px; }
+        .transaction-item { display: flex; justify-content: space-between; align-items: center; padding: 15px; border-bottom: 1px solid #eee; }
+        .transaction-details { flex-grow: 1; }
+        .transaction-amount { font-weight: bold; }
+        .transaction-amount.positive { color: #28a745; }
+        .transaction-amount.negative { color: #dc3545; }
+        .transaction-date { color: #666; font-size: 12px; }
+
+        @media (max-width: 768px) {
+            body { padding-top: 120px; }
+            .navbar { padding: 10px; }
+            .navbar-top { flex-wrap: wrap; }
+            .nav-links { gap: 10px; }
+            .search-container { margin: 10px 10px; }
+            .financial-overview { grid-template-columns: 1fr; }
+            .withdrawal-form { grid-template-columns: 1fr; }
+            .product-info { flex-direction: column; }
+            .product-details { text-align: center; }
+        }
+        @media (max-width: 480px) {
+            body { padding-top: 140px; }
+            .navbar-top { flex-direction: column; align-items: center; gap: 10px; }
+            .search-container { margin: 0 10px; }
+            .search-icon { font-size: 16px; padding: 3px; }
+            .nav-links { flex-direction: column; align-items: center; gap: 8px; }
+            .product-image { width: 120px; height: 120px; }
+            .product-details h3 { font-size: 20px; }
+        }
+    </style>
+</head>
+<body>
+    <video autoplay loop muted playsinline id="bgVideo">
+        <source src="{{ url_for('static', filename='flag_vid.webm') }}" type="video/webm">
+    </video>
+
+    <div class="navbar">
+        <div class="navbar-top">
+            <div class="brand-container">
+                <div class="brand"><a href="{{ url_for('index') }}">ZoZi</a></div>
+                <div class="tagline">Empowering You Economically</div>
+                <div class="menu-container">
+                    <div class="menu-icon">☰</div>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('profile') }}">User Account</a>
+                        <a href="{{ url_for('personal_info') }}">Personal Details</a>
+                        <a href="{{ url_for('orders') }}">Order History</a>
+                        <a href="{{ url_for('password_reset') }}">Password Reset</a>
+                        <a href="{{ url_for('seller_dashboard') }}">Seller Account</a>
+                        <a href="{{ url_for('subscriptions') }}">Subscriptions</a>
+                        <a href="{{ url_for('zozi_assistant') }}">Zo-Zi the Assistant</a>
+                        <a href="{{ url_for('find_sellers') }}">Find Personal Sellers</a>
+                        <a href="{{ url_for('tracking') }}">Tracking</a>
+                    </div>
+                </div>
+            </div>
+            <div class="search-container">
+                <input type="text" id="search" placeholder="Search products...">
+                <span class="search-icon">🔍</span>
+                <div class="suggestions" id="suggestions"></div>
+            </div>
+            <div class="auth-container">
+                <button class="auth-buttons" onclick="window.location.href='{{ url_for('logout') }}'">Logout</button>
+                <button class="auth-buttons" onclick="window.location.href='{{ url_for('signup') }}'">Sign Up</button>
+                <div class="profile" onclick="window.location.href='{{ url_for('profile' if user else 'login') }}'" title="{% if user and user.profile_picture %}Change Profile Picture{% elif user %}Add Profile Picture{% else %}Login to add profile{% endif %}">
+                    {% if user and user.profile_picture %}
+                        <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile">
+                    {% else %}
+                        <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%;">+</span>
+                    {% endif %}
+                </div>
+                <div class="cart-icon">
+                    <img src="{{ url_for('static', filename='cart icon 3.png') }}" alt="Cart">
+                    <span class="cart-total">{{ cart_item_count }}</span>
+                    <div class="cart-dropdown" id="cartDropdown">
+                        <div id="cartItems"></div>
+                        <a href="{{ url_for('checkout') }}" class="checkout-button">Checkout</a>
+                    </div>
+                </div>
+                <div class="contact-icon" onclick="window.location.href='{{ url_for('contact') }}'">
+                    <img src="{{ url_for('static', filename='customer service.png') }}" alt="Customer Service">
+                </div>
+            </div>
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('index') }}">Home</a>
+            <a href="{{ url_for('tracking') }}">Track Order</a>
+            <a href="{{ url_for('personal_info') }}">Personal Info</a>
+            <a href="{{ url_for('orders') }}">Orders</a>
+            <a href="{{ url_for('find_sellers') }}">Find Sellers</a>
+            <a href="{{ url_for('free') }}">Free</a>
+            <a href="{{ url_for('seller_dashboard') }}">Become a Seller</a>
+            <a href="{{ url_for('contact') }}">Contact</a>
+            <a href="{{ url_for('cancel_refund') }}">Cancel/Refund</a>
+        </div>
+    </div>
+
+    <div class="dashboard-container">
+        <h1>💰 Seller Dashboard</h1>
+
+        <!-- Financial Overview -->
+        <div class="financial-overview">
+            <div class="financial-card earnings">
+                <div class="financial-label">Total Earnings</div>
+                <div class="financial-value" id="totalEarnings">${{ financial_data.total_earnings|default(0)|round(2) }} JMD</div>
+            </div>
+            <div class="financial-card balance">
+                <div class="financial-label">Available Balance</div>
+                <div class="financial-value" id="availableBalance">${{ financial_data.balance|default(0)|round(2) }} JMD</div>
+            </div>
+            <div class="financial-card pending">
+                <div class="financial-label">Pending Withdrawals</div>
+                <div class="financial-value" id="pendingWithdrawals">${{ financial_data.pending_withdrawals|default(0)|round(2) }} JMD</div>
+            </div>
+            <div class="financial-card">
+                <div class="financial-label">Products Sold</div>
+                <div class="financial-value">{{ total_sold|default(0) }}</div>
+            </div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="dashboard-tabs">
+            <button class="tab-button active" onclick="showTab('overview')">📊 Overview</button>
+            <button class="tab-button" onclick="showTab('withdraw')">💸 Withdraw</button>
+            <button class="tab-button" onclick="showTab('transactions')">📋 Transactions</button>
+            <button class="tab-button" onclick="showTab('products')">📦 Products</button>
+        </div>
+
+        <!-- Overview Tab -->
+        <div id="overview" class="tab-content active">
+            <div class="dashboard-actions">
+                <button id="action-add-product" onclick="window.location.href='{{ url_for('new_product') }}'">Add New Product</button>
+                <button id="action-view-listings" onclick="window.location.href='{{ url_for('product_listing') }}'">View Listings</button>
+                <button id="action-visit-store" onclick="window.location.href='{{ url_for('seller_store', seller_email=user.email) }}'">🏪 Visit My Store</button>
+                <button id="action-refresh" onclick="refreshFinancialData()">🔄 Refresh Data</button>
+            </div>
+
+            <!-- Product Display Section -->
+            <div class="product-display" id="productDisplay">
+                <div class="product-info">
+                    <img id="productImage" class="product-image" src="" alt="Product Image" onerror="this.src='/static/placeholder.jpg'">
+                    <div class="product-details">
+                        <h3 id="productName">Product Name</h3>
+                        <p><strong>Description:</strong> <span id="productDescription">Product description will appear here</span></p>
+                        <p class="product-price" id="productPrice">$0.00 JMD</p>
+                        <p><strong>Category:</strong> <span class="product-category" id="productCategory">Category</span></p>
+                        <p><strong>Posted:</strong> <span id="productDate">Date</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-type-controls">
+                    <button id="chart-type-bar" class="active">Bar</button>
+                    <button id="chart-type-line">Line</button>
+                </div>
+                <div class="chart-content">
+                    <div class="chart-controls">
+                        <button id="period-daily" class="active">Daily</button>
+                        <button id="period-monthly">Monthly</button>
+                        <button id="period-yearly">Yearly</button>
+                    </div>
+                    <canvas id="metricsChart"></canvas>
+                    <div id="error-message" class="error-message"></div>
+                </div>
+                <div class="metric-list">
+                    <button id="metric-sold">Sold</button>
+                    <button id="metric-cart">Add to Cart</button>
+                    <button id="metric-sales">Revenue</button>
+                    <button id="metric-clicks">Clicks</button>
+                    <button id="metric-likes">Likes</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Withdraw Tab -->
+        <div id="withdraw" class="tab-content">
+            <div class="withdrawal-section">
+                <h2>💰 Withdraw Your Earnings</h2>
+                <p>Available Balance: <strong>${{ financial_data.balance|default(0)|round(2) }} JMD</strong></p>
+
+                <div class="withdrawal-options">
+                    <div class="withdrawal-option" data-method="standard">
+                        <h3>🏦 Standard Transfer</h3>
+                        <p><strong>FREE</strong></p>
+                        <p>3 business days</p>
+                        <small>Bank transfer to your account</small>
+                    </div>
+                    <div class="withdrawal-option" data-method="instant">
+                        <h3>⚡ Instant Transfer</h3>
+                        <p><strong>4% fee</strong></p>
+                        <p>Within minutes</p>
+                        <small>Instant to mobile money</small>
+                    </div>
+                    <div class="withdrawal-option" data-method="paypal">
+                        <h3>💳 PayPal</h3>
+                        <p><strong>2% fee</strong></p>
+                        <p>1-2 business days</p>
+                        <small>International payments</small>
+                    </div>
+                </div>
+
+                <div class="withdrawal-form">
+                    <div class="form-group">
+                        <label for="withdrawAmount">Amount (JMD)</label>
+                        <input type="number" id="withdrawAmount" min="500" max="{{ financial_data.balance|default(0) }}" placeholder="Minimum $500 JMD">
+                    </div>
+                    <button class="withdraw-btn" onclick="processWithdrawal()" disabled>Withdraw</button>
+                </div>
+
+                <div id="withdrawalFeedback" style="margin-top: 20px; padding: 15px; border-radius: 5px; display: none;"></div>
+
+                <div id="feeCalculation" style="margin-top: 15px; padding: 15px; background: #f8f9fa; border-radius: 5px; display: none;">
+                    <h4>Fee Calculation</h4>
+                    <p>Amount: $<span id="calcAmount">0</span> JMD</p>
+                    <p>Fee: $<span id="calcFee">0</span> JMD</p>
+                    <p><strong>You'll receive: $<span id="calcNet">0</span> JMD</strong></p>
+                </div>
+            </div>
+
+            <!-- Withdrawal History -->
+            <div class="transaction-history">
+                <h3>💸 Recent Withdrawal Requests</h3>
+                {% if withdrawal_history %}
+                    {% for withdrawal in withdrawal_history %}
+                    <div class="transaction-item">
+                        <div class="transaction-details">
+                            <strong>{{ withdrawal.method.title() }} Withdrawal</strong>
+                            <div class="transaction-date">{{ withdrawal.request_date }}</div>
+                            <small>Status: {{ withdrawal.status.title() }} | Processing: {{ withdrawal.processing_time }}</small>
+                        </div>
+                        <div class="transaction-amount negative">-${{ withdrawal.amount }} JMD</div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p style="text-align: center; color: #666; padding: 20px;">No withdrawal requests yet</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Transactions Tab -->
+        <div id="transactions" class="tab-content">
+            <div class="transaction-history">
+                <h2>📋 Transaction History</h2>
+                {% if recent_transactions %}
+                    {% for transaction in recent_transactions %}
+                    <div class="transaction-item">
+                        <div class="transaction-details">
+                            <strong>{{ transaction.description }}</strong>
+                            <div class="transaction-date">{{ transaction.transaction_date }}</div>
+                            {% if transaction.product_key %}
+                                <small>Product: {{ transaction.product_key }}</small>
+                            {% endif %}
+                        </div>
+                        <div class="transaction-amount {{ 'positive' if transaction.amount > 0 else 'negative' }}">
+                            {{ '+' if transaction.amount > 0 else '' }}${{ transaction.amount }} JMD
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p style="text-align: center; color: #666; padding: 40px;">No transactions yet. Start selling to see your earnings here!</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Products Tab -->
+        <div id="products" class="tab-content">
+            <div class="selected-product">
+                <h2 id="selected-product-name">Select a product to view metrics</h2>
+            </div>
+
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>Product Name</th>
+                        <th>Category</th>
+                        <th>Price</th>
+                        <th>Posted Date</th>
+                        <th>Sold</th>
+                        <th>Revenue</th>
+                        <th>Clicks</th>
+                        <th>Likes</th>
+                        <th>Edit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product_key, product in seller_products.items() %}
+                        <tr data-product-key="{{ product_key }}"
+                            data-product-name="{{ product.name }}"
+                            data-product-image="{{ product.image_url|default('placeholder.jpg') }}"
+                            data-product-description="{{ product.description|default('No description available') }}"
+                            data-product-price="{{ product.price }}"
+                            data-product-category="{{ product.category|default('N/A') }}"
+                            data-product-date="{{ product.posted_date|default('N/A') }}">
+                            <td>{{ product.name }}</td>
+                            <td>{{ product.category|default('N/A') }}</td>
+                            <td>${{ product.price }} JMD</td>
+                            <td>{{ product.posted_date|default('N/A') }}</td>
+                            <td>{{ product.sold|default(0) }}</td>
+                            <td>${{ (product.sold|default(0) * product.price)|round(2) }} JMD</td>
+                            <td>{{ product.clicks|default(0) }}</td>
+                            <td>{{ product.likes|default(0) }}</td>
+                            <td><button class="edit-btn" onclick="window.location.href='{{ url_for('edit_product', product_key=product_key) }}'">Edit</button></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script>
+        // Global variables
+        let selectedWithdrawalMethod = null;
+        let currentMetric = null;
+        let currentChartType = 'bar';
+        let currentPeriod = 'daily';
+        let selectedProductKey = null;
+        let chartInstance = null;
+
+        // Tab functionality
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active');
+            });
+
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // Show selected tab content
+            document.getElementById(tabName).classList.add('active');
+
+            // Add active class to clicked tab button
+            event.target.classList.add('active');
+        }
+
+        // Function to display product information
+        function displayProductInfo(productData) {
+            const productDisplay = document.getElementById('productDisplay');
+            const productImage = document.getElementById('productImage');
+            const productName = document.getElementById('productName');
+            const productDescription = document.getElementById('productDescription');
+            const productPrice = document.getElementById('productPrice');
+            const productCategory = document.getElementById('productCategory');
+            const productDate = document.getElementById('productDate');
+
+            // Update product information
+            productImage.src = `/static/${productData.image}`;
+            productName.textContent = productData.name;
+            productDescription.textContent = productData.description;
+            productPrice.textContent = `${productData.price} JMD`;
+            productCategory.textContent = productData.category;
+            productDate.textContent = productData.date;
+
+            // Show the product display section
+            productDisplay.classList.add('show');
+        }
+
+        // Function to hide product information
+        function hideProductInfo() {
+            const productDisplay = document.getElementById('productDisplay');
+            productDisplay.classList.remove('show');
+        }
+
+        // Withdrawal functionality
+        document.querySelectorAll('.withdrawal-option').forEach(option => {
+            option.addEventListener('click', function() {
+                // Remove selected class from all options
+                document.querySelectorAll('.withdrawal-option').forEach(opt => {
+                    opt.classList.remove('selected');
+                });
+
+                // Add selected class to clicked option
+                this.classList.add('selected');
+                selectedWithdrawalMethod = this.dataset.method;
+
+                // Enable withdraw button and calculate fees
+                document.querySelector('.withdraw-btn').disabled = false;
+                calculateFees();
+            });
+        });
+
+        document.getElementById('withdrawAmount').addEventListener('input', calculateFees);
+
+        function calculateFees() {
+            const amount = parseFloat(document.getElementById('withdrawAmount').value) || 0;
+            const feeCalc = document.getElementById('feeCalculation');
+
+            if (amount >= 500 && selectedWithdrawalMethod) {
+                let fee = 0;
+                if (selectedWithdrawalMethod === 'instant') {
+                    fee = amount * 0.04;
+                } else if (selectedWithdrawalMethod === 'paypal') {
+                    fee = amount * 0.02;
+                }
+
+                const netAmount = amount - fee;
+
+                document.getElementById('calcAmount').textContent = amount.toFixed(2);
+                document.getElementById('calcFee').textContent = fee.toFixed(2);
+                document.getElementById('calcNet').textContent = netAmount.toFixed(2);
+
+                feeCalc.style.display = 'block';
+                document.querySelector('.withdraw-btn').disabled = false;
+            } else {
+                feeCalc.style.display = 'none';
+                document.querySelector('.withdraw-btn').disabled = true;
+            }
+        }
+
+        async function processWithdrawal() {
+            const amount = parseFloat(document.getElementById('withdrawAmount').value);
+            const feedback = document.getElementById('withdrawalFeedback');
+
+            if (!selectedWithdrawalMethod) {
+                showFeedback('Please select a withdrawal method', 'error');
+                return;
+            }
+
+            if (amount < 500) {
+                showFeedback('Minimum withdrawal amount is $500 JMD', 'error');
+                return;
+            }
+
+            document.querySelector('.withdraw-btn').disabled = true;
+            document.querySelector('.withdraw-btn').textContent = 'Processing...';
+
+            try {
+                const response = await fetch('/seller_withdraw', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        amount: amount,
+                        method: selectedWithdrawalMethod
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showFeedback(data.message, 'success');
+                    // Reset form
+                    document.getElementById('withdrawAmount').value = '';
+                    document.getElementById('feeCalculation').style.display = 'none';
+                    document.querySelectorAll('.withdrawal-option').forEach(opt => {
+                        opt.classList.remove('selected');
+                    });
+                    selectedWithdrawalMethod = null;
+                    // Refresh financial data
+                    await refreshFinancialData();
+                } else {
+                    showFeedback(data.message, 'error');
+                }
+            } catch (error) {
+                showFeedback('Network error. Please try again.', 'error');
+            }
+
+            document.querySelector('.withdraw-btn').disabled = false;
+            document.querySelector('.withdraw-btn').textContent = 'Withdraw';
+        }
+
+        function showFeedback(message, type) {
+            const feedback = document.getElementById('withdrawalFeedback');
+            feedback.style.display = 'block';
+            feedback.textContent = message;
+            feedback.style.background = type === 'success' ? '#d4edda' : '#f8d7da';
+            feedback.style.color = type === 'success' ? '#155724' : '#721c24';
+            feedback.style.border = type === 'success' ? '1px solid #c3e6cb' : '1px solid #f5c6cb';
+
+            setTimeout(() => {
+                feedback.style.display = 'none';
+            }, 5000);
+        }
+
+        async function refreshFinancialData() {
+            try {
+                const response = await fetch('/seller_financials');
+                const data = await response.json();
+
+                if (data.success) {
+                    document.getElementById('totalEarnings').textContent = `${data.total_earnings.toFixed(2)} JMD`;
+                    document.getElementById('availableBalance').textContent = `${data.balance.toFixed(2)} JMD`;
+                    document.getElementById('pendingWithdrawals').textContent = `${data.pending_withdrawals.toFixed(2)} JMD`;
+
+                    // Update withdrawal form max amount
+                    document.getElementById('withdrawAmount').max = data.balance;
+                }
+            } catch (error) {
+                console.error('Error refreshing financial data:', error);
+            }
+        }
+
+        // Utility function to escape HTML to prevent XSS
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Debounce function to limit updateCartDropdown calls
+        function debounce(func, wait) {
+            let timeout;
+            return function (...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        // Video loop
+        const video = document.getElementById("bgVideo");
+        video.addEventListener('timeupdate', () => {
+            if (video.currentTime >= 17) {
+                video.currentTime = 0;
+            }
+        });
+
+        // Add to cart
+        async function addToCart(productKey, price, imageUrl) {
+            try {
+                const response = await fetch('/update_cart', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        product_key: productKey,
+                        quantity: 1,
+                        price: price,
+                        image_url: imageUrl
+                    })
+                });
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(`HTTP error! Status: ${response.status}, Response: ${text.substring(0, 100)}...`);
+                }
+                const data = await response.json();
+                if (data.success) {
+                    document.querySelector('.cart-total').textContent = data.cart_item_count || 0;
+                    await debouncedUpdateCartDropdown(true);
+                } else {
+                    alert(data.message || 'Failed to add product to cart.');
+                }
+            } catch (error) {
+                console.error('Add to cart error:', error);
+                alert('Network error while adding to cart.');
+            }
+        }
+
+        // Remove from cart
+        async function removeFromCart(productKey) {
+            try {
+                const response = await fetch('/update_cart', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        product_key: productKey,
+                        quantity: 0
+                    })
+                });
+                if (!response.ok) {
+                    const text = await response.text();
+                    throw new Error(`HTTP error! Status: ${response.status}, Response: ${text.substring(0, 100)}...`);
+                }
+                const data = await response.json();
+                if (data.success) {
+                    document.querySelector('.cart-total').textContent = data.cart_item_count || 0;
+                    await debouncedUpdateCartDropdown(true);
+                } else {
+                    alert(data.message || 'Failed to remove product from cart.');
+                }
+            } catch (error) {
+                console.error('Remove from cart error:', error);
+                alert('Network error while removing from cart.');
+            }
+        }
+
+        // Update cart dropdown
+        async function updateCartDropdown(keepOpen = false) {
+            const cartItemsDiv = document.getElementById('cartItems');
+            const cartTotalBadge = document.querySelector('.cart-total');
+            const cartDropdown = document.getElementById('cartDropdown');
+            try {
+                const response = await fetch('/cart/data', {
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        console.warn('Unauthorized, redirecting to login');
+                        window.location.href = '{{ url_for('login') }}';
+                        return;
+                    }
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                const data = await response.json();
+                if (data.success) {
+                    cartItemsDiv.innerHTML = '';
+                    if (!data.cart_items || data.cart_items.length === 0) {
+                        cartItemsDiv.innerHTML = '<p class="empty-cart">Your cart is empty</p>';
+                        cartTotalBadge.textContent = '0';
+                    } else {
+                        data.cart_items.forEach(item => {
+                            const itemDiv = document.createElement('div');
+                            itemDiv.className = 'cart-item';
+                            itemDiv.innerHTML = `
+                                <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
+                                <div class="cart-item-details">
+                                    <p><a href="/product/${encodeURIComponent(item.product_key.replace(/ /g, '+'))}">${escapeHTML(item.product_key)}</a></p>
+                                    <p>${item.price} JMD x ${item.quantity}</p>
+                                </div>
+                                <span class="remove-item" onclick="removeFromCart('${escapeHTML(item.product_key)}')">x</span>
+                            `;
+                            cartItemsDiv.appendChild(itemDiv);
+                        });
+                        cartTotalBadge.textContent = data.cart_item_count || 0;
+                    }
+                    if (keepOpen) {
+                        cartDropdown.style.display = 'block';
+                    }
+                } else {
+                    throw new Error(data.message || 'Failed to fetch cart data');
+                }
+            } catch (error) {
+                console.error('Update cart dropdown error:', error.message, error.stack);
+                cartItemsDiv.innerHTML = '<p class="empty-cart">Error loading cart</p>';
+                cartTotalBadge.textContent = '0';
+                if (keepOpen) {
+                    cartDropdown.style.display = 'block';
+                }
+            }
+        }
+
+        // Debounced updateCartDropdown
+        const debouncedUpdateCartDropdown = debounce(updateCartDropdown, 500);
+
+        // Cart dropdown toggle
+        const cartIcon = document.querySelector('.cart-icon');
+        const cartDropdown = document.getElementById('cartDropdown');
+        let isUpdating = false;
+
+        cartIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!isUpdating) {
+                isUpdating = true;
+                cartDropdown.style.display = cartDropdown.style.display === 'block' ? 'none' : 'block';
+                if (cartDropdown.style.display === 'block') {
+                    debouncedUpdateCartDropdown(true);
+                }
+                setTimeout(() => { isUpdating = false; }, 600);
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!isUpdating && !cartIcon.contains(e.target) && !cartDropdown.contains(e.target)) {
+                cartDropdown.style.display = 'none';
+            }
+        });
+
+        // Search functionality
+        const searchInput = document.getElementById('search');
+        const suggestionsDiv = document.getElementById('suggestions');
+        const searchIcon = document.querySelector('.search-icon');
+
+        async function showSuggestions() {
+            const query = searchInput.value;
+            if (query.length < 2) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+            try {
+                const response = await fetch(`/autocomplete?query=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                suggestionsDiv.innerHTML = '';
+                data.forEach(suggestion => {
+                    const a = document.createElement('a');
+                    a.href = `/product/${suggestion.product_key.replace(/ /g, '+')}`;
+                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/placeholder.jpg'"><span>${escapeHTML(suggestion.name)}</span>`;
+                    suggestionsDiv.appendChild(a);
+                });
+                suggestionsDiv.style.display = data.length ? 'block' : 'none';
+            } catch (error) {
+                console.error('Error fetching suggestions:', error);
+                suggestionsDiv.style.display = 'none';
+            }
+        }
+
+        async function triggerSearch() {
+            const query = searchInput.value;
+            if (query.length < 2) {
+                alert('Please enter at least 2 characters to search.');
+                return;
+            }
+            window.location.href = `/search?query=${encodeURIComponent(query)}`;
+        }
+
+        searchInput.addEventListener('input', showSuggestions);
+        searchIcon.addEventListener('click', triggerSearch);
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                triggerSearch();
+            }
+        });
+
+        // Chart functionality
+        const canvas = document.getElementById('metricsChart');
+        const ctx = canvas.getContext('2d');
+        const errorMessage = document.getElementById('error-message');
+        const selectedProductName = document.getElementById('selected-product-name');
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            console.error(message);
+        }
+
+        function clearError() {
+            errorMessage.textContent = '';
+        }
+
+        function updateActiveButton(group, activeId) {
+            document.querySelectorAll(`.${group}`).forEach(btn => btn.classList.remove('active'));
+            document.getElementById(activeId).classList.add('active');
+        }
+
+        function fetchAndRenderChart(metric, chartType, period, productKey) {
+            if (!productKey) {
+                showError('Please select a product to view metrics.');
+                return;
+            }
+            clearError();
+            const url = `{{ url_for('seller_dashboard_data') }}?metric=${metric}&period=${period}&product_key=${encodeURIComponent(productKey)}`;
+            console.log(`Fetching data for product ${productKey}, metric ${metric}, period ${period}: ${url}`);
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+                    return response.json();
+                })
+                .then(data => {
+                    console.log(`Data received for product ${productKey}, metric ${metric}:`, data);
+                    if (!data.success) {
+                        showError(`Error fetching data: ${data.message}`);
+                        return;
+                    }
+                    const metricData = data[metric];
+                    if (!metricData || !metricData.labels || !metricData.data) {
+                        showError(`No data for metric: ${metric}`);
+                        return;
+                    }
+                    const titleMap = {
+                        'sold': 'Total Units Sold',
+                        'cart': 'Add to Cart Counts',
+                        'sales': 'Revenue Generated',
+                        'clicks': 'Product Clicks',
+                        'likes': 'Product Likes'
+                    };
+                    renderChart(chartType, metricData.data, metricData.labels, `${titleMap[metric]} (${period.charAt(0).toUpperCase() + period.slice(1)})`);
+                })
+                .catch(error => showError(`Error fetching data: ${error.message}`));
+        }
+
+        function renderChart(type, data, labels, title) {
+            if (chartInstance) chartInstance.destroy();
+            console.log(`Rendering chart: ${type}, period: ${currentPeriod}`, { labels, data });
+            chartInstance = new Chart(ctx, {
+                type: type,
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: title,
+                        data: data,
+                        borderColor: type === 'line' ? '#006400' : undefined,
+                        backgroundColor: type === 'line' ? 'rgba(0, 100, 0, 0.2)' : '#FFD700',
+                        fill: type === 'line',
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: { title: { display: true, text: 'Date' } },
+                        y: { beginAtZero: true, title: { display: true, text: 'Count' } }
+                    }
+                }
+            });
+        }
+
+        // Product selection for analytics
+        document.querySelectorAll('.stats-table tbody tr').forEach(row => {
+            row.addEventListener('click', (e) => {
+                if (e.target.classList.contains('edit-btn')) return;
+
+                // Remove selection from all rows
+                document.querySelectorAll('.stats-table tbody tr').forEach(r => r.classList.remove('selected'));
+
+                // Add selection to clicked row
+                row.classList.add('selected');
+
+                // Get product data from row attributes
+                selectedProductKey = row.dataset.productKey;
+                const productData = {
+                    name: row.dataset.productName,
+                    image: row.dataset.productImage,
+                    description: row.dataset.productDescription,
+                    price: row.dataset.productPrice,
+                    category: row.dataset.productCategory,
+                    date: row.dataset.productDate
+                };
+
+                // Display product information above chart
+                displayProductInfo(productData);
+
+                // Update selected product name
+                selectedProductName.textContent = `Metrics for: ${productData.name}`;
+
+                console.log(`Selected product: ${productData.name} (key: ${selectedProductKey})`);
+
+                // Render chart if metric is selected
+                if (currentMetric) {
+                    fetchAndRenderChart(currentMetric, currentChartType, currentPeriod, selectedProductKey);
+                }
+            });
+        });
+
+        // Chart control event listeners
+        document.getElementById('chart-type-bar').addEventListener('click', () => {
+            currentChartType = 'bar';
+            updateActiveButton('chart-type-controls button[id^="chart-type"]', 'chart-type-bar');
+            if (currentMetric && selectedProductKey) {
+                fetchAndRenderChart(currentMetric, currentChartType, currentPeriod, selectedProductKey);
+            }
+        });
+        document.getElementById('chart-type-line').addEventListener('click', () => {
+            currentChartType = 'line';
+            updateActiveButton('chart-type-controls button[id^="chart-type"]', 'chart-type-line');
+            if (currentMetric && selectedProductKey) {
+                fetchAndRenderChart(currentMetric, currentChartType, currentPeriod, selectedProductKey);
+            }
+        });
+
+        document.getElementById('period-daily').addEventListener('click', () => {
+            currentPeriod = 'daily';
+            updateActiveButton('chart-controls button[id^="period"]', 'period-daily');
+            if (currentMetric && selectedProductKey) {
+                fetchAndRenderChart(currentMetric, currentChartType, currentPeriod, selectedProductKey);
+            }
+        });
+        document.getElementById('period-monthly').addEventListener('click', () => {
+            currentPeriod = 'monthly';
+            updateActiveButton('chart-controls button[id^="period"]', 'period-monthly');
+            if (currentMetric && selectedProductKey) {
+                fetchAndRenderChart(currentMetric, currentChartType, currentPeriod, selectedProductKey);
+            }
+        });
+        document.getElementById('period-yearly').addEventListener('click', () => {
+            currentPeriod = 'yearly';
+            updateActiveButton('chart-controls button[id^="period"]', 'period-yearly');
+            if (currentMetric && selectedProductKey) {
+                fetchAndRenderChart(currentMetric, currentChartType, currentPeriod, selectedProductKey);
+            }
+        });
+
+        document.getElementById('metric-sold').addEventListener('click', () => {
+            currentMetric = 'sold';
+            updateActiveButton('metric-list button[id^="metric"]', 'metric-sold');
+            if (selectedProductKey) {
+                fetchAndRenderChart(currentMetric, currentChartType, currentPeriod, selectedProductKey);
+            } else {
+                showError('Please select a product to view metrics.');
+            }
+        });
+        document.getElementById('metric-cart').addEventListener('click', () => {
+            currentMetric = 'cart';
+            updateActiveButton('metric-list button[id^="metric"]', 'metric-cart');
+            if (selectedProductKey) {
+                fetchAndRenderChart(currentMetric, currentChartType, currentPeriod, selectedProductKey);
+            } else {
+                showError('Please select a product to view metrics.');
+            }
+        });
+        document.getElementById('metric-sales').addEventListener('click', () => {
+            currentMetric = 'sales';
+            updateActiveButton('metric-list button[id^="metric"]', 'metric-sales');
+            if (selectedProductKey) {
+                fetchAndRenderChart(currentMetric, currentChartType, currentPeriod, selectedProductKey);
+            } else {
+                showError('Please select a product to view metrics.');
+            }
+        });
+        document.getElementById('metric-clicks').addEventListener('click', () => {
+            currentMetric = 'clicks';
+            updateActiveButton('metric-list button[id^="metric"]', 'metric-clicks');
+            if (selectedProductKey) {
+                fetchAndRenderChart(currentMetric, currentChartType, currentPeriod, selectedProductKey);
+            } else {
+                showError('Please select a product to view metrics.');
+            }
+        });
+        document.getElementById('metric-likes').addEventListener('click', () => {
+            currentMetric = 'likes';
+            updateActiveButton('metric-list button[id^="metric"]', 'metric-likes');
+            if (selectedProductKey) {
+                fetchAndRenderChart(currentMetric, currentChartType, currentPeriod, selectedProductKey);
+            } else {
+                showError('Please select a product to view metrics.');
+            }
+        });
+
+        // Initialize on page load
+        window.onload = () => {
+            debouncedUpdateCartDropdown();
+            refreshFinancialData();
+        };
+
+        // Auto-refresh financial data every 5 minutes
+        setInterval(refreshFinancialData, 300000);
+    </script>
+</body>
+</html>

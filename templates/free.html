@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YAAD - Select Free Gift</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f4; padding-top: 80px; }
+        video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+        .content-wrapper { background: rgba(255, 255, 255, 0.8); max-width: 1400px; margin: 0 auto; padding: 20px; border-radius: 10px; min-height: calc(100vh - 80px); }
+        .navbar { display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, 0.8); padding: 10px 20px; position: fixed; top: 0; width: 100%; z-index: 10; }
+        .navbar-top { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1200px; }
+        .brand-container { display: flex; align-items: center; }
+        .brand a { font-size: 24px; font-weight: bold; color: black; text-decoration: none; }
+        .brand a:hover { color: #FFD700; }
+        .menu-container { position: relative; display: inline-block; margin-left: 10px; }
+        .menu-icon { cursor: pointer; font-size: 24px; }
+        .dropdown-content { display: none; position: absolute; background-color: white; min-width: 160px; box-shadow: 0px 8px 16px rgba(0,0,0,0.2); border-radius: 5px; z-index: 11; }
+        .dropdown-content a { padding: 10px; display: block; color: green; text-decoration: none; }
+        .dropdown-content a:hover { background-color: yellow; }
+        .menu-container:hover .dropdown-content { display: block; }
+        .nav-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 10px; width: 100%; max-width: 1200px; }
+        .nav-links a { color: green; text-decoration: none; font-size: 16px; padding: 5px 10px; border-radius: 5px; }
+        .nav-links a:hover { background: #FFD700; color: black; }
+        .search-container { flex-grow: 0.8; margin: 0 20px; position: relative; max-width: 500px; display: flex; align-items: center; }
+        .search-container input { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; }
+        .search-icon { margin-left: 5px; cursor: pointer; font-size: 20px; color: #006400; padding: 5px; }
+        .search-icon:hover { background: #FFD700; border-radius: 5px; }
+        .suggestions { position: absolute; background: white; width: 100%; border: 1px solid #ccc; border-radius: 5px; max-height: 200px; overflow-y: auto; display: none; z-index: 11; top: 100%; }
+        .suggestions a { display: flex; align-items: center; padding: 8px; text-decoration: none; color: black; }
+        .suggestions a img { width: 30px; height: 30px; object-fit: contain; margin-right: 10px; border-radius: 3px; }
+        .suggestions a span { flex-grow: 1; font-size: 14px; }
+        .suggestions a:hover { background: #f0f0f0; }
+        .auth-container { display: flex; align-items: center; margin-right: 26px; }
+        .auth-buttons { margin-left: 10px; padding: 8px; background: yellow; border: none; cursor: pointer; border-radius: 5px; }
+        .auth-buttons:hover { background: #FFA500; }
+        .profile { width: 40px; height: 40px; border-radius: 50%; margin-left: 10px; cursor: pointer; }
+        .profile img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+        .cart-icon, .contact-icon { margin-left: 10px; cursor: pointer; position: relative; }
+        .cart-icon img, .contact-icon img { width: 30px; height: 30px; }
+        .cart-icon .cart-total { position: absolute; top: -10px; right: -10px; background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 12px; }
+        .cart-dropdown { display: none; position: absolute; top: 40px; right: 0; background: white; min-width: 300px; box-shadow: 0px 8px 16px rgba(0,0,0,0.2); border-radius: 5px; z-index: 11; padding: 10px; }
+        .cart-dropdown .cart-item { display: flex; align-items: center; padding: 10px; border-bottom: 1px solid #ccc; position: relative; }
+        .cart-dropdown .cart-item img { width: 50px; height: 50px; object-fit: contain; margin-right: 10px; }
+        .cart-dropdown .cart-item-details { flex-grow: 1; }
+        .cart-dropdown .cart-item-details p { margin: 0; font-size: 14px; }
+        .cart-dropdown .remove-item { position: absolute; right: 10px; cursor: pointer; font-size: 16px; color: red; }
+        .cart-dropdown .remove-item:hover { color: darkred; }
+        .cart-dropdown .empty-cart { padding: 10px; text-align: center; color: #666; }
+        .cart-dropdown .checkout-button { display: block; background: #FFD700; border: none; padding: 10px; margin: 10px; text-align: center; cursor: pointer; border-radius: 5px; text-decoration: none; color: black; }
+        .cart-dropdown .checkout-button:hover { background: #FFA500; }
+        .marketplace-header { background: rgba(0, 100, 0, 0.7); color: #FFD700; text-align: center; padding: 8px 8px 4px; margin: 0 0 20px; min-height: 120px; display: flex; flex-direction: column; justify-content: center; border-radius: 10px; }
+        .marketplace-header h1 { font-size: 36px; font-weight: 700; font-family: "Helvetica Neue", Arial, sans-serif; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3); margin: 0; }
+        .marketplace-subheader { color: #FFD700; font-size: 22px; margin: 5px 0 10px; font-weight: 700; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5); letter-spacing: 0.5px; }
+        .gifts-container { max-width: 1200px; margin: 20px auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; min-height: 400px; }
+        .gift-card { background: white; border-radius: 10px; overflow: hidden; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .gift-card img { width: 100%; max-height: 200px; object-fit: contain; }
+        .gift-card h3 { margin: 10px 0; font-size: 16px; }
+        .gift-card p { margin: 0 10px 10px; font-size: 14px; color: #666; }
+        .gift-card .form-check { margin: 10px; }
+        .gift-card .form-check-input { cursor: pointer; }
+        .gift-card .form-check-label { font-size: 14px; color: #006400; }
+        .error { color: red; text-align: center; margin: 10px 0 20px; }
+        .select-button { background: #FFD700; border: none; padding: 12px; width: 250px; cursor: pointer; border-radius: 5px; margin: 20px auto 0; display: block; font-size: 18px; font-weight: bold; color: black; text-transform: uppercase; }
+        .select-button:hover:not(:disabled) { background: #FFA500; transform: scale(1.05); transition: transform 0.2s, background 0.2s; }
+        .select-button:disabled { background: #ccc; cursor: not-allowed; }
+        .ineligible-message { color: black; text-align: center; margin: 10px 0 20px; }
+        /* Purchase Tracker Styles */
+        .purchase-tracker { max-width: 1200px; margin: 20px auto; text-align: center; }
+        .tracker-message { font-size: 24px; color: #006400; font-weight: bold; margin-bottom: 20px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2); }
+        .tracker-message span { color: black; }
+        .tracker-container { display: flex; justify-content: space-between; align-items: center; position: relative; padding: 20px 0; }
+        .progress-bar { position: absolute; top: 50%; left: 8%; width: 84%; height: 8px; background: #ccc; border-radius: 4px; z-index: 1; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #006400, #FFD700); border-radius: 4px; transition: width 0.5s ease-in-out; }
+        .milestone { position: relative; width: 70px; height: 70px; background: #ccc; border: 2px solid black; border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 2; transition: background 0.3s, transform 0.3s; }
+        .milestone.begin { background: #FFD700; font-size: 16px; font-weight: bold; color: #006400; }
+        .milestone.completed { background: #003300; color: #FFD700; transform: scale(1.2); }
+        .milestone.completed::after { content: '✔'; font-size: 28px; color: #FFD700; }
+        .milestone-label { position: absolute; top: 85px; font-size: 14px; color: white; font-weight: bold; white-space: nowrap; background: rgba(0, 100, 0, 0.7); padding: 4px 8px; border-radius: 4px; }
+        .milestone.completed .milestone-label { color: white; background: rgba(0, 100, 0, 0.7); }
+        .celebration { display: none; position: absolute; top: -50px; left: 50%; transform: translateX(-50%); font-size: 18px; color: white; font-weight: bold; background: rgba(0, 100, 0, 0.7); padding: 4px 8px; border-radius: 4px; animation: pop 1s ease-in-out; }
+        .milestone.completed .celebration { display: block; }
+        @keyframes pop {
+            0% { transform: translateX(-50%) scale(0); opacity: 0; }
+            50% { transform: translateX(-50%) scale(1.2); opacity: 1; }
+            100% { transform: translateX(-50%) scale(1); opacity: 1; }
+        }
+        @media (max-width: 768px) {
+            body { padding-top: 120px; }
+            .navbar { padding: 10px; }
+            .navbar-top { flex-wrap: wrap; }
+            .marketplace-header { padding: 6px 6px 3px; min-height: 100px; }
+            .marketplace-header h1 { font-size: 30px; }
+            .marketplace-subheader { font-size: 20px; }
+            .nav-links { gap: 10px; }
+            .search-container { margin: 10px 10px; }
+            .progress-bar { left: 10%; width: 80%; }
+            .milestone { width: 60px; height: 60px; }
+            .milestone-label { font-size: 12px; top: 75px; }
+            .celebration { font-size: 16px; }
+            .tracker-message { font-size: 20px; }
+            .select-button { width: 220px; font-size: 16px; }
+            .error, .ineligible-message { margin: 10px 0 15px; }
+        }
+        @media (max-width: 480px) {
+            body { padding-top: 140px; }
+            .navbar-top { flex-direction: column; align-items: center; gap: 10px; }
+            .marketplace-header { padding: 4px 4px 2px; min-height: 80px; }
+            .marketplace-header h1 { font-size: 24px; }
+            .marketplace-subheader { font-size: 18px; }
+            .search-container { margin: 0 10px; }
+            .search-icon { font-size: 16px; padding: 3px; }
+            .nav-links { flex-direction: column; align-items: center; gap: 8px; }
+            .progress-bar { left: 12%; width: 76%; }
+            .milestone { width: 50px; height: 50px; }
+            .milestone-label { font-size: 10px; top: 65px; }
+            .celebration { font-size: 14px; }
+            .tracker-message { font-size: 18px; }
+            .select-button { width: 200px; font-size: 14px; }
+            .error, .ineligible-message { margin: 8px 0 10px; }
+        }
+    </style>
+</head>
+<body>
+    <video autoplay loop muted playsinline id="bgVideo">
+        <source src="{{ url_for('static', filename='flag_vid.webm') }}" type="video/webm">
+    </video>
+
+    <div class="navbar">
+        <div class="navbar-top">
+            <div class="brand-container">
+                <div class="brand"><a href="{{ url_for('index') }}">YAAD</a></div>
+                <div class="menu-container">
+                    <div class="menu-icon">☰</div>
+                    <div class="dropdown-content">
+                        <a href="{{ url_for('profile') }}">User Account</a>
+                        <a href="{{ url_for('personal_info') }}">Personal Details</a>
+                        <a href="{{ url_for('orders') }}">Order History</a>
+                        <a href="{{ url_for('password_reset') }}">Password Reset</a>
+                        <a href="{{ url_for('seller_dashboard') }}">Seller Account</a>
+                        <a href="{{ url_for('subscriptions') }}">Subscriptions</a>
+                        <a href="{{ url_for('zozi_assistant') }}">Zo-Zi the Assistant</a>
+                        <a href="{{ url_for('find_sellers') }}">Find Personal Sellers</a>
+                        <a href="{{ url_for('tracking') }}">Tracking</a>
+                    </div>
+                </div>
+            </div>
+            <div class="search-container">
+                <input type="text" id="search" placeholder="Search products...">
+                <span class="search-icon">🔍</span>
+                <div class="suggestions" id="suggestions"></div>
+            </div>
+            <div class="auth-container">
+                {% if user %}
+                    <button class="auth-buttons" onclick="window.location.href='{{ url_for('logout') }}'">Logout</button>
+                {% else %}
+                    <button class="auth-buttons" onclick="window.location.href='{{ url_for('login') }}'">Login</button>
+                {% endif %}
+                <button class="auth-buttons" onclick="window.location.href='{{ url_for('signup') }}'">Sign Up</button>
+                <div class="profile" onclick="window.location.href='{{ url_for('profile' if user else 'login') }}'" title="{% if user and user.profile_picture %}Change Profile Picture{% elif user %}Add Profile Picture{% else %}Login to add profile{% endif %}">
+                    {% if user and user.profile_picture %}
+                        <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile">
+                    {% else %}
+                        <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%;">+</span>
+                    {% endif %}
+                </div>
+                <div class="cart-icon">
+                    <img src="{{ url_for('static', filename='cart icon 3.png') }}" alt="Cart">
+                    <span class="cart-total">{{ cart_item_count }}</span>
+                    <div class="cart-dropdown" id="cartDropdown">
+                        <div id="cartItems"></div>
+                        <a href="{{ url_for('checkout') }}" class="checkout-button">Checkout</a>
+                    </div>
+                </div>
+                <div class="contact-icon" onclick="window.location.href='{{ url_for('contact') }}'">
+                    <img src="{{ url_for('static', filename='customer service.png') }}" alt="Customer Service">
+                </div>
+            </div>
+        </div>
+        <div class="nav-links">
+            <a href="{{ url_for('index') }}">Home</a>
+            <a href="{{ url_for('tracking') }}">Track Order</a>
+            {% if user %}
+                <a href="{{ url_for('personal_info') }}">Personal Info</a>
+                <a href="{{ url_for('orders') }}">Orders</a>
+            {% endif %}
+            <a href="{{ url_for('find_sellers') }}">Find Sellers</a>
+            <a href="{{ url_for('free') }}">Free</a>
+            <a href="{{ url_for('seller_dashboard') }}">Become a Seller</a>
+            <a href="{{ url_for('contact') }}">Contact</a>
+        </div>
+    </div>
+
+    <div class="content-wrapper">
+        <div class="marketplace-header">
+            <h1>Pick Yuh Free Gift, Mi Fren!</h1>
+            <p class="marketplace-subheader">Yuh streak hot! Choose one gift to add to yuh cart, seen?</p>
+        </div>
+
+        <div class="purchase-tracker">
+            <h2>Yuh Road to a Free Gift!</h2>
+            <p class="tracker-message">Every time yuh buy <span>5 items</span>, yuh get fi choose a <span>FREE item</span>! Yuh just pay fi shipping, mi fren!</p>
+            <div class="tracker-container">
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ (purchase_count | default(0.5)) * 20 }}%;"></div>
+                </div>
+                <div class="milestone begin">BEGIN!</div>
+                <div class="milestone {{ 'completed' if (purchase_count | default(0.5)) >= 1 }}" data-milestone="1">
+                    <span class="celebration">1st Done!</span>
+                    <span class="milestone-label">1st Purchase</span>
+                </div>
+                <div class="milestone {{ 'completed' if (purchase_count | default(0.5)) >= 2 }}" data-milestone="2">
+                    <span class="celebration">2nd Done!</span>
+                    <span class="milestone-label">2nd Purchase</span>
+                </div>
+                <div class="milestone {{ 'completed' if (purchase_count | default(0.5)) >= 3 }}" data-milestone="3">
+                    <span class="celebration">3rd Done!</span>
+                    <span class="milestone-label">3rd Purchase</span>
+                </div>
+                <div class="milestone {{ 'completed' if (purchase_count | default(0.5)) >= 4 }}" data-milestone="4">
+                    <span class="celebration">4th Done!</span>
+                    <span class="milestone-label">4th Purchase</span>
+                </div>
+                <div class="milestone {{ 'completed' if (purchase_count | default(0.5)) >= 5 }}" data-milestone="5">
+                    <span class="celebration">Yuh Reach!</span>
+                    <span class="milestone-label">5th Purchase</span>
+                </div>
+            </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('select_gift') }}">
+            <button type="submit" class="select-button" {{ 'disabled' if (purchase_count | default(0.5)) < 5 }}>CLAIM YUH FREE ITEM!</button>
+            {% if (purchase_count | default(0.5)) < 5 %}
+                <p class="ineligible-message">Yuh nuh eligible fi a free gift right now, mi fren. Shop more to qualify!</p>
+            {% endif %}
+
+            <div class="gifts-container">
+                {% if gifts %}
+                    {% for gift in gifts %}
+                        <div class="gift-card">
+                            <img src="{{ url_for('static', filename=gift.image_url) }}" alt="{{ gift.name }}" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                            <h3>{{ gift.name }}</h3>
+                            <p>{{ gift.description }}</p>
+                            <p><strong>Category:</strong> {{ gift.category }}</p>
+                            <p><strong>In Stock:</strong> {{ gift.amount }}</p>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="gift_key" id="gift_{{ gift.gift_key }}" value="{{ gift.gift_key }}" required>
+                                <label class="form-check-label" for="gift_{{ gift.gift_key }}">Pick dis one</label>
+                            </div>
+                        </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="error">Complete di 5 purchase and choose any of the free product available</p>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const video = document.getElementById("bgVideo");
+        video.addEventListener('timeupdate', () => {
+            if (video.currentTime >= 17) {
+                video.currentTime = 0;
+            }
+        });
+
+        async function addToCart(productKey, price, imageUrl) {
+            try {
+                const response = await fetch('/cart', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ product_key: productKey, price: price, quantity: 1, image_url: imageUrl, action: 'add' })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.querySelector('.cart-total').textContent = data.cart_item_count || 0;
+                    fetchCartItems();
+                } else {
+                    alert(data.message || 'Failed to add gift to cart.');
+                }
+            } catch (error) {
+                console.error('Add to cart error:', error);
+                alert('Network error while adding to cart.');
+            }
+        }
+
+        async function removeFromCart(productKey) {
+            try {
+                const response = await fetch('/cart', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ product_key: productKey, action: 'remove' })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.querySelector('.cart-total').textContent = data.cart_item_count || 0;
+                    fetchCartItems();
+                } else {
+                    alert(data.message || 'Failed to remove gift from cart.');
+                }
+            } catch (error) {
+                console.error('Remove from cart error:', error);
+                alert('Network error while removing from cart.');
+            }
+        }
+
+        async function fetchCartItems() {
+            try {
+                const response = await fetch('/cart');
+                const data = await response.json();
+                const cartItemsDiv = document.getElementById('cartItems');
+                const cartTotalBadge = document.querySelector('.cart-total');
+                cartItemsDiv.innerHTML = '';
+                if (!data.cart_items || data.cart_items.length === 0) {
+                    cartItemsDiv.innerHTML = '<p class="empty-cart">Your cart is empty</p>';
+                    cartTotalBadge.textContent = '0';
+                } else {
+                    data.cart_items.forEach(item => {
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'cart-item';
+                        itemDiv.innerHTML = `
+                            <img src="/static/${item.image_url}" alt="${item.product_key}" onerror="this.src='/static/placeholder.jpg'">
+                            <div class="cart-item-details">
+                                <p>${item.product_key}</p>
+                                <p>${item.price} JMD x ${item.quantity}</p>
+                            </div>
+                            <span class="remove-item" onclick="removeFromCart('${item.product_key}')">x</span>
+                        `;
+                        cartItemsDiv.appendChild(itemDiv);
+                    });
+                    cartTotalBadge.textContent = data.cart_item_count || 0;
+                }
+            } catch (error) {
+                console.error('Fetch cart items error:', error);
+                const cartItemsDiv = document.getElementById('cartItems');
+                cartItemsDiv.innerHTML = '<p class="empty-cart">Error loading cart</p>';
+                document.querySelector('.cart-total').textContent = '0';
+            }
+        }
+
+        const searchInput = document.getElementById('search');
+        const suggestionsDiv = document.getElementById('suggestions');
+        const searchIcon = document.querySelector('.search-icon');
+
+        async function showSuggestions() {
+            const query = searchInput.value;
+            if (query.length < 2) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+            const response = await fetch(`/search_suggestions?query=${encodeURIComponent(query)}`);
+            const data = await response.json();
+            suggestionsDiv.innerHTML = '';
+            data.suggestions.forEach(suggestion => {
+                const a = document.createElement('a');
+                a.href = `/product/${suggestion.key.replace(/ /g, '+')}`;
+                a.innerHTML = `<img src="/static/${suggestion.image_url}" alt="${suggestion.name}" onerror="this.src='/static/placeholder.jpg'"><span>${suggestion.name}</span>`;
+                suggestionsDiv.appendChild(a);
+            });
+            suggestionsDiv.style.display = data.suggestions.length ? 'block' : 'none';
+        }
+
+        async function triggerSearch() {
+            const query = searchInput.value;
+            if (query.length < 2) {
+                alert('Please enter at least 2 characters to search.');
+                return;
+            }
+            const response = await fetch(`/search_suggestions?query=${encodeURIComponent(query)}`);
+            const data = await response.json();
+            if (data.suggestions.length > 0) {
+                window.location.href = `/product/${data.suggestions[0].key.replace(/ /g, '+')}`;
+            } else {
+                alert('No products found for your search.');
+            }
+        }
+
+        searchInput.addEventListener('input', showSuggestions);
+        searchIcon.addEventListener('click', triggerSearch);
+
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                triggerSearch();
+            }
+        });
+
+        const cartIcon = document.querySelector('.cart-icon');
+        const cartDropdown = document.getElementById('cartDropdown');
+        cartIcon.addEventListener('click', (e) => {
+            e.stopPropagation();
+            cartDropdown.style.display = cartDropdown.style.display === 'block' ? 'none' : 'block';
+            if (cartDropdown.style.display === 'block') {
+                fetchCartItems();
+            }
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!cartIcon.contains(e.target)) {
+                cartDropdown.style.display = 'none';
+            }
+        });
+
+        window.onload = () => {
+            fetchCartItems();
+        };
+    </script>
+</body>
+</html>
