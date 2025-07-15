@@ -52,7 +52,7 @@ humanfriendly==10.0
 idna==3.10
 importlib_metadata==8.5.0
 jax==0.4.30
-jaxlib==0.4.30
+jaxlib==0.4.34
 Jinja2==3.1.4
 jmespath==1.0.1
 joblib==1.2.0
