@@ -488,6 +488,209 @@
             margin-top: 15px;
         }
 
+        /* LYNK INTEGRATION STYLES */
+        .lynk-payment-section {
+            margin-top: 20px;
+            padding: 25px;
+            border: 3px solid #28a745;
+            border-radius: 15px;
+            background: linear-gradient(135deg, #e8f5e8, #f0f8f0);
+            animation: slideIn 0.3s ease;
+            display: none;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .lynk-header {
+            text-align: center;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            border-radius: 10px;
+        }
+
+        .lynk-header h3 {
+            margin: 0 0 15px 0;
+            font-size: 24px;
+        }
+
+        .lynk-benefits {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .benefit {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .lynk-instructions {
+            background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+            border: 2px solid #ffd43b;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .lynk-instructions h4 {
+            color: #856404;
+            margin: 0 0 15px 0;
+            font-size: 18px;
+        }
+
+        .lynk-instructions ol {
+            margin: 10px 0 0 0;
+            padding-left: 20px;
+        }
+
+        .lynk-instructions li {
+            margin-bottom: 8px;
+            color: #856404;
+            font-size: 15px;
+        }
+
+        .transfer-details {
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .transfer-detail {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+
+        .transfer-detail:last-child {
+            margin-bottom: 0;
+        }
+
+        .transfer-detail label {
+            font-weight: bold;
+            color: #495057;
+            margin: 0;
+        }
+
+        .transfer-detail-value {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-family: monospace;
+            font-size: 16px;
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        .copy-btn {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: #218838;
+            transform: scale(1.05);
+        }
+
+        .lynk-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            transition: border-color 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        .lynk-input:focus {
+            outline: none;
+            border-color: #28a745;
+            box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+        }
+
+        .lynk-pay-btn {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            width: 100%;
+        }
+
+        .lynk-pay-btn:hover {
+            background: linear-gradient(135deg, #218838, #1e9e8a);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .lynk-footer {
+            text-align: center;
+            margin-top: 20px;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 10px;
+        }
+
+        .lynk-note {
+            margin: 0;
+            color: #495057;
+            font-size: 14px;
+        }
+
+        .lynk-note a {
+            color: #28a745;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .lynk-note a:hover {
+            text-decoration: underline;
+        }
+
+        .download-lynk {
+            display: inline-block;
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #333;
+            padding: 8px 16px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-weight: bold;
+            margin-left: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .download-lynk:hover {
+            background: linear-gradient(135deg, #FFA500, #FF8C00);
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(255, 165, 0, 0.3);
+        }
+
         @media (max-width: 768px) {
             .checkout-form {
                 flex-direction: column;
@@ -503,6 +706,16 @@
             }
             .form-details button {
                 flex: none;
+            }
+            .transfer-detail {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 10px;
+            }
+            .transfer-detail-value {
+                flex-direction: column;
+                align-items: flex-start;
+                width: 100%;
             }
         }
     </style>
@@ -659,15 +872,78 @@
                         </div>
 
                         <label for="guest_payment_method">💳 Payment Method <span class="required">*</span></label>
-                        <select id="guest_payment_method" name="payment_method" required>
+                        <select id="guest_payment_method" name="payment_method" required onchange="handlePaymentMethodChange('guest')">
                             <option value="" disabled selected>Select a payment method</option>
+                            <option value="lynk">🏦 Lynk Digital Wallet (FREE! 0% fees) 🇯🇲</option>
                             <option value="skrill">💰 Skrill</option>
                             <option value="cash_on_delivery">💵 Cash on Delivery</option>
                             <option value="bank_transfer">🏦 Bank Transfer</option>
                         </select>
 
+                        <!-- Lynk Payment Section for Guest -->
+                        <div id="guestLynkSection" class="lynk-payment-section">
+                            <div class="lynk-header">
+                                <h3>🏦 Pay with Lynk - Jamaica's #1 Digital Wallet</h3>
+                                <div class="lynk-benefits">
+                                    <span class="benefit">✅ 100% FREE</span>
+                                    <span class="benefit">⚡ Instant Transfer</span>
+                                    <span class="benefit">🔒 Secure</span>
+                                    <span class="benefit">🇯🇲 Made for Jamaica</span>
+                                </div>
+                            </div>
+
+                            <div class="lynk-instructions">
+                                <h4>💡 How to Pay with Lynk:</h4>
+                                <ol>
+                                    <li>Open your Lynk app (or download it FREE from App Store/Google Play)</li>
+                                    <li>Send money to our Lynk account using the details below</li>
+                                    <li>Copy the transaction reference and paste it below</li>
+                                    <li>Click "Verify Payment" to confirm your order</li>
+                                </ol>
+                            </div>
+
+                            <div class="transfer-details">
+                                <h4 style="color: #28a745; margin-bottom: 15px;">💸 Transfer Details:</h4>
+                                <div class="transfer-detail">
+                                    <label>Send Money To:</label>
+                                    <div class="transfer-detail-value">
+                                        <span>@zozi-marketplace</span>
+                                        <button type="button" class="copy-btn" onclick="copyToClipboard('@zozi-marketplace')">📋 Copy</button>
+                                    </div>
+                                </div>
+                                <div class="transfer-detail">
+                                    <label>Amount to Send:</label>
+                                    <div class="transfer-detail-value">
+                                        <span>J$<span id="guestLynkAmount">{{ (cart_total + 500 + (cart_total * 0.05) - (discount or 0))|round(2) }}</span></span>
+                                        <button type="button" class="copy-btn" onclick="copyToClipboard('{{ (cart_total + 500 + (cart_total * 0.05) - (discount or 0))|round(2) }}')">📋 Copy</button>
+                                    </div>
+                                </div>
+                                <div class="transfer-detail">
+                                    <label>Reference Note:</label>
+                                    <div class="transfer-detail-value">
+                                        <span>GUEST-ORDER-{{ session.get('temp_order_id', 'TEMP' ~ range(1000, 9999)|random) }}</span>
+                                        <button type="button" class="copy-btn" onclick="copyToClipboard('GUEST-ORDER-{{ session.get('temp_order_id', 'TEMP' ~ range(1000, 9999)|random) }}')">📋 Copy</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <label for="guestTransactionRef">📝 Paste Lynk Transaction Reference <span class="required">*</span></label>
+                            <input type="text" id="guestTransactionRef" name="lynk_reference" class="lynk-input" placeholder="e.g., LNK123456789 or transaction ID from your Lynk app">
+
+                            <button type="button" class="lynk-pay-btn" onclick="verifyLynkPayment('guest')">
+                                ✅ Verify Payment & Complete Order
+                            </button>
+
+                            <div class="lynk-footer">
+                                <p class="lynk-note">
+                                    💡 <strong>Don't have Lynk?</strong> Download it for FREE and get J$100 bonus!
+                                    <a href="#" onclick="showLynkDownloadInfo()" class="download-lynk">📱 Get Lynk FREE</a>
+                                </p>
+                            </div>
+                        </div>
+
                         <div class="button-group">
-                            <button type="submit">🛍️ Place Order as Guest</button>
+                            <button type="submit" id="guestSubmitBtn">🛍️ Place Order as Guest</button>
                             <button type="button" class="cancel-button" onclick="window.location.href='{{ url_for('cart') }}'">❌ Cancel</button>
                             <button type="button" class="continue-button" onclick="window.location.href='{{ url_for('index') }}'">🛒 Continue Shopping</button>
                         </div>
@@ -754,12 +1030,75 @@
                         </div>
 
                         <label for="payment_method">💳 Payment Method</label>
-                        <select id="payment_method" name="payment_method" required>
+                        <select id="payment_method" name="payment_method" required onchange="handlePaymentMethodChange('user')">
                             <option value="" disabled selected>Select a payment method</option>
+                            <option value="lynk">🏦 Lynk Digital Wallet (FREE! 0% fees) 🇯🇲</option>
                             <option value="skrill">💰 Skrill</option>
                             <option value="cash_on_delivery">💵 Cash on Delivery</option>
                             <option value="bank_transfer">🏦 Bank Transfer</option>
                         </select>
+
+                        <!-- Lynk Payment Section for User -->
+                        <div id="userLynkSection" class="lynk-payment-section">
+                            <div class="lynk-header">
+                                <h3>🏦 Pay with Lynk - Jamaica's #1 Digital Wallet</h3>
+                                <div class="lynk-benefits">
+                                    <span class="benefit">✅ 100% FREE</span>
+                                    <span class="benefit">⚡ Instant Transfer</span>
+                                    <span class="benefit">🔒 Secure</span>
+                                    <span class="benefit">🇯🇲 Made for Jamaica</span>
+                                </div>
+                            </div>
+
+                            <div class="lynk-instructions">
+                                <h4>💡 How to Pay with Lynk:</h4>
+                                <ol>
+                                    <li>Open your Lynk app (or download it FREE from App Store/Google Play)</li>
+                                    <li>Send money to our Lynk account using the details below</li>
+                                    <li>Copy the transaction reference and paste it below</li>
+                                    <li>Click "Verify Payment" to confirm your order</li>
+                                </ol>
+                            </div>
+
+                            <div class="transfer-details">
+                                <h4 style="color: #28a745; margin-bottom: 15px;">💸 Transfer Details:</h4>
+                                <div class="transfer-detail">
+                                    <label>Send Money To:</label>
+                                    <div class="transfer-detail-value">
+                                        <span>@zozi-marketplace</span>
+                                        <button type="button" class="copy-btn" onclick="copyToClipboard('@zozi-marketplace')">📋 Copy</button>
+                                    </div>
+                                </div>
+                                <div class="transfer-detail">
+                                    <label>Amount to Send:</label>
+                                    <div class="transfer-detail-value">
+                                        <span>J$<span id="userLynkAmount">{{ (cart_total + 500 + (cart_total * 0.05) - (discount or 0))|round(2) }}</span></span>
+                                        <button type="button" class="copy-btn" onclick="copyToClipboard('{{ (cart_total + 500 + (cart_total * 0.05) - (discount or 0))|round(2) }}')">📋 Copy</button>
+                                    </div>
+                                </div>
+                                <div class="transfer-detail">
+                                    <label>Reference Note:</label>
+                                    <div class="transfer-detail-value">
+                                        <span>USER-{{ user.email if user else 'GUEST' }}-{{ session.get('temp_order_id', 'TEMP' ~ range(1000, 9999)|random) }}</span>
+                                        <button type="button" class="copy-btn" onclick="copyToClipboard('USER-{{ user.email if user else 'GUEST' }}-{{ session.get('temp_order_id', 'TEMP' ~ range(1000, 9999)|random) }}')">📋 Copy</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <label for="userTransactionRef">📝 Paste Lynk Transaction Reference <span class="required">*</span></label>
+                            <input type="text" id="userTransactionRef" name="lynk_reference" class="lynk-input" placeholder="e.g., LNK123456789 or transaction ID from your Lynk app">
+
+                            <button type="button" class="lynk-pay-btn" onclick="verifyLynkPayment('user')">
+                                ✅ Verify Payment & Complete Order
+                            </button>
+
+                            <div class="lynk-footer">
+                                <p class="lynk-note">
+                                    💡 <strong>Don't have Lynk?</strong> Download it for FREE and get J$100 bonus!
+                                    <a href="#" onclick="showLynkDownloadInfo()" class="download-lynk">📱 Get Lynk FREE</a>
+                                </p>
+                            </div>
+                        </div>
 
                         <div class="button-group">
                             <button type="submit" id="placeOrderBtn">🛍️ Place Order</button>
@@ -804,7 +1143,7 @@
             setTimeout(() => {
                 toast.classList.remove('show');
                 setTimeout(() => toast.remove(), 300);
-            }, 2000);
+            }, 4000);
         }
 
         // Utility function to escape HTML to prevent XSS
@@ -812,6 +1151,141 @@
             const div = document.createElement('div');
             div.textContent = str;
             return div.innerHTML;
+        }
+
+        // LYNK INTEGRATION FUNCTIONS
+
+        // Handle payment method change
+        function handlePaymentMethodChange(userType) {
+            const paymentSelect = document.getElementById(userType === 'guest' ? 'guest_payment_method' : 'payment_method');
+            const lynkSection = document.getElementById(userType + 'LynkSection');
+            const submitBtn = document.getElementById(userType === 'guest' ? 'guestSubmitBtn' : 'placeOrderBtn');
+
+            if (paymentSelect.value === 'lynk') {
+                lynkSection.style.display = 'block';
+                submitBtn.style.display = 'none'; // Hide normal submit when Lynk is selected
+                showToast('Lynk Selected', 'Complete the Lynk transfer details below to proceed!', 'success');
+            } else {
+                lynkSection.style.display = 'none';
+                submitBtn.style.display = 'block'; // Show normal submit for other methods
+            }
+
+            // Update Lynk amounts when payment method changes
+            updateLynkAmounts();
+        }
+
+        // Copy to clipboard function
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(function() {
+                showToast('Copied!', `"${text}" copied to clipboard`, 'success');
+            }).catch(function() {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                showToast('Copied!', `"${text}" copied to clipboard`, 'success');
+            });
+        }
+
+        // Update Lynk amounts when shipping changes
+        function updateLynkAmounts() {
+            const subtotal = {{ cart_total or 0 }};
+            let shippingFee = 500;
+
+            // Check which shipping option is selected
+            const shippingRadios = document.getElementsByName('shipping_option');
+            for (let radio of shippingRadios) {
+                if (radio.checked) {
+                    shippingFee = radio.value === 'overnight' ? 1200 : 500;
+                    break;
+                }
+            }
+
+            const tax = subtotal * 0.05;
+            const discount = {{ discount or 0 }};
+            const total = subtotal + shippingFee + tax - discount;
+
+            // Update both guest and user Lynk amounts
+            const guestAmount = document.getElementById('guestLynkAmount');
+            const userAmount = document.getElementById('userLynkAmount');
+
+            if (guestAmount) guestAmount.textContent = total.toFixed(2);
+            if (userAmount) userAmount.textContent = total.toFixed(2);
+        }
+
+        // Verify Lynk payment
+        function verifyLynkPayment(userType) {
+            const transactionRefInput = document.getElementById(userType + 'TransactionRef');
+            const transactionRef = transactionRefInput.value.trim();
+
+            if (!transactionRef) {
+                showToast('Missing Reference', 'Please enter your Lynk transaction reference', 'error');
+                transactionRefInput.focus();
+                return;
+            }
+
+            // Validate other required fields first
+            if (userType === 'guest') {
+                if (!validateGuestForm()) {
+                    showToast('Form Incomplete', 'Please fill in all required fields before verifying payment', 'error');
+                    return;
+                }
+            } else {
+                if (!validateUserForm()) {
+                    showToast('Form Incomplete', 'Please fill in all required fields before verifying payment', 'error');
+                    return;
+                }
+            }
+
+            // Disable the button to prevent double submission
+            const verifyBtn = event.target;
+            verifyBtn.disabled = true;
+            verifyBtn.textContent = '🔄 Verifying Payment...';
+
+            // Submit the form with Lynk payment method
+            const form = document.getElementById(userType === 'guest' ? 'guestCheckoutForm' : 'userCheckoutForm');
+
+            // Add hidden field for Lynk transaction reference
+            const hiddenRef = document.createElement('input');
+            hiddenRef.type = 'hidden';
+            hiddenRef.name = 'lynk_reference';
+            hiddenRef.value = transactionRef;
+            form.appendChild(hiddenRef);
+
+            // Add hidden field to indicate this is a Lynk payment
+            const hiddenLynk = document.createElement('input');
+            hiddenLynk.type = 'hidden';
+            hiddenLynk.name = 'is_lynk_payment';
+            hiddenLynk.value = 'true';
+            form.appendChild(hiddenLynk);
+
+            // Submit the form
+            showToast('Processing', 'Verifying your Lynk payment...', 'success');
+            form.submit();
+        }
+
+        // Show Lynk download information
+        function showLynkDownloadInfo() {
+            showToast(
+                'Get Lynk FREE!',
+                'Download Lynk from App Store or Google Play. Sign up with any Jamaican phone number - no bank account needed!',
+                'success'
+            );
+
+            // Optional: Open app store links (you can customize these)
+            setTimeout(() => {
+                if (confirm('Would you like to visit the App Store/Google Play to download Lynk?')) {
+                    // You can replace these with actual Lynk app store links
+                    if (/iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+                        window.open('https://apps.apple.com/app/lynk', '_blank');
+                    } else {
+                        window.open('https://play.google.com/store/apps/details?id=com.lynk', '_blank');
+                    }
+                }
+            }, 2000);
         }
 
         // User type selection
@@ -887,6 +1361,9 @@
                     await updateCartDisplay();
                     updateCartSummary(data);
                     showToast('Item Removed', 'Product removed from cart');
+
+                    // Update Lynk amounts after cart change
+                    updateLynkAmounts();
                 } else {
                     showToast('Error', data.message || 'Failed to remove product from cart.', 'error');
                 }
@@ -957,6 +1434,9 @@
                 ${discount ? `<p class="final-total"><span>Final Total:</span> <span id="adjustedTotal">${finalTotal.toFixed(2)} JMD</span></p>` : ''}
             `;
             cartSummary.appendChild(totalSection);
+
+            // Update Lynk amounts
+            updateLynkAmounts();
         }
 
         // Universal cart update function
@@ -1116,6 +1596,9 @@
             if (handlingFeeDisplay) handlingFeeDisplay.textContent = `${tax} JMD`;
             if (totalDisplay) totalDisplay.textContent = `${total} JMD`;
             if (adjustedTotalDisplay) adjustedTotalDisplay.textContent = `${adjustedTotal} JMD`;
+
+            // Update Lynk amounts when shipping changes
+            updateLynkAmounts();
         }
 
         // Form validation
@@ -1182,19 +1665,27 @@
 
         // Simple form validation before submission
         document.getElementById('guestCheckoutForm')?.addEventListener('submit', function(e) {
-            if (!validateGuestForm()) {
-                e.preventDefault();
-                showToast('Form Error', 'Please fill in all required fields correctly.', 'error');
-                return;
+            // Only validate if not using Lynk payment (Lynk uses its own verification)
+            const paymentMethod = document.getElementById('guest_payment_method').value;
+            if (paymentMethod !== 'lynk') {
+                if (!validateGuestForm()) {
+                    e.preventDefault();
+                    showToast('Form Error', 'Please fill in all required fields correctly.', 'error');
+                    return;
+                }
             }
             // Let the browser handle the form submission naturally
         });
 
         document.getElementById('userCheckoutForm')?.addEventListener('submit', function(e) {
-            if (!validateUserForm()) {
-                e.preventDefault();
-                showToast('Form Error', 'Please fill in all required fields correctly.', 'error');
-                return;
+            // Only validate if not using Lynk payment (Lynk uses its own verification)
+            const paymentMethod = document.getElementById('payment_method').value;
+            if (paymentMethod !== 'lynk') {
+                if (!validateUserForm()) {
+                    e.preventDefault();
+                    showToast('Form Error', 'Please fill in all required fields correctly.', 'error');
+                    return;
+                }
             }
             // Let the browser handle the form submission naturally
         });
@@ -1226,6 +1717,9 @@
                     updatePostOfficeOptions(parishSelect, postOfficeSelects[index]);
                 }
             });
+
+            // Initialize Lynk amounts
+            updateLynkAmounts();
         };
 
         // Update cart when page becomes visible

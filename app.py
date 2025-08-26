@@ -27,6 +27,15 @@ ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
 
 csrf = CSRFProtect(app)
 
+
+@app.template_filter('format_currency')
+def format_currency(value):
+    """Format currency values"""
+    try:
+        return f"{float(value):,.2f}"
+    except (ValueError, TypeError):
+        return "0.00"
+
 @app.context_processor
 def inject_csrf_token():
     return dict(csrf_token=generate_csrf)
@@ -367,6 +376,14 @@ def init_db():
                FOREIGN KEY (seller_email) REFERENCES users (email)
            )
        ''')
+
+    # 🏦 LYNK INTEGRATION: Add Lynk payment fields to orders table
+    try:
+        cursor.execute('ALTER TABLE orders ADD COLUMN lynk_reference TEXT')
+        cursor.execute('ALTER TABLE orders ADD COLUMN payment_verified BOOLEAN DEFAULT FALSE')
+        print("✅ Added Lynk payment fields to orders table")
+    except:
+        pass  # Fields already exist
 
     # Insert default support agent
     cursor.execute('''
@@ -1888,9 +1905,7 @@ def tracking():
     )
 
 
-# Add this import at the top of your app.py (if not already there)
-from werkzeug.security import generate_password_hash, check_password_hash
-
+from werkzeug.security import generate_password_hash
 
 @app.route('/signup', methods=['GET', 'POST'])
 def signup():
@@ -1899,6 +1914,7 @@ def signup():
         notification_preference = request.form.get('notification_preference', 'sms')
         if not form_type:
             return render_template('signup.html', error="Form type missing!")
+
         with get_db() as conn:
             cursor = conn.cursor()
             if form_type == 'buyer':
@@ -1914,7 +1930,6 @@ def signup():
                     if cursor.fetchone():
                         return render_template('signup.html', error="Email already registered!")
 
-                # HASH THE PASSWORD HERE - ONLY CHANGE!
                 password = request.form['password']
                 hashed_password = generate_password_hash(password)
 
@@ -1923,7 +1938,7 @@ def signup():
                     'last_name': request.form.get('last_name', ''),
                     'email': email,
                     'phone_number': phone_number,
-                    'password': hashed_password,  # USE HASHED PASSWORD
+                    'password': hashed_password,
                     'address': request.form.get('address', ''),
                     'security_question': request.form.get('security_question', ''),
                     'security_answer': request.form.get('security_answer', ''),
@@ -1949,9 +1964,10 @@ def signup():
                 ))
                 conn.commit()
 
-                # DON'T PUT HASHED PASSWORD IN SESSION
                 user_data['password'] = '[PROTECTED]'
+                session.clear()  # Clear all session data
                 session['user'] = user_data
+                logger.info(f"New buyer signed up: {email}")
                 return redirect(url_for('verification', email=email, first_name=user_data['first_name']))
 
             elif form_type == 'seller':
@@ -1967,7 +1983,6 @@ def signup():
                     if cursor.fetchone():
                         return render_template('signup.html', error="Email already registered!")
 
-                # HASH THE PASSWORD HERE - ONLY CHANGE!
                 password = request.form['business_password']
                 hashed_password = generate_password_hash(password)
 
@@ -1975,7 +1990,7 @@ def signup():
                     'first_name': request.form.get('owner_name', ''),
                     'email': email,
                     'phone_number': phone_number,
-                    'password': hashed_password,  # USE HASHED PASSWORD
+                    'password': hashed_password,
                     'business_name': request.form.get('business_name', ''),
                     'business_address': request.form.get('business_address', ''),
                     'notification_preference': notification_preference,
@@ -1997,15 +2012,25 @@ def signup():
                     user_data['discount_applied'], user_data['discount_used'], user_data['gender'],
                     user_data['delivery_address'], user_data['billing_address']
                 ))
+
+                # Create seller_finances record
+                cursor.execute('''
+                    INSERT OR IGNORE INTO seller_finances 
+                    (seller_email, balance, total_earnings, pending_withdrawals)
+                    VALUES (?, ?, ?, ?)
+                ''', (email, 0, 0, 0))
+
                 conn.commit()
 
-                # DON'T PUT HASHED PASSWORD IN SESSION
                 user_data['password'] = '[PROTECTED]'
+                session.clear()  # Clear all session data
                 session['user'] = user_data
+                logger.info(f"New seller signed up: {email}, is_seller: {user_data['is_seller']}")
                 return redirect(url_for('seller_dashboard'))
             else:
                 return render_template('signup.html', error="Invalid form type!")
     return render_template('signup.html', error=None)
+
 
 @app.route('/contact', methods=['GET', 'POST'])
 def contact():
@@ -2298,12 +2323,8 @@ def logout():
         cart_data = session.get('cart', {})
         if cart_data:
             save_cart_to_db(user_email, cart_data)
-    session.pop('user', None)
-    session.pop('cart', None)
-    session.pop('reset_nub', None)
-    session.pop('reset_code', None)
-    session.pop('reset_identifier', None)
-    session.pop('reset_method', None)
+        logger.info(f"User logged out: {user_email}")
+    session.clear()  # Clear all session data
     return redirect(url_for('index'))
 
 @app.route('/profile', methods=['GET', 'POST'])
@@ -3705,143 +3726,267 @@ def handmade():
 
 # Add these routes to your app.py
 
+
+# Replace your existing seller_dashboard route with this complete version
 @app.route('/seller_dashboard')
 def seller_dashboard():
-    """Enhanced seller dashboard with financial tracking"""
-    if 'user' not in session:
+    if 'user' not in session or not session['user'].get('is_seller', False):
         return redirect(url_for('login'))
 
-    user_email = session['user']['email']
+    seller_email = session['user']['email']
 
     try:
         with get_db() as conn:
             cursor = conn.cursor()
 
-            # Get seller's products
-            cursor.execute('SELECT * FROM products WHERE seller_email = ?', (user_email,))
-            products = cursor.fetchall()
+            # Verify seller exists
+            cursor.execute('SELECT * FROM users WHERE email = ? AND is_seller = ?', (seller_email, True))
+            seller = cursor.fetchone()
+            if not seller:
+                logger.warning(f"Seller not found or not authorized: {seller_email}")
+                return redirect(url_for('login'))
 
-            seller_products = {}
-            total_revenue = 0
-            total_sold = 0
-            total_pending_withdrawal = 0
-
-            for product in products:
-                product_data = dict(product)
-                product_data['image_urls'] = json.loads(product_data['image_urls'])
-                product_data['sizes'] = json.loads(product_data['sizes'])
-
-                # Calculate revenue for this product
-                product_revenue = (product_data['sold'] or 0) * product_data['price']
-                total_revenue += product_revenue
-                total_sold += (product_data['sold'] or 0)
-
-                seller_products[product_data['product_key']] = product_data
-
-            # Get seller's financial data
+            # Get seller's products with calculated revenue
             cursor.execute('''
-                SELECT balance, total_earnings, pending_withdrawals, last_withdrawal_date
-                FROM seller_finances WHERE seller_email = ?
-            ''', (user_email,))
+                SELECT product_key, name, category, price, posted_date, sold, clicks, likes, 
+                       image_url, description, amount
+                FROM products 
+                WHERE seller_email = ?
+                ORDER BY posted_date DESC
+            ''', (seller_email,))
+
+            products_raw = cursor.fetchall()
+            products = []
+            total_calculated_earnings = 0.0
+
+            for row in products_raw:
+                product_revenue = float(row['price']) * (row['sold'] or 0)
+                total_calculated_earnings += product_revenue
+
+                products.append({
+                    'product_key': row['product_key'],
+                    'name': row['name'],
+                    'category': row['category'] or 'Uncategorized',
+                    'price': float(row['price']),
+                    'posted_date': row['posted_date'] or 'N/A',
+                    'sold': row['sold'] or 0,
+                    'clicks': row['clicks'] or 0,
+                    'likes': row['likes'] or 0,
+                    'image_url': row['image_url'] or 'placeholder.jpg',
+                    'description': row['description'] or 'No description available',
+                    'amount': row['amount'] or 0,
+                    'revenue': product_revenue
+                })
+
+            # Calculate actual earnings from sales_log table
+            cursor.execute('''
+                SELECT COALESCE(SUM(quantity * price), 0) as actual_earnings
+                FROM sales_log 
+                WHERE seller_email = ?
+            ''', (seller_email,))
+
+            sales_result = cursor.fetchone()
+            actual_sales_earnings = float(sales_result['actual_earnings']) if sales_result else 0.0
+
+            # Use the higher value between calculated and actual earnings
+            total_earnings = max(total_calculated_earnings, actual_sales_earnings)
+
+            # Get total withdrawals (completed)
+            cursor.execute('''
+                SELECT COALESCE(SUM(amount), 0) as completed_withdrawals
+                FROM withdrawal_requests 
+                WHERE seller_email = ? AND status = 'completed'
+            ''', (seller_email,))
+
+            completed_withdrawals_result = cursor.fetchone()
+            completed_withdrawals = float(
+                completed_withdrawals_result['completed_withdrawals']) if completed_withdrawals_result else 0.0
+
+            # Get pending withdrawals
+            cursor.execute('''
+                SELECT COALESCE(SUM(amount), 0) as pending_withdrawals
+                FROM withdrawal_requests 
+                WHERE seller_email = ? AND status = 'pending'
+            ''', (seller_email,))
+
+            pending_withdrawals_result = cursor.fetchone()
+            pending_withdrawals = float(
+                pending_withdrawals_result['pending_withdrawals']) if pending_withdrawals_result else 0.0
+
+            # Calculate available balance
+            available_balance = total_earnings - completed_withdrawals - pending_withdrawals
+
+            # Get or create financial data for this seller
+            cursor.execute('''
+                SELECT balance, total_earnings, pending_withdrawals 
+                FROM seller_finances 
+                WHERE seller_email = ?
+            ''', (seller_email,))
 
             financial_data = cursor.fetchone()
-            if not financial_data:
-                # Create financial record for new seller
-                cursor.execute('''
-                    INSERT INTO seller_finances 
-                    (seller_email, balance, total_earnings, pending_withdrawals)
-                    VALUES (?, ?, ?, ?)
-                ''', (user_email, total_revenue, total_revenue, 0))
-                conn.commit()
 
-                financial_data = {
-                    'balance': total_revenue,
-                    'total_earnings': total_revenue,
-                    'pending_withdrawals': 0,
-                    'last_withdrawal_date': None
-                }
-            else:
-                financial_data = dict(financial_data)
-
-            # Get recent transactions
+            # Update or create seller_finances with correct calculated values
             cursor.execute('''
-                SELECT * FROM seller_transactions 
-                WHERE seller_email = ? 
-                ORDER BY transaction_date DESC 
-                LIMIT 10
-            ''', (user_email,))
-
-            recent_transactions = [dict(row) for row in cursor.fetchall()]
+                INSERT OR REPLACE INTO seller_finances 
+                (seller_email, balance, total_earnings, pending_withdrawals)
+                VALUES (?, ?, ?, ?)
+            ''', (seller_email, available_balance, total_earnings, pending_withdrawals))
+            conn.commit()
 
             # Get withdrawal history
             cursor.execute('''
-                SELECT * FROM withdrawal_requests 
-                WHERE seller_email = ? 
-                ORDER BY request_date DESC 
-                LIMIT 5
-            ''', (user_email,))
+                SELECT id, method, amount, fee, net_amount, status, request_date, processing_time 
+                FROM withdrawal_requests 
+                WHERE seller_email = ?
+                ORDER BY request_date DESC
+                LIMIT 20
+            ''', (seller_email,))
 
-            withdrawal_history = [dict(row) for row in cursor.fetchall()]
+            withdrawal_history = []
+            for row in cursor.fetchall():
+                withdrawal_history.append({
+                    'id': row['id'],
+                    'method': row['method'].title() if row['method'] else 'Unknown',
+                    'amount': float(row['amount']),
+                    'fee': float(row['fee'] or 0),
+                    'net_amount': float(row['net_amount'] or 0),
+                    'status': row['status'],
+                    'request_date': row['request_date'],
+                    'processing_time': row['processing_time'] or 'Unknown'
+                })
 
-        cart_data = get_cart_items()
+            # Get transaction history from multiple sources
+            transactions = []
 
-        return render_template(
-            'seller_dashboard.html',
-            seller_products=seller_products,
-            financial_data=financial_data,
-            recent_transactions=recent_transactions,
-            withdrawal_history=withdrawal_history,
-            total_products=len(seller_products),
-            total_sold=total_sold,
-            cart_items=cart_data['items'],
-            cart_total=cart_data['total'],
-            discount=cart_data['discount'],
-            user=session.get('user'),
-            cart_item_count=cart_data['cart_item_count']
-        )
+            # Add sales transactions
+            for product in products:
+                if product['sold'] > 0:
+                    transactions.append({
+                        'type': 'sale',
+                        'description': f"Sale: {product['name']} (x{product['sold']})",
+                        'amount': product['revenue'],
+                        'transaction_date': product['posted_date'],
+                        'product_key': product['product_key']
+                    })
+
+            # Add withdrawal transactions
+            for withdrawal in withdrawal_history:
+                transactions.append({
+                    'type': 'withdrawal',
+                    'description': f"{withdrawal['method']} Withdrawal - {withdrawal['status'].title()}",
+                    'amount': -withdrawal['amount'],
+                    'transaction_date': withdrawal['request_date'],
+                    'product_key': None
+                })
+
+            # Sort transactions by date (newest first)
+            transactions.sort(key=lambda x: x['transaction_date'], reverse=True)
+
+            # Calculate summary stats
+            total_products = len(products)
+            total_sold = sum(product['sold'] for product in products)
+
+            # Prepare financial data object with correct values
+            financial_summary = {
+                'total_earnings': total_earnings,
+                'available_balance': available_balance,
+                'pending_withdrawals': pending_withdrawals,
+                'completed_withdrawals': completed_withdrawals,
+                'withdrawal_history': withdrawal_history,
+                'transactions': transactions[:20],  # Limit to 20 most recent
+                'total_products': total_products,
+                'total_sold': total_sold,
+                'total_revenue': total_earnings
+            }
+
+            logger.info(
+                f"Seller dashboard loaded for {seller_email}: {total_products} products, {total_sold} sold, earnings: J${total_earnings:,.2f}")
 
     except Exception as e:
-        logger.error(f"Error in seller_dashboard: {e}")
-        return redirect(url_for('index'))
+        logger.error(f"Error loading seller dashboard for {seller_email}: {e}")
+        # Return empty dashboard on error
+        products = []
+        financial_summary = {
+            'total_earnings': 0.0,
+            'available_balance': 0.0,
+            'pending_withdrawals': 0.0,
+            'completed_withdrawals': 0.0,
+            'withdrawal_history': [],
+            'transactions': [],
+            'total_products': 0,
+            'total_sold': 0,
+            'total_revenue': 0.0
+        }
+
+    # Get cart data for template
+    cart_data = get_cart_items()
+
+    return render_template(
+        'seller_dashboard.html',
+        user=session['user'],
+        seller_products=products,
+        financial_data=financial_summary,
+        cart_items=cart_data['items'],
+        cart_total=cart_data['total'],
+        discount=cart_data['discount'],
+        cart_item_count=cart_data['cart_item_count']
+    )
 
 
+# Enhanced seller_withdraw route with real financial tracking
 @app.route('/seller_withdraw', methods=['POST'])
 def seller_withdraw():
-    """Handle withdrawal requests"""
-    if 'user' not in session:
+    """Handle withdrawal requests with real financial tracking"""
+    if 'user' not in session or not session['user'].get('email'):
         return jsonify({'success': False, 'message': 'Not logged in'})
 
     user_email = session['user']['email']
-    data = request.get_json()
-    amount = float(data.get('amount', 0))
-    withdrawal_method = data.get('method', 'paypal')  # paypal, bank_transfer
-
-    if amount < 500:  # Minimum $500 JMD withdrawal
-        return jsonify({'success': False, 'message': 'Minimum withdrawal is $500 JMD'})
 
     try:
+        data = request.get_json()
+        amount = float(data.get('amount', 0))
+        withdrawal_method = data.get('method', 'standard')
+
+        if amount < 500:
+            return jsonify({'success': False, 'message': 'Minimum withdrawal is J$500'})
+
         with get_db() as conn:
             cursor = conn.cursor()
 
-            # Check seller's available balance
+            # Verify user is a seller
+            cursor.execute('SELECT is_seller FROM users WHERE email = ?', (user_email,))
+            user = cursor.fetchone()
+            if not user or not user['is_seller']:
+                return jsonify({'success': False, 'message': 'Unauthorized'})
+
+            # Get current available balance
             cursor.execute('''
                 SELECT balance FROM seller_finances WHERE seller_email = ?
             ''', (user_email,))
 
             balance_row = cursor.fetchone()
-            if not balance_row or balance_row['balance'] < amount:
-                return jsonify({'success': False, 'message': 'Insufficient balance'})
+            if not balance_row:
+                return jsonify({'success': False, 'message': 'No financial record found'})
+
+            current_balance = float(balance_row['balance'])
+
+            if current_balance < amount:
+                return jsonify(
+                    {'success': False, 'message': f'Insufficient balance. Available: J${current_balance:,.2f}'})
 
             # Calculate fees
+            fee = 0.0
+            processing_time = ''
+
             if withdrawal_method == 'instant':
-                fee = amount * 0.04  # 4% for instant withdrawal
-                processing_time = 'Instant'
-            elif withdrawal_method == 'standard':
-                fee = 0  # Free standard withdrawal
-                processing_time = '3 business days'
-            else:
+                fee = amount * 0.04  # 4% for instant
+                processing_time = 'Within minutes'
+            elif withdrawal_method == 'paypal':
                 fee = amount * 0.02  # 2% for PayPal
                 processing_time = '1-2 business days'
+            else:  # standard
+                fee = 0.0  # Free standard
+                processing_time = '3 business days'
 
             net_amount = amount - fee
 
@@ -3851,40 +3996,82 @@ def seller_withdraw():
                 (seller_email, amount, fee, net_amount, method, status, request_date, processing_time)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             ''', (user_email, amount, fee, net_amount, withdrawal_method, 'pending',
-                  datetime.now(), processing_time))
+                  datetime.now().strftime('%Y-%m-%d %H:%M:%S'), processing_time))
 
-            # Update seller balance
+            # Update seller balance (reduce available balance immediately)
+            new_balance = current_balance - amount
             cursor.execute('''
                 UPDATE seller_finances 
-                SET balance = balance - ?, pending_withdrawals = pending_withdrawals + ?
+                SET balance = ?, pending_withdrawals = pending_withdrawals + ?
                 WHERE seller_email = ?
-            ''', (amount, amount, user_email))
+            ''', (new_balance, amount, user_email))
 
-            # Record transaction
+            # Add transaction record
             cursor.execute('''
-                INSERT INTO seller_transactions 
+                INSERT OR IGNORE INTO seller_transactions 
                 (seller_email, transaction_type, amount, description, transaction_date)
                 VALUES (?, ?, ?, ?, ?)
             ''', (user_email, 'withdrawal_request', -amount,
-                  f'Withdrawal request ({withdrawal_method})', datetime.now()))
+                  f'{withdrawal_method.title()} Withdrawal Request', datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
 
             conn.commit()
 
+            # Simulate processing completion after 5 seconds (for demo)
+            # In production, this would be handled by a separate payment processor
+            def complete_withdrawal():
+                import time
+                time.sleep(5)  # Simulate processing time
+
+                try:
+                    with get_db() as conn:
+                        cursor = conn.cursor()
+                        # Update withdrawal status to completed
+                        cursor.execute('''
+                            UPDATE withdrawal_requests 
+                            SET status = 'completed' 
+                            WHERE seller_email = ? AND amount = ? AND status = 'pending'
+                            ORDER BY request_date DESC LIMIT 1
+                        ''', (user_email, amount))
+
+                        # Update pending withdrawals
+                        cursor.execute('''
+                            UPDATE seller_finances 
+                            SET pending_withdrawals = pending_withdrawals - ?
+                            WHERE seller_email = ?
+                        ''', (amount, user_email))
+
+                        conn.commit()
+                        logger.info(f"Completed withdrawal for {user_email}: J${amount}")
+                except Exception as e:
+                    logger.error(f"Error completing withdrawal: {e}")
+
+            # Start background task to complete withdrawal
+            import threading
+            threading.Thread(target=complete_withdrawal, daemon=True).start()
+
             return jsonify({
                 'success': True,
-                'message': f'Withdrawal request submitted. You will receive ${net_amount:.2f} JMD via {withdrawal_method} in {processing_time}.'
+                'message': f'Withdrawal request submitted! You will receive J${net_amount:,.2f} via {withdrawal_method} in {processing_time}.',
+                'withdrawal_info': {
+                    'amount': amount,
+                    'fee': fee,
+                    'net_amount': net_amount,
+                    'method': withdrawal_method,
+                    'processing_time': processing_time
+                }
             })
 
     except Exception as e:
-        logger.error(f"Error in seller_withdraw: {e}")
+        logger.error(f"Error in seller_withdraw for {user_email}: {e}")
         return jsonify({'success': False, 'message': 'Withdrawal request failed'})
 
 
+# Updated seller_financials route
 @app.route('/seller_financials')
 def seller_financials():
     """Get seller's financial data via AJAX"""
-    if 'user' not in session:
-        return jsonify({'success': False, 'message': 'Not logged in'})
+    if 'user' not in session or not session['user'].get('email'):
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
 
     user_email = session['user']['email']
 
@@ -3892,128 +4079,114 @@ def seller_financials():
         with get_db() as conn:
             cursor = conn.cursor()
 
-            # Get updated financial data
+            # Verify user is a seller
+            cursor.execute('SELECT is_seller FROM users WHERE email = ?', (user_email,))
+            user = cursor.fetchone()
+            if not user or not user['is_seller']:
+                return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+
+            # Get current financial data
             cursor.execute('''
                 SELECT balance, total_earnings, pending_withdrawals
                 FROM seller_finances WHERE seller_email = ?
             ''', (user_email,))
-
             financial_data = cursor.fetchone()
-            if financial_data:
-                return jsonify({
-                    'success': True,
-                    'balance': financial_data['balance'],
-                    'total_earnings': financial_data['total_earnings'],
-                    'pending_withdrawals': financial_data['pending_withdrawals']
-                })
-            else:
-                return jsonify({'success': False, 'message': 'No financial data found'})
 
-    except Exception as e:
-        logger.error(f"Error in seller_financials: {e}")
-        return jsonify({'success': False, 'message': 'Error fetching financial data'})
+            if not financial_data:
+                return jsonify({'success': False, 'message': 'No financial data found'}), 404
 
-
-# Database setup - add these tables to your database
-def create_financial_tables():
-    """Create tables for seller finances and transactions"""
-    conn = sqlite3.connect('yaad_marketplace.db')
-    cursor = conn.cursor()
-
-    # Seller finances table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS seller_finances (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            seller_email TEXT UNIQUE NOT NULL,
-            balance DECIMAL(10,2) DEFAULT 0.00,
-            total_earnings DECIMAL(10,2) DEFAULT 0.00,
-            pending_withdrawals DECIMAL(10,2) DEFAULT 0.00,
-            last_withdrawal_date DATETIME,
-            created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (seller_email) REFERENCES users (email)
-        )
-    ''')
-
-    # Seller transactions table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS seller_transactions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            seller_email TEXT NOT NULL,
-            transaction_type TEXT NOT NULL, -- 'sale', 'withdrawal_request', 'withdrawal_completed', 'fee'
-            amount DECIMAL(10,2) NOT NULL,
-            product_key TEXT,
-            buyer_email TEXT,
-            description TEXT,
-            transaction_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (seller_email) REFERENCES users (email)
-        )
-    ''')
-
-    # Withdrawal requests table
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS withdrawal_requests (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            seller_email TEXT NOT NULL,
-            amount DECIMAL(10,2) NOT NULL,
-            fee DECIMAL(10,2) NOT NULL,
-            net_amount DECIMAL(10,2) NOT NULL,
-            method TEXT NOT NULL, -- 'instant', 'standard', 'paypal'
-            status TEXT DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
-            request_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-            processed_date DATETIME,
-            processing_time TEXT,
-            reference_number TEXT,
-            FOREIGN KEY (seller_email) REFERENCES users (email)
-        )
-    ''')
-
-    conn.commit()
-    conn.close()
-
-
-# Function to update seller balance when product is sold
-def update_seller_earnings(seller_email, product_key, amount, buyer_email):
-    """Update seller's earnings when a product is sold"""
-    try:
-        with get_db() as conn:
-            cursor = conn.cursor()
-
-            # Update seller's balance and total earnings
+            # Get products
             cursor.execute('''
-                UPDATE seller_finances 
-                SET balance = balance + ?, total_earnings = total_earnings + ?
+                SELECT product_key, name, category, price, posted_date, sold, clicks, likes, image_url, description, amount
+                FROM products 
                 WHERE seller_email = ?
-            ''', (amount, amount, seller_email))
+                ORDER BY posted_date DESC
+            ''', (user_email,))
+            products = []
+            for row in cursor.fetchall():
+                products.append({
+                    'product_key': row['product_key'],
+                    'name': row['name'],
+                    'category': row['category'] or 'N/A',
+                    'price': float(row['price']),
+                    'posted_date': row['posted_date'] or 'N/A',
+                    'sold': row['sold'] or 0,
+                    'clicks': row['clicks'] or 0,
+                    'likes': row['likes'] or 0,
+                    'image_url': row['image_url'] or 'placeholder.jpg',
+                    'description': row['description'] or 'No description available',
+                    'amount': row['amount'] or 0,
+                    'revenue': float(row['price']) * (row['sold'] or 0)
+                })
 
-            # If seller doesn't exist in finances table, create record
-            if cursor.rowcount == 0:
-                cursor.execute('''
-                    INSERT INTO seller_finances (seller_email, balance, total_earnings)
-                    VALUES (?, ?, ?)
-                ''', (seller_email, amount, amount))
-
-            # Record the sale transaction
+            # Get withdrawal history
             cursor.execute('''
-                INSERT INTO seller_transactions 
-                (seller_email, transaction_type, amount, product_key, buyer_email, description)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (seller_email, 'sale', amount, product_key, buyer_email,
-                  f'Sale of {product_key}'))
+                SELECT id, method, amount, fee, net_amount, status, request_date, processing_time
+                FROM withdrawal_requests 
+                WHERE seller_email = ?
+                ORDER BY request_date DESC
+            ''', (user_email,))
+            withdrawal_history = []
+            for row in cursor.fetchall():
+                withdrawal_history.append({
+                    'id': row['id'],
+                    'method': row['method'],
+                    'amount': float(row['amount']),
+                    'fee': float(row['fee'] or 0),
+                    'net_amount': float(row['net_amount'] or 0),
+                    'status': row['status'],
+                    'request_date': row['request_date'],
+                    'processing_time': row['processing_time']
+                })
 
-            conn.commit()
-            logger.info(f"Updated earnings for {seller_email}: +${amount} JMD")
+            # Get transactions
+            transactions = []
+            for product in products:
+                if product['sold'] > 0:
+                    transactions.append({
+                        'type': 'sale',
+                        'description': f"Sale: {product['name']} (x{product['sold']})",
+                        'amount': product['revenue'],
+                        'transaction_date': product['posted_date'],
+                        'product_key': product['product_key']
+                    })
+
+            return jsonify({
+                'success': True,
+                'financial_data': {
+                    'balance': float(financial_data['balance']),
+                    'total_earnings': float(financial_data['total_earnings']),
+                    'pending_withdrawals': float(financial_data['pending_withdrawals']),
+                    'withdrawal_history': withdrawal_history,
+                    'transactions': transactions
+                },
+                'products': products
+            })
 
     except Exception as e:
-        logger.error(f"Error updating seller earnings: {e}")
-
-# Example: update_seller_earnings("seller@email.com", "Product Name", 1500.00, "buyer@email.com")
+        logger.error(f"Error in seller_financials for {user_email}: {e}")
+        return jsonify({'success': False, 'message': 'Error fetching financial data'}), 500
 
 @app.route('/seller_dashboard/data')
 def seller_dashboard_data():
     try:
-        if 'user' not in session or not session['user'].get('is_seller'):
+        if 'user' not in session or not session['user'].get('email') or not session['user'].get('is_seller'):
+            logger.warning("Unauthorized access to seller_dashboard/data")
             return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
         seller_email = session['user']['email']
+        logger.info(f"Accessing seller_dashboard/data for {seller_email}")
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Verify user is a seller (redundant but safe)
+            cursor.execute('SELECT is_seller FROM users WHERE email = ?', (seller_email,))
+            user = cursor.fetchone()
+            if not user or not user['is_seller']:
+                logger.warning(f"User {seller_email} is not a seller")
+                return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
         period = request.args.get('period', 'daily')
         product_key = request.args.get('product_key')
 
@@ -4123,9 +4296,8 @@ def seller_dashboard_data():
                 'sold': {'labels': sold_labels, 'data': sold_data_list}
             })
     except Exception as e:
-        logger.error(f"Error in seller_dashboard_data: {e}\n{traceback.format_exc()}")
+        logger.error(f"Error in seller_dashboard_data for {seller_email}: {e}\n{traceback.format_exc()}")
         return jsonify({'success': False, 'message': str(e)}), 500
-
 
 @app.route('/seller/<seller_email>')
 def seller_store(seller_email):
@@ -4746,7 +4918,6 @@ def update_cart():
 # Replace your existing checkout route with this fixed version
 
 # Add this to your app.py - Replace your existing checkout route with this complete version
-
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
     import re
@@ -4761,6 +4932,10 @@ def checkout():
         try:
             # Check if this is a guest checkout
             is_guest = request.form.get('user_type') == 'guest'
+
+            # LYNK INTEGRATION: Check if this is a Lynk payment
+            is_lynk_payment = request.form.get('is_lynk_payment') == 'true'
+            lynk_reference = request.form.get('lynk_reference', '').strip()
 
             if is_guest:
                 # Guest checkout processing
@@ -4790,6 +4965,37 @@ def checkout():
                         post_offices=PARISH_POST_OFFICES.get(guest_parish, [])
                     )
 
+                # LYNK VALIDATION: Check Lynk payment requirements
+                if payment_method == 'lynk':
+                    if not lynk_reference:
+                        return render_template(
+                            'checkout.html',
+                            error="Lynk transaction reference is required for Lynk payments. Please complete the Lynk transfer and enter your transaction ID.",
+                            cart_items=cart_data['items'],
+                            cart_total=cart_data['total'],
+                            discount=cart_data['discount'],
+                            user=None,
+                            cart_item_count=cart_data['cart_item_count'],
+                            parishes=PARISHES,
+                            parish_post_offices=PARISH_POST_OFFICES,
+                            post_offices=PARISH_POST_OFFICES.get(guest_parish, [])
+                        )
+
+                    # Validate Lynk reference format (basic validation)
+                    if len(lynk_reference) < 5:
+                        return render_template(
+                            'checkout.html',
+                            error="Please enter a valid Lynk transaction reference (at least 5 characters)",
+                            cart_items=cart_data['items'],
+                            cart_total=cart_data['total'],
+                            discount=cart_data['discount'],
+                            user=None,
+                            cart_item_count=cart_data['cart_item_count'],
+                            parishes=PARISHES,
+                            parish_post_offices=PARISH_POST_OFFICES,
+                            post_offices=PARISH_POST_OFFICES.get(guest_parish, [])
+                        )
+
                 # Validate email format
                 email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
                 if not re.match(email_pattern, guest_email):
@@ -4811,6 +5017,11 @@ def checkout():
                 tax = cart_data['total'] * 0.05
                 final_total = cart_data['total'] + shipping_fee + tax - cart_data['discount']
 
+                # LYNK LOGGING: Log Lynk payment for verification
+                if payment_method == 'lynk':
+                    logger.info(
+                        f"LYNK PAYMENT - Guest Order - Reference: {lynk_reference}, Amount: J${final_total}, Email: {guest_email}")
+
                 # Calculate estimated delivery
                 delivery_days = 1 if shipping_option == 'overnight' else 5
                 estimated_delivery = (datetime.now() + timedelta(days=delivery_days)).strftime('%B %d, %Y')
@@ -4819,16 +5030,20 @@ def checkout():
                     cursor = conn.cursor()
                     order_id = f"GUEST-{str(uuid.uuid4())[:8].upper()}"
 
-                    # Create guest order
+                    # UPDATED: Create guest order with Lynk fields
                     cursor.execute('''
                         INSERT INTO orders (order_id, user_email, full_name, phone_number, address, parish, post_office, 
-                                          total, discount, payment_method, order_date, status, shipping_option, shipping_fee, tax)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                          total, discount, payment_method, order_date, status, shipping_option, shipping_fee, tax,
+                                          lynk_reference, payment_verified)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
                         order_id, guest_email, f"{guest_first_name} {guest_last_name}", guest_phone,
                         guest_address, guest_parish, guest_post_office, final_total, cart_data['discount'],
-                        payment_method, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'pending',
-                        shipping_option, shipping_fee, tax
+                        payment_method, datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'pending_payment' if payment_method == 'lynk' else 'pending',
+                        shipping_option, shipping_fee, tax,
+                        lynk_reference if payment_method == 'lynk' else None,
+                        False  # Will be verified manually or via API later
                     ))
 
                     # Add order items and update inventory
@@ -4842,6 +5057,26 @@ def checkout():
                         base_product_key = re.sub(r'\s*\([^)]+\)$', '', item['product_key']).strip()
                         cursor.execute('UPDATE products SET amount = amount - ?, sold = sold + ? WHERE product_key = ?',
                                        (item['quantity'], item['quantity'], base_product_key))
+
+                        # LYNK: Add to sales log for Lynk payments too
+                        if payment_method == 'lynk':
+                            # Get seller email for this product
+                            cursor.execute('SELECT seller_email FROM products WHERE product_key = ?',
+                                           (base_product_key,))
+                            product_info = cursor.fetchone()
+                            seller_email = product_info['seller_email'] if product_info else 'unknown@example.com'
+
+                            cursor.execute('''
+                                INSERT INTO sales_log (seller_email, product_key, quantity, price, sale_date, buyer_email)
+                                VALUES (?, ?, ?, ?, ?, ?)
+                            ''', (
+                                seller_email,
+                                base_product_key,
+                                item['quantity'],
+                                item['price'],
+                                datetime.now().strftime('%Y-%m-%d'),
+                                guest_email
+                            ))
 
                     conn.commit()
 
@@ -4858,7 +5093,10 @@ def checkout():
                         'shipping_option': shipping_option,
                         'order_date': datetime.now().strftime('%B %d, %Y at %I:%M %p'),
                         'items': cart_data['items'],
-                        'is_guest': True
+                        'is_guest': True,
+                        'payment_method': payment_method,
+                        'lynk_reference': lynk_reference if payment_method == 'lynk' else None,
+                        'lynk_success_message': f"✅ Lynk payment received! Reference: {lynk_reference}" if payment_method == 'lynk' else None
                     }
 
                     # Clear cart
@@ -4894,10 +5132,46 @@ def checkout():
                         post_offices=PARISH_POST_OFFICES.get(parish, [])
                     )
 
+                # LYNK VALIDATION: Check Lynk payment requirements for logged-in users
+                if payment_method == 'lynk':
+                    if not lynk_reference:
+                        return render_template(
+                            'checkout.html',
+                            error="Lynk transaction reference is required for Lynk payments. Please complete the Lynk transfer and enter your transaction ID.",
+                            cart_items=cart_data['items'],
+                            cart_total=cart_data['total'],
+                            discount=cart_data['discount'],
+                            user=session['user'],
+                            cart_item_count=cart_data['cart_item_count'],
+                            parishes=PARISHES,
+                            parish_post_offices=PARISH_POST_OFFICES,
+                            post_offices=PARISH_POST_OFFICES.get(parish, [])
+                        )
+
+                    # Validate Lynk reference format
+                    if len(lynk_reference) < 5:
+                        return render_template(
+                            'checkout.html',
+                            error="Please enter a valid Lynk transaction reference (at least 5 characters)",
+                            cart_items=cart_data['items'],
+                            cart_total=cart_data['total'],
+                            discount=cart_data['discount'],
+                            user=session['user'],
+                            cart_item_count=cart_data['cart_item_count'],
+                            parishes=PARISHES,
+                            parish_post_offices=PARISH_POST_OFFICES,
+                            post_offices=PARISH_POST_OFFICES.get(parish, [])
+                        )
+
                 # Calculate totals
                 shipping_fee = 1200 if shipping_option == 'overnight' else 500
                 tax = cart_data['total'] * 0.05
                 final_total = cart_data['total'] + shipping_fee + tax - cart_data['discount']
+
+                # LYNK LOGGING: Log Lynk payment for verification
+                if payment_method == 'lynk':
+                    logger.info(
+                        f"LYNK PAYMENT - User Order - Reference: {lynk_reference}, Amount: J${final_total}, User: {session['user']['email']}")
 
                 # Calculate estimated delivery
                 delivery_days = 1 if shipping_option == 'overnight' else 5
@@ -4907,15 +5181,20 @@ def checkout():
                     cursor = conn.cursor()
                     order_id = str(uuid.uuid4())[:8].upper()
 
-                    # Create user order
+                    # UPDATED: Create user order with Lynk fields
                     cursor.execute('''
                         INSERT INTO orders (order_id, user_email, full_name, phone_number, address, parish, post_office, 
-                                          total, discount, payment_method, order_date, status, shipping_option, shipping_fee, tax)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                          total, discount, payment_method, order_date, status, shipping_option, shipping_fee, tax,
+                                          lynk_reference, payment_verified)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ''', (
                         order_id, session['user']['email'], full_name, phone_number, address, parish, post_office,
                         final_total, cart_data['discount'], payment_method,
-                        datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'pending', shipping_option, shipping_fee, tax
+                        datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'pending_payment' if payment_method == 'lynk' else 'pending',
+                        shipping_option, shipping_fee, tax,
+                        lynk_reference if payment_method == 'lynk' else None,
+                        False  # Will be verified manually or via API later
                     ))
 
                     # Add order items and update inventory
@@ -4961,7 +5240,10 @@ def checkout():
                         'shipping_option': shipping_option,
                         'order_date': datetime.now().strftime('%B %d, %Y at %I:%M %p'),
                         'items': cart_data['items'],
-                        'is_guest': False
+                        'is_guest': False,
+                        'payment_method': payment_method,
+                        'lynk_reference': lynk_reference if payment_method == 'lynk' else None,
+                        'lynk_success_message': f"✅ Lynk payment received! Reference: {lynk_reference}" if payment_method == 'lynk' else None
                     }
 
                     # Update user session
@@ -5237,6 +5519,108 @@ def search():
             ]
         )
 
+
+# ==================================================
+# LYNK PAYMENT VERIFICATION ROUTES
+# ==================================================
+
+@app.route('/admin/verify_lynk_payment', methods=['POST'])
+@admin_required()
+def verify_lynk_payment():
+    """Verify Lynk payment manually (until API is available)"""
+    try:
+        data = request.get_json()
+        order_id = data.get('order_id')
+        verified = data.get('verified', False)
+
+        if not order_id:
+            return jsonify({'success': False, 'message': 'Order ID required'}), 400
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Update payment verification status
+            cursor.execute('''
+                UPDATE orders 
+                SET payment_verified = ?, status = ?
+                WHERE order_id = ?
+            ''', (verified, 'confirmed' if verified else 'pending_payment', order_id))
+
+            if cursor.rowcount == 0:
+                return jsonify({'success': False, 'message': 'Order not found'}), 404
+
+            conn.commit()
+
+            # Log admin activity
+            log_admin_activity(
+                session['admin_user']['email'],
+                'lynk_payment_verified' if verified else 'lynk_payment_rejected',
+                'order',
+                order_id,
+                f'Lynk payment {"verified" if verified else "rejected"} for order {order_id}'
+            )
+
+            return jsonify({
+                'success': True,
+                'message': f'Lynk payment {"verified" if verified else "rejected"} successfully'
+            })
+
+    except Exception as e:
+        logger.error(f"Error verifying Lynk payment: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/lynk_info')
+def lynk_info():
+    """Information about Lynk digital wallet"""
+    cart_data = get_cart_items()
+    return render_template(
+        'lynk_info.html',
+        cart_items=cart_data['items'],
+        cart_total=cart_data['total'],
+        discount=cart_data['discount'],
+        user=session.get('user'),
+        cart_item_count=cart_data['cart_item_count']
+    )
+
+
+@app.route('/admin/api/lynk_orders')
+@admin_required()
+def admin_api_lynk_orders():
+    """Get all Lynk orders for admin dashboard"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Get all Lynk orders with verification status
+            cursor.execute('''
+                SELECT 
+                    o.order_id, o.user_email, o.full_name, o.total, o.order_date,
+                    o.lynk_reference, o.payment_verified, o.status,
+                    COUNT(oi.product_key) as item_count
+                FROM orders o
+                LEFT JOIN order_items oi ON o.order_id = oi.order_id
+                WHERE o.payment_method = 'lynk'
+                GROUP BY o.order_id
+                ORDER BY o.order_date DESC
+            ''')
+
+            lynk_orders = []
+            for row in cursor.fetchall():
+                order = dict(row)
+                order['total'] = float(order['total'] or 0)
+                order['item_count'] = order['item_count'] or 0
+                lynk_orders.append(order)
+
+            return jsonify({
+                'success': True,
+                'lynk_orders': lynk_orders,
+                'total_count': len(lynk_orders)
+            })
+
+    except Exception as e:
+        logger.error(f"Error getting Lynk orders: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 def reset_database_fresh():
     """Reset the entire database - WARNING: This deletes all data!"""

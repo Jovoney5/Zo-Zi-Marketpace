@@ -80,9 +80,10 @@
             <p>No profile picture set.</p>
         {% endif %}
         <form method="POST" enctype="multipart/form-data">
-            <input type="file" name="profile_picture" accept=".png, .jpg, .jpeg, .webp" required>
-            <button type="submit">Upload</button>
-        </form>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <input type="file" name="profile_picture" accept=".png, .jpg, .jpeg, .webp" required>
+    <button type="submit">Upload</button>
+</form>
     </div>
 
     <script>

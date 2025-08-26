@@ -174,6 +174,8 @@
         .product-header { border-bottom: 2px solid #f0f0f0; padding-bottom: 20px; margin-bottom: 20px; }
         .seller-badge { display: inline-block; background: linear-gradient(135deg, #006400, #228B22); color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin-bottom: 15px; }
 
+
+
         /* Enhanced Rating Display */
         .rating-section { background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
         .rating-display { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -584,6 +586,53 @@
                     <button class="visit-store-btn-product" onclick="window.location.href='{{ url_for('seller_store', seller_email=product.seller_email) }}'">🛍️ Visit Store</button>
                     🏪 Sold by: {{ seller.business_name or 'Zo-Zi Seller' }}
                 </div>
+
+
+                <!-- Sales Trust Badge -->
+<div class="sales-trust-section" style="background: #f0f8ff; border: 2px solid #e6f3ff; border-radius: 10px; padding: 20px; margin: 20px 0;">
+    <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 24px; color: #28a745;">✅</span>
+            <div>
+                <div style="font-weight: bold; color: #006400; font-size: 18px;">{{ product.sold or 0 }} sold</div>
+                <div style="color: #666; font-size: 14px;">Verified purchases</div>
+            </div>
+        </div>
+
+        {% if product.sold and product.sold > 0 %}
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 20px; color: #ff6b6b;">❤️</span>
+                <div>
+                    <div style="font-weight: bold; color: #006400; font-size: 16px;">{{ product.likes or 0 }} likes</div>
+                    <div style="color: #666; font-size: 14px;">Customer favorites</div>
+                </div>
+            </div>
+
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 20px; color: #17a2b8;">👁️</span>
+                <div>
+                    <div style="font-weight: bold; color: #006400; font-size: 16px;">{{ product.clicks or 0 }} views</div>
+                    <div style="color: #666; font-size: 14px;">Product interest</div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    {% if product.sold and product.sold >= 10 %}
+        <div style="margin-top: 15px; padding: 10px; background: linear-gradient(135deg, #28a745, #20c997); color: white; border-radius: 8px; text-align: center;">
+            <strong>🏆 Trusted Seller - {{ product.sold }}+ Happy Customers!</strong>
+        </div>
+    {% elif product.sold and product.sold >= 5 %}
+        <div style="margin-top: 15px; padding: 10px; background: linear-gradient(135deg, #17a2b8, #20c997); color: white; border-radius: 8px; text-align: center;">
+            <strong>⭐ Popular Item - {{ product.sold }} Satisfied Customers</strong>
+        </div>
+    {% elif product.sold and product.sold > 0 %}
+        <div style="margin-top: 15px; padding: 8px; background: #e8f5e8; color: #006400; border-radius: 8px; text-align: center;">
+            <strong>✨ {{ product.sold }} Customer{{ 's' if product.sold != 1 else '' }} Trust{{ 's' if product.sold == 1 else '' }} This Product</strong>
+        </div>
+    {% endif %}
+</div>
+
 
                 <div class="rating-section">
                     <div class="rating-display">
