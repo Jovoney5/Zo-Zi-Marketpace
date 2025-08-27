@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Zo-Zi - Home</title>
     <style>
-        body { margin: 0; font-family: Arial, sans-serif; background: #d1f2eb; padding-top: 80px; }
+        body { margin: 0; font-family: Arial, sans-serif; background: #B0E0E6; padding-top: 80px; }
 
         /* Toast Notification Styles */
         .toast {
@@ -106,7 +106,7 @@
         .cart-dropdown .empty-cart { padding: 10px; text-align: center; color: #666; }
         .cart-dropdown .checkout-button { display: block; background: #FFD700; border: none; padding: 10px; margin: 10px; text-align: center; cursor: pointer; text-decoration: none; color: black; border-radius: 5px; }
         .cart-dropdown .checkout-button:hover { background: #FFA500; }
-        .marketplace-header { background: rgba(0, 100, 0, 0.7); color: #FFD700; text-align: center; padding: 8px 8px 4px; margin: 0; min-height: 120px; display: flex; flex-direction: column; justify-content: center; }
+        .marketplace-header { background: rgba(0, 100, 0, 0.7); color: #B0E0E6; text-align: center; padding: 8px 8px 4px; margin: 0; min-height: 120px; display: flex; flex-direction: column; justify-content: center; }
         .marketplace-header h1 { font-size: 36px; font-weight: 700; font-family: "Helvetica Neue", Arial, sans-serif; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3); margin: 0; }
         .marketplace-subheader { color: #1A1A1A; font-size: 22px; margin: 5px 0 10px; font-weight: 700; text-shadow: none; letter-spacing: 0.5px; }
         .hero-container { max-width: 1200px; margin: 20px auto; text-align: center; display: flex; justify-content: center; gap: 20px; }
@@ -249,7 +249,7 @@
             <p>Island Hand-Made</p>
         </a>
         <img src="{{ url_for('static', filename='hero33.PNG') }}" alt="Hero Image" class="hero-image">
-        <img src="{{ url_for('static', filename='packages.PNG') }}" alt="Packages Image" class="hero-image">
+        <img src="{{ url_for('static', filename='zozip.PNG') }}" alt="Packages Image" class="hero-image">
     </div>
 
     {% if not user %}
