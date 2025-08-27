@@ -633,6 +633,46 @@
     {% endif %}
 </div>
 
+                <div class="like-container {{ 'liked' if user_liked else '' }}" onclick="toggleLike('{{ product.product_key | replace('\'', '\\\'') }}')">
+                    <svg class="heart-icon {{ 'liked' if user_liked else '' }}" width="20" height="20" viewBox="0 0 24 24" stroke-width="2">
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                    </svg>
+                    <span class="like-count">{{ product.likes | default(0) }} Likes</span>
+                </div>
+            </div>
+
+                <h1>{{ product.name }}</h1>
+
+            <div class="options">
+                <div class="option-group">
+                    <label for="color" class="option-label">🎨 Color:</label>
+                    <select id="color" name="color" class="option-select" required>
+                        <option value="" disabled selected>Select a color</option>
+                        {% for color in product.sizes.keys() %}
+                            <option value="{{ color }}">{{ color }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="option-group">
+                    <label for="size" class="option-label">📏 Size:</label>
+                    <select id="size" name="size" class="option-select" required disabled>
+                        <option value="" disabled selected>Select a size</option>
+                    </select>
+                </div>
+
+                <div class="quantity-section">
+                    <label for="quantity" class="option-label">🔢 Quantity:</label>
+                    <div class="quantity-controls">
+                        <button class="quantity-btn" onclick="adjustQuantity(-1)">−</button>
+                        <input type="number" id="quantity" name="quantity" value="1" min="1" max="{{ product.amount|default(10) }}" class="quantity-input">
+                        <button class="quantity-btn" onclick="adjustQuantity(1)">+</button>
+                    </div>
+                    <div class="stock-info">📦 {{ product.amount|default(10) }} items available in stock</div>
+                </div>
+            </div>
+
+
 
                 <div class="rating-section">
                     <div class="rating-display">
@@ -675,15 +715,8 @@
                     {% endif %}
                 </div>
 
-                <div class="like-container {{ 'liked' if user_liked else '' }}" onclick="toggleLike('{{ product.product_key | replace('\'', '\\\'') }}')">
-                    <svg class="heart-icon {{ 'liked' if user_liked else '' }}" width="20" height="20" viewBox="0 0 24 24" stroke-width="2">
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
-                    </svg>
-                    <span class="like-count">{{ product.likes | default(0) }} Likes</span>
-                </div>
-            </div>
 
-            <h1>{{ product.name }}</h1>
+
 
             <div class="price-section">
                 <div class="price-label">Price</div>
@@ -732,34 +765,7 @@
                 </div>
             </div>
 
-            <div class="options">
-                <div class="option-group">
-                    <label for="color" class="option-label">🎨 Color:</label>
-                    <select id="color" name="color" class="option-select" required>
-                        <option value="" disabled selected>Select a color</option>
-                        {% for color in product.sizes.keys() %}
-                            <option value="{{ color }}">{{ color }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
 
-                <div class="option-group">
-                    <label for="size" class="option-label">📏 Size:</label>
-                    <select id="size" name="size" class="option-select" required disabled>
-                        <option value="" disabled selected>Select a size</option>
-                    </select>
-                </div>
-
-                <div class="quantity-section">
-                    <label for="quantity" class="option-label">🔢 Quantity:</label>
-                    <div class="quantity-controls">
-                        <button class="quantity-btn" onclick="adjustQuantity(-1)">−</button>
-                        <input type="number" id="quantity" name="quantity" value="1" min="1" max="{{ product.amount|default(10) }}" class="quantity-input">
-                        <button class="quantity-btn" onclick="adjustQuantity(1)">+</button>
-                    </div>
-                    <div class="stock-info">📦 {{ product.amount|default(10) }} items available in stock</div>
-                </div>
-            </div>
 
             <div class="trust-badges">
                 <div class="trust-badge">
