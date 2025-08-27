@@ -15,6 +15,10 @@ from werkzeug.utils import secure_filename
 from urllib.parse import unquote
 # Simple admin protection decorator (use this for admin routes)
 from functools import wraps
+# Add these after your existing imports
+from flask_socketio import SocketIO, emit, join_room, leave_room
+import psycopg2
+import psycopg2.extras
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'yaad2025')
@@ -26,6 +30,9 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
 
 csrf = CSRFProtect(app)
+
+# Add this after: csrf = CSRFProtect(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 
 @app.template_filter('format_currency')
@@ -126,6 +133,32 @@ def init_db():
                 FOREIGN KEY (created_by) REFERENCES admin_users(email)
             )
         ''')
+
+    # Add this to your init_db() function before conn.commit()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender_id TEXT NOT NULL,
+            receiver_id TEXT NOT NULL,
+            message TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_read BOOLEAN DEFAULT FALSE,
+            conversation_id TEXT
+        )
+    ''')
+
+    # Add this to your init_db() function
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS chat_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            sender_id TEXT NOT NULL,
+            receiver_id TEXT NOT NULL,
+            message TEXT NOT NULL,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_read BOOLEAN DEFAULT FALSE,
+            conversation_id TEXT
+        )
+    ''')
 
     # User flags/bans table
     cursor.execute('''
@@ -453,6 +486,8 @@ def log_admin_activity(admin_email, action_type, target_type, target_id, details
             conn.commit()
     except Exception as e:
         logger.error(f"Error logging admin activity: {e}")
+
+
 
 def reset_db():
     db_path = 'zo-zi.db'
@@ -855,6 +890,55 @@ def send_notification(identifier, message, method):
 
 def generate_reset_code():
     return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+
+
+
+def get_postgres_connection():
+    """Connection to PostgreSQL for chat messages"""
+    try:
+        conn = psycopg2.connect(
+            host=os.getenv('POSTGRES_HOST', 'localhost'),
+            database=os.getenv('POSTGRES_DB', 'zozi_chat'),
+            user=os.getenv('POSTGRES_USER', 'zozi_user'),
+            password=os.getenv('POSTGRES_PASSWORD', 'yourpassword'),
+            port=os.getenv('POSTGRES_PORT', '5432')
+        )
+        return conn
+    except psycopg2.Error as e:
+        logger.error(f"Error connecting to PostgreSQL: {e}")
+        return None
+
+def init_chat_db():
+    """Create the messages table in PostgreSQL"""
+    conn = get_postgres_connection()
+    if conn:
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS messages (
+                    id SERIAL PRIMARY KEY,
+                    sender_id VARCHAR(255) NOT NULL,
+                    receiver_id VARCHAR(255) NOT NULL,
+                    message TEXT NOT NULL,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    is_read BOOLEAN DEFAULT FALSE,
+                    conversation_id VARCHAR(255)
+                );
+            """)
+            cur.execute("""
+                CREATE INDEX IF NOT EXISTS idx_conversation 
+                ON messages(conversation_id, timestamp);
+            """)
+            conn.commit()
+            cur.close()
+            conn.close()
+            logger.info("Chat database initialized")
+        except Exception as e:
+            logger.error(f"Error initializing chat database: {e}")
+
+def get_conversation_id(user1_id, user2_id):
+    """Generate consistent conversation ID for two users"""
+    return f"{min(user1_id, user2_id)}_{max(user1_id, user2_id)}"
 
 @app.errorhandler(400)
 def bad_request(e):
@@ -2032,6 +2116,8 @@ def signup():
     return render_template('signup.html', error=None)
 
 
+
+
 @app.route('/contact', methods=['GET', 'POST'])
 def contact():
     user = session.get('user')
@@ -2522,6 +2608,124 @@ def password_reset():
         discount=cart_data['discount'],
         cart_item_count=cart_data['cart_item_count']
     )
+
+
+@app.route('/start_chat/<seller_email>')
+def start_chat(seller_email):
+    """Start a chat with a seller"""
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            'SELECT email, first_name, last_name, business_name FROM users WHERE email = ? AND is_seller = ?',
+            (seller_email, True))
+        seller = cursor.fetchone()
+
+        if not seller:
+            return render_template('404.html', error="Seller not found"), 404
+
+    cart_data = get_cart_items()
+    return render_template('buyer_seller_chat.html',
+                           seller=dict(seller),
+                           buyer=session['user'],
+                           cart_items=cart_data['items'],
+                           cart_total=cart_data['total'],
+                           discount=cart_data['discount'],
+                           cart_item_count=cart_data['cart_item_count'])
+
+
+@app.route('/send_message', methods=['POST'])
+def send_message():
+    """Send a message between buyer and seller"""
+    if 'user' not in session:
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+
+    try:
+        data = request.get_json()
+        receiver_id = data.get('receiver_id')
+        message = data.get('message')
+
+        if not receiver_id or not message:
+            return jsonify({'success': False, 'message': 'Missing data'}), 400
+
+        sender_id = session['user']['email']
+        conversation_id = get_conversation_id(sender_id, receiver_id)
+
+        conn = get_postgres_connection()
+        if not conn:
+            return jsonify({'success': False, 'message': 'Chat service unavailable'}), 500
+
+        cur = conn.cursor()
+        cur.execute("""
+            INSERT INTO messages (sender_id, receiver_id, message, conversation_id)
+            VALUES (%s, %s, %s, %s)
+        """, (sender_id, receiver_id, message, conversation_id))
+
+        conn.commit()
+        cur.close()
+        conn.close()
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        logger.error(f"Error sending message: {e}")
+        return jsonify({'success': False, 'message': 'Error sending message'}), 500
+
+
+@app.route('/get_messages/<receiver_id>')
+def get_messages(receiver_id):
+    """Get conversation history between two users"""
+    if 'user' not in session:
+        return jsonify({'error': 'Not logged in'}), 401
+
+    try:
+        sender_id = session['user']['email']
+        conversation_id = get_conversation_id(sender_id, receiver_id)
+
+        conn = get_postgres_connection()
+        if not conn:
+            return jsonify({'messages': []})
+
+        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
+        cur.execute("""
+            SELECT sender_id, receiver_id, message, timestamp
+            FROM messages
+            WHERE conversation_id = %s
+            ORDER BY timestamp ASC
+        """, (conversation_id,))
+
+        messages = []
+        for row in cur.fetchall():
+            messages.append({
+                'sender': row['sender_id'],
+                'receiver': row['receiver_id'],
+                'message': row['message'],
+                'timestamp': row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
+            })
+
+        cur.close()
+        conn.close()
+
+        return jsonify({'messages': messages})
+
+    except Exception as e:
+        logger.error(f"Error getting messages: {e}")
+        return jsonify({'messages': []})
+
+
+@app.route('/track_store_view', methods=['POST'])
+def track_store_view():
+    """Track store page views (optional analytics)"""
+    try:
+        data = request.get_json()
+        # You can log this data or save to database
+        logger.info(f"Store view tracked: {data}")
+        return jsonify({'success': True})
+    except Exception as e:
+        logger.error(f"Error tracking store view: {e}")
+        return jsonify({'success': False}), 500
 
 @app.route('/verify_reset', methods=['GET', 'POST'])
 def verify_reset():
@@ -5650,7 +5854,8 @@ def reset_database_fresh():
     print("=" * 50)
 
 
-# In your Python console or add this temporarily to your app
 if __name__ == '__main__':
-    init_db()  # This will create the new admin tables
-    app.run(debug=True)
+    init_db()
+    socketio.run(app, debug=True, allow_unsafe_werkzeug=True)
+
+
