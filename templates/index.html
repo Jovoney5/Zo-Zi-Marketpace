@@ -5,8 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Zo-Zi - Home</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.4/socket.io.js"></script>
     <style>
-        body { margin: 0; font-family: Arial, sans-serif; background: #B0E0E6; padding-top: 80px; }
+        body { margin: 0; font-family: Arial, sans-serif; background: #B0E0E6; padding-top: 0px; }
 
         /* Toast Notification Styles */
         .toast {
@@ -64,8 +65,293 @@
             opacity: 0.9;
         }
 
+        /* Chat Widget Styles */
+        .chat-widget {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            font-family: Arial, sans-serif;
+        }
+
+        .chat-button {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: #FFD700;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: black;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .chat-button:hover {
+            background: #FFA500;
+            transform: scale(1.1);
+        }
+
+        .chat-notification {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: red;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .chat-window {
+            position: absolute;
+            bottom: 70px;
+            right: 0;
+            width: 320px;
+            height: 450px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            transform: scale(0.8) translateY(20px);
+            opacity: 0;
+            transition: all 0.3s ease;
+        }
+
+        .chat-window.show {
+            display: flex;
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #006400, #228B22);
+            color: white;
+            padding: 12px 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            position: relative;
+        }
+
+        .chat-header .seller-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #FFD700;
+        }
+
+        .chat-header .default-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: #B0E0E6;
+            color: black;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+            border: 2px solid #FFD700;
+        }
+
+        .chat-info h3 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .chat-info p {
+            margin: 2px 0 0 0;
+            font-size: 11px;
+            opacity: 0.8;
+        }
+
+        .chat-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 18px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+
+        .chat-close:hover {
+            opacity: 1;
+        }
+
+        .seller-selector {
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .seller-selector select {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 13px;
+            outline: none;
+        }
+
+        .seller-selector select:focus {
+            border-color: #006400;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 12px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .chat-message {
+            margin-bottom: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .chat-message.received {
+            align-items: flex-start;
+        }
+
+        .message-sender {
+            font-size: 11px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 8px 12px;
+            border-radius: 15px;
+            font-size: 13px;
+            line-height: 1.4;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        }
+
+        .chat-message.received .message-bubble {
+            background: white;
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-message.sent .message-bubble {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: black;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-time {
+            font-size: 9px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .chat-input-area {
+            padding: 12px;
+            background: white;
+            border-top: 1px solid #ddd;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #ccc;
+            border-radius: 15px;
+            font-size: 13px;
+            outline: none;
+            min-height: 35px;
+            max-height: 70px;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        .chat-input:focus {
+            border-color: #006400;
+        }
+
+        .chat-send-btn {
+            background: linear-gradient(135deg, #006400, #228B22);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 35px;
+            height: 35px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: transform 0.2s ease;
+        }
+
+        .chat-send-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .chat-send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .chat-empty {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            font-size: 13px;
+        }
+
+        .typing-indicator {
+            padding: 6px 12px;
+            color: #666;
+            font-style: italic;
+            font-size: 11px;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .chat-window {
+                width: calc(100vw - 40px);
+                height: 60vh;
+                right: 20px;
+                left: 20px;
+            }
+        }
+
         .background-image { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
-        .navbar { display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, 0.8); padding: 10px 20px; position: fixed; top: 0; width: 100%; z-index: 10; }
+        .navbar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 8px 20px;
+            width: 100%;
+            z-index: 10;
+            position: relative;
+}
+
         .navbar-top { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1200px; }
         .brand-container { display: flex; align-items: center; }
         .brand a { font-size: 24px; font-weight: bold; color: black; text-decoration: none; }
@@ -106,8 +392,8 @@
         .cart-dropdown .empty-cart { padding: 10px; text-align: center; color: #666; }
         .cart-dropdown .checkout-button { display: block; background: #FFD700; border: none; padding: 10px; margin: 10px; text-align: center; cursor: pointer; text-decoration: none; color: black; border-radius: 5px; }
         .cart-dropdown .checkout-button:hover { background: #FFA500; }
-        .marketplace-header { background: rgba(0, 100, 0, 0.7); color: #B0E0E6; text-align: center; padding: 8px 8px 4px; margin: 0; min-height: 120px; display: flex; flex-direction: column; justify-content: center; }
-        .marketplace-header h1 { font-size: 36px; font-weight: 700; font-family: "Helvetica Neue", Arial, sans-serif; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3); margin: 0; }
+        .marketplace-header { background: rgba(0, 100, 0, 0.7); color: #B0E0E6; text-align: center; padding: 6px 8px 3px; margin: 0; min-height: 100px; display: flex; flex-direction: column; justify-content: center; }
+        .marketplace-header h1 { font-size: 32px; font-weight: 700; font-family: "Helvetica Neue", Arial, sans-serif; text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3); margin: 0; }
         .marketplace-subheader { color: #1A1A1A; font-size: 22px; margin: 5px 0 10px; font-weight: 700; text-shadow: none; letter-spacing: 0.5px; }
         .hero-container { max-width: 1200px; margin: 20px auto; text-align: center; display: flex; justify-content: center; gap: 20px; }
         .hero-image { max-width: 600px; max-height: 460px; object-fit: contain; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
@@ -140,8 +426,8 @@
         .product-card button:hover { background: #FFA500; transform: translateY(-2px); }
         .error { color: red; text-align: center; margin: 20px; }
         @media (max-width: 768px) {
-            body { padding-top: 120px; }
-            .navbar { padding: 10px; }
+            body { padding-top: 100px; }
+            .navbar { padding: 8px; }
             .navbar-top { flex-wrap: wrap; }
             .marketplace-header { padding: 6px 6px 3px; min-height: 100px; }
             .marketplace-header h1 { font-size: 30px; }
@@ -154,7 +440,7 @@
             .signup-action .auth-buttons { padding: 10px 20px; font-size: 16px; }
         }
         @media (max-width: 480px) {
-            body { padding-top: 140px; }
+            body { padding-top: 0px; }
             .navbar-top { flex-direction: column; align-items: center; gap: 10px; }
             .marketplace-header { padding: 4px 4px 2px; min-height: 80px; }
             .marketplace-header h1 { font-size: 24px; }
@@ -218,6 +504,37 @@
                         <a href="{{ url_for('checkout') }}" class="checkout-button">Checkout</a>
                     </div>
                 </div>
+                {% if user %}
+                <div class="chat-widget">
+                    <button class="chat-button" onclick="toggleChat()">
+                        <img src="{{ url_for('static', filename='message-icon.png') }}" alt="Messages" style="width: 30px; height: 30px;" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMSAxNWE5IDkgMCAwIDEtOSA5QTkgOSAwIDAgMSAzIDExVjhhMiAyIDAgMCAxIDItMmgxNGEyIDIgMCAwIDEgMiAydjciPjwvcGF0aD48L3N2Zz4='">
+                        <span class="chat-notification" id="messageBadge">0</span>
+                    </button>
+                    <div class="chat-window" id="chatWindow">
+                        <div class="chat-header">
+                            <div class="default-avatar" id="sellerAvatar"></div>
+                            <div class="chat-info">
+                                <h3 id="sellerName">Select a Seller</h3>
+                                <p id="chatStatus">Select a seller to start chatting</p>
+                            </div>
+                            <button class="chat-close" onclick="closeChat()">×</button>
+                        </div>
+                        <div class="seller-selector">
+                            <select id="sellerSelect" onchange="loadChatMessages()">
+                                <option value="">Select a Seller</option>
+                            </select>
+                        </div>
+                        <div class="chat-messages" id="chatMessages">
+                            <div class="chat-empty">Select a seller to view messages</div>
+                        </div>
+                        <div class="typing-indicator" id="typingIndicator"></div>
+                        <div class="chat-input-area">
+                            <textarea id="chatInput" class="chat-input" placeholder="Type your message..." rows="2"></textarea>
+                            <button class="chat-send-btn" id="chatSendBtn" onclick="sendChatMessage()">➤</button>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
                 <div class="contact-icon" onclick="window.location.href='{{ url_for('contact') }}'">
                     <img src="{{ url_for('static', filename='customer service.png') }}" alt="Customer Service">
                 </div>
@@ -239,7 +556,7 @@
     </div>
 
     <div class="marketplace-header">
-        <h1>The Official Jamaican Marketplace</h1>
+        <h1>Shop Yaad Style — Fast, Real, Affordable.</h1>
         <p class="marketplace-subheader">Empowering You Economically</p>
     </div>
 
@@ -367,9 +684,7 @@
 
             const toast = document.createElement('div');
             toast.className = `toast ${type}`;
-
             const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
-
             toast.innerHTML = `
                 <div class="toast-icon">${icon}</div>
                 <div class="toast-content">
@@ -377,7 +692,6 @@
                     <div class="toast-message">${message}</div>
                 </div>
             `;
-
             document.body.appendChild(toast);
             setTimeout(() => toast.classList.add('show'), 100);
             setTimeout(() => {
@@ -393,22 +707,380 @@
             return div.innerHTML;
         }
 
-        // Debounce function to limit updateCart calls
-        function debounce(func, wait) {
-            let timeout;
-            return function (...args) {
-                clearTimeout(timeout);
-                timeout = setTimeout(() => func.apply(this, args), wait);
-            };
+        // Chat functionality - FIXED VERSION
+        const buyerEmail = '{{ user.email if user else "anonymous" | safe }}';
+        let chatOpen = false;
+        let socket;
+        let currentSellerEmail = '';
+
+        function initializeSocket() {
+            if (!window.io) {
+                console.error('Socket.IO not loaded');
+                return;
+            }
+
+            socket = io();
+
+            socket.on('connect', () => {
+                console.log('Connected to Socket.IO');
+            });
+
+            socket.on('disconnect', () => {
+                console.log('Disconnected from Socket.IO');
+            });
+
+            socket.on('receive_message', (data) => {
+                if (data.sender_email === currentSellerEmail || data.receiver_email === buyerEmail) {
+                    displayChatMessage(
+                        data.message,
+                        data.sender_email === buyerEmail,
+                        data.sender_name || data.sender_email,
+                        data.sender_email,
+                        data.timestamp || new Date().toLocaleString()
+                    );
+                    if (!chatOpen) {
+                        showChatNotification();
+                    }
+                    scrollChatToBottom();
+                }
+            });
+
+            socket.on('user_typing', (data) => {
+                if (data.sender_email === currentSellerEmail && data.sender_email !== buyerEmail) {
+                    showTypingIndicator(data.is_typing);
+                }
+            });
+
+            socket.on('connect_error', (error) => {
+                console.error('Socket connection error:', error);
+            });
         }
 
-        // Navigate to product page
-        function goToProduct(productKey) {
-            const cleanProductKey = productKey.replace(/'/g, '').trim();
-            const encodedKey = encodeURIComponent(cleanProductKey.replace(/ /g, '+'));
-            const productUrl = `/product/${encodedKey}`;
+        async function populateSellerDropdown() {
+            if (buyerEmail === 'anonymous') return;
 
-            console.log('Navigating to product:', productUrl);
+            try {
+                const response = await fetch('/get_conversations');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success && data.conversations && data.conversations.length > 0) {
+                    const sellerSelect = document.getElementById('sellerSelect');
+                    if (!sellerSelect) return;
+
+                    sellerSelect.innerHTML = '<option value="">Select a Seller</option>';
+
+                    data.conversations.forEach(conv => {
+                        const option = document.createElement('option');
+                        option.value = conv.seller_email;
+                        option.textContent = conv.seller_name || conv.seller_email;
+                        sellerSelect.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading conversations:', error);
+                showToast('Error', 'Failed to load conversations', 'error');
+            }
+        }
+
+        function toggleChat() {
+            if (buyerEmail === 'anonymous') {
+                showToast('Login Required', 'Please login to message sellers', 'error');
+                setTimeout(() => {
+                    window.location.href = '/login?next=' + encodeURIComponent(window.location.href);
+                }, 2000);
+                return;
+            }
+
+            const chatWindow = document.getElementById('chatWindow');
+            const chatButton = document.querySelector('.chat-button');
+
+            if (!chatWindow || !chatButton) {
+                console.error('Chat elements not found');
+                return;
+            }
+
+            chatOpen = !chatOpen;
+
+            if (chatOpen) {
+                chatWindow.classList.add('show');
+                const chatInput = document.getElementById('chatInput');
+                if (chatInput) {
+                    setTimeout(() => chatInput.focus(), 300);
+                }
+                populateSellerDropdown();
+                checkNewMessages();
+            } else {
+                chatWindow.classList.remove('show');
+                currentSellerEmail = '';
+            }
+        }
+
+        function closeChat() {
+            chatOpen = false;
+            const chatWindow = document.getElementById('chatWindow');
+            if (chatWindow) {
+                chatWindow.classList.remove('show');
+            }
+            currentSellerEmail = '';
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const sendButton = document.getElementById('chatSendBtn');
+
+            if (!input || !sendButton) {
+                console.error('Chat input elements not found');
+                return;
+            }
+
+            const message = input.value.trim();
+            if (!message || !currentSellerEmail) {
+                showToast('Error', 'Please select a seller and enter a message', 'error');
+                return;
+            }
+
+            sendButton.disabled = true;
+
+            // Optimistically show the message
+            displayChatMessage(message, true, 'You', buyerEmail, new Date().toLocaleString());
+            input.value = '';
+            scrollChatToBottom();
+
+            try {
+                const response = await fetch('/send_message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify({
+                        receiver_email: currentSellerEmail,
+                        message: message
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Emit socket event for real-time delivery
+                    if (socket && socket.connected) {
+                        socket.emit('send_message', {
+                            conversation_id: data.conversation_id,
+                            sender_email: buyerEmail,
+                            sender_name: '{{ user.first_name or "Buyer" | safe }}',
+                            receiver_email: currentSellerEmail,
+                            message: message,
+                            timestamp: new Date().toLocaleString()
+                        });
+                    }
+                } else {
+                    showToast('Error', data.message || 'Failed to send message', 'error');
+                }
+            } catch (error) {
+                console.error('Send message error:', error);
+                showToast('Error', 'Network error while sending message', 'error');
+            } finally {
+                sendButton.disabled = false;
+            }
+        }
+
+        function displayChatMessage(text, isSent, senderName, senderEmail, timestamp) {
+            const messagesContainer = document.getElementById('chatMessages');
+            if (!messagesContainer) return;
+
+            const emptyState = messagesContainer.querySelector('.chat-empty');
+            if (emptyState) emptyState.remove();
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${isSent ? 'sent' : 'received'}`;
+            messageDiv.innerHTML = `
+                <div class="message-sender">${escapeHTML(senderName)}</div>
+                <div class="message-bubble">${escapeHTML(text)}</div>
+                <div class="message-time">${escapeHTML(timestamp)}</div>
+            `;
+            messagesContainer.appendChild(messageDiv);
+            scrollChatToBottom();
+        }
+
+        async function loadChatMessages() {
+            const sellerSelect = document.getElementById('sellerSelect');
+            if (!sellerSelect) return;
+
+            currentSellerEmail = sellerSelect.value;
+            const messagesContainer = document.getElementById('chatMessages');
+
+            if (!messagesContainer) return;
+
+            messagesContainer.innerHTML = '<div class="chat-empty">No messages yet</div>';
+
+            if (!currentSellerEmail) {
+                updateChatHeader('Select a Seller', 'Select a seller to start chatting');
+                return;
+            }
+
+            try {
+                // Load seller info
+                const sellerResponse = await fetch(`/get_seller_info/${currentSellerEmail}`);
+                if (sellerResponse.ok) {
+                    const sellerData = await sellerResponse.json();
+                    if (sellerData.success) {
+                        const sellerName = sellerData.seller.business_name || sellerData.seller.first_name;
+                        updateChatHeader(sellerName, 'Usually responds quickly');
+                        updateChatAvatar(sellerData.seller, sellerName);
+                    }
+                }
+
+                // Load messages
+                const messagesResponse = await fetch(`/get_messages/${currentSellerEmail}`);
+                if (!messagesResponse.ok) {
+                    throw new Error(`HTTP ${messagesResponse.status}: ${messagesResponse.statusText}`);
+                }
+
+                const messagesData = await messagesResponse.json();
+
+                if (messagesData.success && messagesData.messages && messagesData.messages.length > 0) {
+                    messagesContainer.innerHTML = '';
+                    messagesData.messages.forEach(msg => {
+                        const senderName = msg.sender_email === buyerEmail ? 'You' : sellerName || msg.sender_email;
+                        displayChatMessage(
+                            msg.message,
+                            msg.sender_email === buyerEmail,
+                            senderName,
+                            msg.sender_email,
+                            msg.timestamp
+                        );
+                    });
+                }
+
+                // Join socket room
+                if (socket && socket.connected) {
+                    socket.emit('join_conversation', {
+                        buyer_email: buyerEmail,
+                        seller_email: currentSellerEmail
+                    });
+                }
+
+                scrollChatToBottom();
+            } catch (error) {
+                console.error('Error loading messages:', error);
+                showToast('Error', 'Failed to load chat history', 'error');
+            }
+        }
+
+        function updateChatHeader(name, status) {
+            const nameElement = document.getElementById('sellerName');
+            const statusElement = document.getElementById('chatStatus');
+            if (nameElement) nameElement.textContent = name;
+            if (statusElement) statusElement.textContent = status;
+        }
+
+        function updateChatAvatar(seller, sellerName) {
+            const avatarDiv = document.getElementById('sellerAvatar');
+            if (!avatarDiv) return;
+
+            if (seller.profile_picture) {
+                avatarDiv.innerHTML = `
+                    <img src="/static/${seller.profile_picture}"
+                         alt="${sellerName}"
+                         class="seller-avatar"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                    <div class="default-avatar" style="display: none;">
+                        ${sellerName[0].toUpperCase()}
+                    </div>
+                `;
+            } else {
+                avatarDiv.innerHTML = `
+                    <div class="default-avatar">
+                        ${sellerName[0].toUpperCase()}
+                    </div>
+                `;
+            }
+        }
+
+        function showTypingIndicator(isTyping) {
+            const indicator = document.getElementById('typingIndicator');
+            if (!indicator) return;
+
+            indicator.style.display = isTyping ? 'block' : 'none';
+            if (isTyping) {
+                const sellerName = document.getElementById('sellerName')?.textContent || 'Seller';
+                indicator.textContent = `${sellerName} is typing...`;
+            }
+            scrollChatToBottom();
+        }
+
+        function scrollChatToBottom() {
+            const messagesContainer = document.getElementById('chatMessages');
+            if (messagesContainer) {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            }
+        }
+
+        function showChatNotification() {
+            const notification = document.getElementById('messageBadge');
+            if (!notification) return;
+
+            let count = parseInt(notification.textContent) || 0;
+            notification.textContent = count + 1;
+            notification.style.display = 'flex';
+        }
+
+        function hideNotification() {
+            const notification = document.getElementById('messageBadge');
+            if (notification) {
+                notification.textContent = '0';
+                notification.style.display = 'none';
+            }
+        }
+
+        async function checkNewMessages() {
+            if (buyerEmail === 'anonymous') return;
+            try {
+                const response = await fetch('/api/unread_messages_count');
+                const data = await response.json();
+                const badge = document.getElementById('messageBadge');
+                if (badge) {
+                    if (data.count > 0) {
+                        badge.textContent = data.count;
+                        badge.style.display = 'block';
+                    } else {
+                        badge.textContent = '0';
+                        badge.style.display = 'none';
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking messages:', error);
+            }
+        }
+
+        // Navigate to product page - FIXED VERSION
+        function goToProduct(productKey) {
+            if (!productKey) {
+                console.error('Product key is missing');
+                return;
+            }
+
+            console.log('Original product key:', productKey);
+
+            // Clean the product key
+            const cleanProductKey = productKey.replace(/'/g, '').trim();
+            console.log('Cleaned product key:', cleanProductKey);
+
+            // Encode for URL
+            const encodedKey = encodeURIComponent(cleanProductKey.replace(/ /g, '+'));
+            console.log('Encoded product key:', encodedKey);
+
+            const productUrl = `/product/${encodedKey}`;
+            console.log('Final URL:', productUrl);
+
             window.location.href = productUrl;
         }
 
@@ -429,17 +1101,13 @@
 
                 const data = await response.json();
                 if (data.success) {
-                    showToast('Added to Cart! 🛒', 'Product successfully added to your cart');
-
-                    // Update cart badge
+                    showToast('Added to Cart!', 'Product successfully added to your cart');
                     const cartBadges = document.querySelectorAll('.cart-total, .cart-count, .cart-item-count');
                     cartBadges.forEach(badge => {
                         badge.textContent = data.cart_item_count || 0;
                         badge.style.animation = 'bounce 0.5s ease-in-out';
                         setTimeout(() => badge.style.animation = '', 500);
                     });
-
-                    // Update cart dropdown if present
                     updateCartDisplay();
                 } else {
                     showToast('Error', data.message || 'Failed to add to cart', 'error');
@@ -469,7 +1137,7 @@
                 if (data.success) {
                     document.querySelector('.cart-total').textContent = data.cart_item_count || 0;
                     updateCartDisplay();
-                    showToast('Added to Cart! 🛒', 'Redirecting to checkout...');
+                    showToast('Added to Cart!', 'Redirecting to checkout...');
                     setTimeout(() => {
                         window.location.href = '{{ url_for('checkout') }}';
                     }, 1000);
@@ -524,13 +1192,10 @@
 
                 const data = await response.json();
                 if (data.success) {
-                    // Update cart badges
                     const cartBadges = document.querySelectorAll('.cart-total, .cart-count, .cart-item-count');
                     cartBadges.forEach(badge => {
                         badge.textContent = data.cart_item_count || 0;
                     });
-
-                    // Update cart dropdown if it exists
                     updateCartDropdown(data);
                 }
             } catch (error) {
@@ -541,21 +1206,17 @@
         // Update cart dropdown
         function updateCartDropdown(data) {
             const cartItemsDiv = document.getElementById('cartItems');
-
             if (!cartItemsDiv) return;
 
             cartItemsDiv.innerHTML = '';
-
             if (!data.cart_items || data.cart_items.length === 0) {
                 cartItemsDiv.innerHTML = '<p class="empty-cart">Your cart is empty</p>';
             } else {
                 data.cart_items.forEach(item => {
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'cart-item';
-
                     const baseProductKey = item.product_key.split(' (')[0];
                     const productUrl = `/product/${encodeURIComponent(baseProductKey.replace(/ /g, '+'))}`;
-
                     itemDiv.innerHTML = `
                         <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.name || item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
                         <div class="cart-item-details">
@@ -573,14 +1234,12 @@
         function initializeCartDropdown() {
             const cartIcon = document.querySelector('.cart-icon');
             const cartDropdown = document.getElementById('cartDropdown');
-
             if (!cartIcon || !cartDropdown) return;
 
             cartIcon.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const isVisible = cartDropdown.style.display === 'block';
                 cartDropdown.style.display = isVisible ? 'none' : 'block';
-
                 if (!isVisible) {
                     updateCartDisplay();
                 }
@@ -630,15 +1289,6 @@
             window.location.href = `/search?query=${encodeURIComponent(query)}`;
         }
 
-        searchInput.addEventListener('input', showSuggestions);
-        searchIcon.addEventListener('click', triggerSearch);
-
-        searchInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                triggerSearch();
-            }
-        });
-
         // Category Filtering
         document.querySelectorAll('.category-circle').forEach(circle => {
             circle.addEventListener('click', function() {
@@ -653,44 +1303,127 @@
             });
         });
 
-        // Initialize everything when page loads
+        // Initialize everything when page loads - FIXED VERSION
         document.addEventListener('DOMContentLoaded', function() {
-            // Update cart display
-            updateCartDisplay();
+            console.log('DOM loaded, initializing...');
 
-            // Initialize cart dropdown
+            // Initialize basic functionality
+            updateCartDisplay();
             initializeCartDropdown();
 
-            // Fix product card clicks
+            // Set up search functionality
+            if (searchInput) {
+                searchInput.addEventListener('input', showSuggestions);
+                searchInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        triggerSearch();
+                    }
+                });
+            }
+
+            if (searchIcon) {
+                searchIcon.addEventListener('click', triggerSearch);
+            }
+
+            // FIXED: Product card click handlers
             const productCards = document.querySelectorAll('.product-card');
-            productCards.forEach(card => {
+            console.log(`Found ${productCards.length} product cards`);
+
+            productCards.forEach((card, index) => {
                 const productKey = card.getAttribute('data-product-key');
+                console.log(`Setting up card ${index}: ${productKey}`);
 
                 if (productKey) {
                     card.addEventListener('click', function(e) {
                         // Don't navigate if clicking on buttons
                         if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                            console.log('Button clicked, not navigating');
                             return;
                         }
 
+                        console.log(`Card clicked: ${productKey}`);
                         e.preventDefault();
+                        e.stopPropagation();
                         goToProduct(productKey);
                     });
+
+                    // Add visual feedback
+                    card.style.cursor = 'pointer';
+                } else {
+                    console.warn(`No product key found for card ${index}`);
                 }
             });
+
+            // Initialize chat functionality for logged-in users
+            if (buyerEmail !== 'anonymous') {
+                console.log('Initializing chat for user:', buyerEmail);
+                initializeSocket();
+                checkNewMessages();
+
+                const chatInput = document.getElementById('chatInput');
+                if (chatInput) {
+                    let typingTimer;
+                    chatInput.addEventListener('input', () => {
+                        if (socket && buyerEmail !== 'anonymous' && currentSellerEmail) {
+                            socket.emit('typing', {
+                                is_typing: true,
+                                sender_email: buyerEmail,
+                                receiver_email: currentSellerEmail
+                            });
+                            clearTimeout(typingTimer);
+                            typingTimer = setTimeout(() => {
+                                socket.emit('typing', {
+                                    is_typing: false,
+                                    sender_email: buyerEmail,
+                                    receiver_email: currentSellerEmail
+                                });
+                            }, 1000);
+                        }
+                    });
+
+                    chatInput.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            sendChatMessage();
+                        }
+                    });
+                }
+            }
+
+            console.log('All event handlers set up successfully');
         });
 
-        // Update cart when page becomes visible
-        document.addEventListener('visibilitychange', function() {
-            if (!document.hidden) {
-                updateCartDisplay();
+        // Handle clicks outside chat widget
+        document.addEventListener('click', (e) => {
+            const chatWidget = document.querySelector('.chat-widget');
+            if (chatOpen && !chatWidget.contains(e.target) && !e.target.closest('.chat-button')) {
+                closeChat();
             }
         });
 
-        // Update cart when page gains focus
+        // Handle escape key to close chat
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && chatOpen) {
+                closeChat();
+            }
+        });
+
+        // Update display when page becomes visible
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                updateCartDisplay();
+                if (chatOpen) checkNewMessages();
+            }
+        });
+
+        // Update display when window gains focus
         window.addEventListener('focus', function() {
             updateCartDisplay();
+            if (chatOpen) checkNewMessages();
         });
+
+        // Periodic message check
+        setInterval(checkNewMessages, 30000);
     </script>
 </body>
 </html>

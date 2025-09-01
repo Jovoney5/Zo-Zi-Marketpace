@@ -87,157 +87,7 @@ def init_db():
     conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
 
-    # Drop existing tables to reset (commented out to preserve data)
-    # cursor.execute('DROP TABLE IF EXISTS cart_log')
-    # cursor.execute('DROP TABLE IF EXISTS sales_log')
-    # cursor.execute('DROP TABLE IF EXISTS order_items')
-    # cursor.execute('DROP TABLE IF EXISTS orders')
-    # cursor.execute('DROP TABLE IF EXISTS user_likes')
-    # cursor.execute('DROP TABLE IF EXISTS products')
-    # cursor.execute('DROP TABLE IF EXISTS users')
-
     # Create tables
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS orders (
-            order_id TEXT PRIMARY KEY,
-            user_email TEXT,
-            full_name TEXT,
-            phone_number TEXT,
-            address TEXT,
-            parish TEXT,
-            post_office TEXT,
-            total REAL,
-            discount REAL,
-            payment_method TEXT,
-            order_date DATETIME,
-            status TEXT,
-            shipping_option TEXT,
-            shipping_fee REAL,
-            tax REAL,
-            FOREIGN KEY (user_email) REFERENCES users(email)
-        )
-    ''')
-
-    # Admin users table
-    cursor.execute('''
-            CREATE TABLE IF NOT EXISTS admin_users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                admin_level TEXT DEFAULT 'admin',  -- 'super_admin', 'admin', 'viewer'
-                created_by TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                last_login DATETIME,
-                is_active BOOLEAN DEFAULT TRUE,
-                permissions TEXT DEFAULT '{"users":true,"products":true,"orders":true,"analytics":true,"financials":true}',
-                FOREIGN KEY (created_by) REFERENCES admin_users(email)
-            )
-        ''')
-
-    # Add this to your init_db() function before conn.commit()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS chat_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sender_id TEXT NOT NULL,
-            receiver_id TEXT NOT NULL,
-            message TEXT NOT NULL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            is_read BOOLEAN DEFAULT FALSE,
-            conversation_id TEXT
-        )
-    ''')
-
-    # Add this to your init_db() function
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS chat_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            sender_id TEXT NOT NULL,
-            receiver_id TEXT NOT NULL,
-            message TEXT NOT NULL,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-            is_read BOOLEAN DEFAULT FALSE,
-            conversation_id TEXT
-        )
-    ''')
-
-    # User flags/bans table
-    cursor.execute('''
-            CREATE TABLE IF NOT EXISTS user_flags (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_email TEXT NOT NULL,
-                flag_type TEXT NOT NULL,  -- 'banned', 'suspended', 'warning', 'fraud_alert'
-                reason TEXT NOT NULL,
-                flagged_by TEXT NOT NULL,
-                flag_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-                expires_at DATETIME,
-                is_active BOOLEAN DEFAULT TRUE,
-                notes TEXT,
-                FOREIGN KEY (user_email) REFERENCES users(email),
-                FOREIGN KEY (flagged_by) REFERENCES admin_users(email)
-            )
-        ''')
-
-    # Admin activity log
-    cursor.execute('''
-            CREATE TABLE IF NOT EXISTS admin_activity_log (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                admin_email TEXT NOT NULL,
-                action_type TEXT NOT NULL,  -- 'user_banned', 'product_removed', 'order_refunded', etc.
-                target_type TEXT,  -- 'user', 'product', 'order'
-                target_id TEXT,
-                description TEXT,
-                ip_address TEXT,
-                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (admin_email) REFERENCES admin_users(email)
-            )
-        ''')
-
-    # Platform financial summary
-    cursor.execute('''
-            CREATE TABLE IF NOT EXISTS platform_financials (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                date DATE UNIQUE NOT NULL,
-                total_revenue DECIMAL(10,2) DEFAULT 0.00,
-                platform_fees DECIMAL(10,2) DEFAULT 0.00,
-                seller_payouts DECIMAL(10,2) DEFAULT 0.00,
-                refunds_issued DECIMAL(10,2) DEFAULT 0.00,
-                new_users INTEGER DEFAULT 0,
-                new_sellers INTEGER DEFAULT 0,
-                orders_count INTEGER DEFAULT 0,
-                products_sold INTEGER DEFAULT 0,
-                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        ''')
-
-    # Add missing cancel_refund_requests table if not exists
-    cursor.execute('''
-            CREATE TABLE IF NOT EXISTS cancel_refund_requests (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                order_id TEXT NOT NULL,
-                user_email TEXT NOT NULL,
-                reason TEXT NOT NULL,
-                request_type TEXT DEFAULT 'cancel',
-                request_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-                status TEXT DEFAULT 'pending',
-                admin_notes TEXT,
-                processed_by TEXT,
-                processed_date DATETIME,
-                refund_amount DECIMAL(10,2),
-                FOREIGN KEY (order_id) REFERENCES orders(order_id),
-                FOREIGN KEY (user_email) REFERENCES users(email),
-                FOREIGN KEY (processed_by) REFERENCES admin_users(email)
-            )
-        ''')
-
-    # Create default super admin
-    cursor.execute('''
-            INSERT OR IGNORE INTO admin_users (email, password, admin_level, permissions)
-            VALUES (?, ?, ?, ?)
-        ''', ('admin@zozi.com', generate_password_hash('SuperAdmin2024!'), 'super_admin',
-              '{"users":true,"products":true,"orders":true,"analytics":true,"financials":true,"admin_management":true}'))
-
-    # ... rest of your existing init_db code ...
-
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS users (
             email TEXT PRIMARY KEY,
@@ -260,9 +110,156 @@ def init_db():
             discount_applied BOOLEAN DEFAULT FALSE,
             gender TEXT,
             delivery_address TEXT,
-            billing_address TEXT
+            billing_address TEXT,
+            whatsapp_number TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    # UPDATED: Conversations table
+    cursor.execute('''
+            CREATE TABLE IF NOT EXISTS conversations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                buyer_email TEXT NOT NULL,
+                seller_email TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(buyer_email, seller_email),
+                FOREIGN KEY (buyer_email) REFERENCES users(email),
+                FOREIGN KEY (seller_email) REFERENCES users(email)
+            )
+        ''')
+
+    # UPDATED: Messages table
+    cursor.execute('''
+            CREATE TABLE IF NOT EXISTS messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id INTEGER NOT NULL,
+                sender_email TEXT NOT NULL,
+                receiver_email TEXT NOT NULL,
+                message TEXT NOT NULL,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                read_status BOOLEAN DEFAULT 0,
+                FOREIGN KEY (conversation_id) REFERENCES conversations(id),
+                FOREIGN KEY (sender_email) REFERENCES users(email),
+                FOREIGN KEY (receiver_email) REFERENCES users(email)
+            )
+        ''')
+
+    # Index for better query performance
+    cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_messages_conversation 
+            ON messages(conversation_id, timestamp)
+        ''')
+
+    cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_messages_unread 
+            ON messages(receiver_email, read_status)
+        ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS orders (
+            order_id TEXT PRIMARY KEY,
+            user_email TEXT,
+            full_name TEXT,
+            phone_number TEXT,
+            address TEXT,
+            parish TEXT,
+            post_office TEXT,
+            total REAL,
+            discount REAL,
+            payment_method TEXT,
+            order_date DATETIME,
+            status TEXT,
+            shipping_option TEXT,
+            shipping_fee REAL,
+            tax REAL,
+            lynk_reference TEXT,
+            payment_verified BOOLEAN DEFAULT FALSE,
+            FOREIGN KEY (user_email) REFERENCES users(email)
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admin_users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            admin_level TEXT DEFAULT 'admin',
+            created_by TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_login DATETIME,
+            is_active BOOLEAN DEFAULT TRUE,
+            permissions TEXT DEFAULT '{"users":true,"products":true,"orders":true,"analytics":true,"financials":true}',
+            FOREIGN KEY (created_by) REFERENCES admin_users(email)
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_flags (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_email TEXT NOT NULL,
+            flag_type TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            flagged_by TEXT NOT NULL,
+            flag_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            expires_at DATETIME,
+            is_active BOOLEAN DEFAULT TRUE,
+            notes TEXT,
+            FOREIGN KEY (user_email) REFERENCES users(email),
+            FOREIGN KEY (flagged_by) REFERENCES admin_users(email)
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS admin_activity_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_email TEXT NOT NULL,
+            action_type TEXT NOT NULL,
+            target_type TEXT,
+            target_id TEXT,
+            description TEXT,
+            ip_address TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (admin_email) REFERENCES admin_users(email)
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS platform_financials (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date DATE UNIQUE NOT NULL,
+            total_revenue DECIMAL(10,2) DEFAULT 0.00,
+            platform_fees DECIMAL(10,2) DEFAULT 0.00,
+            seller_payouts DECIMAL(10,2) DEFAULT 0.00,
+            refunds_issued DECIMAL(10,2) DEFAULT 0.00,
+            new_users INTEGER DEFAULT 0,
+            new_sellers INTEGER DEFAULT 0,
+            orders_count INTEGER DEFAULT 0,
+            products_sold INTEGER DEFAULT 0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS cancel_refund_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id TEXT NOT NULL,
+            user_email TEXT NOT NULL,
+            reason TEXT NOT NULL,
+            request_type TEXT DEFAULT 'cancel',
+            request_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            status TEXT DEFAULT 'pending',
+            admin_notes TEXT,
+            processed_by TEXT,
+            processed_date DATETIME,
+            refund_amount DECIMAL(10,2),
+            FOREIGN KEY (order_id) REFERENCES orders(order_id),
+            FOREIGN KEY (user_email) REFERENCES users(email),
+            FOREIGN KEY (processed_by) REFERENCES admin_users(email)
+        )
+    ''')
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS products (
             product_key TEXT PRIMARY KEY,
@@ -286,6 +283,7 @@ def init_db():
             FOREIGN KEY (seller_email) REFERENCES users(email)
         )
     ''')
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS seller_ratings (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -297,6 +295,7 @@ def init_db():
             FOREIGN KEY (buyer_email) REFERENCES users(email)
         )
     ''')
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_likes (
             user_email TEXT,
@@ -307,6 +306,7 @@ def init_db():
             FOREIGN KEY (product_key) REFERENCES products(product_key)
         )
     ''')
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS contact_messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -319,6 +319,7 @@ def init_db():
             unread INTEGER DEFAULT 0
         )
     ''')
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS user_sessions (
             user_email TEXT NOT NULL,
@@ -326,6 +327,7 @@ def init_db():
             PRIMARY KEY (user_email, session_id)
         )
     ''')
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS order_items (
             order_id TEXT,
@@ -337,6 +339,7 @@ def init_db():
             FOREIGN KEY (product_key) REFERENCES products(product_key)
         )
     ''')
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS sales_log (
             sale_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -351,6 +354,7 @@ def init_db():
             FOREIGN KEY (buyer_email) REFERENCES users(email)
         )
     ''')
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS cart_log (
             cart_id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -363,60 +367,56 @@ def init_db():
         )
     ''')
 
-    # Seller finances table
     cursor.execute('''
-           CREATE TABLE IF NOT EXISTS seller_finances (
-               id INTEGER PRIMARY KEY AUTOINCREMENT,
-               seller_email TEXT UNIQUE NOT NULL,
-               balance DECIMAL(10,2) DEFAULT 0.00,
-               total_earnings DECIMAL(10,2) DEFAULT 0.00,
-               pending_withdrawals DECIMAL(10,2) DEFAULT 0.00,
-               last_withdrawal_date DATETIME,
-               created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-               FOREIGN KEY (seller_email) REFERENCES users (email)
-           )
-       ''')
+        CREATE TABLE IF NOT EXISTS seller_finances (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            seller_email TEXT UNIQUE NOT NULL,
+            balance DECIMAL(10,2) DEFAULT 0.00,
+            total_earnings DECIMAL(10,2) DEFAULT 0.00,
+            pending_withdrawals DECIMAL(10,2) DEFAULT 0.00,
+            last_withdrawal_date DATETIME,
+            created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (seller_email) REFERENCES users(email)
+        )
+    ''')
 
-    # Seller transactions table
     cursor.execute('''
-           CREATE TABLE IF NOT EXISTS seller_transactions (
-               id INTEGER PRIMARY KEY AUTOINCREMENT,
-               seller_email TEXT NOT NULL,
-               transaction_type TEXT NOT NULL,
-               amount DECIMAL(10,2) NOT NULL,
-               product_key TEXT,
-               buyer_email TEXT,
-               description TEXT,
-               transaction_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-               FOREIGN KEY (seller_email) REFERENCES users (email)
-           )
-       ''')
+        CREATE TABLE IF NOT EXISTS seller_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            seller_email TEXT NOT NULL,
+            transaction_type TEXT NOT NULL,
+            amount DECIMAL(10,2) NOT NULL,
+            product_key TEXT,
+            buyer_email TEXT,
+            description TEXT,
+            transaction_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (seller_email) REFERENCES users(email)
+        )
+    ''')
 
-    # Withdrawal requests table
     cursor.execute('''
-           CREATE TABLE IF NOT EXISTS withdrawal_requests (
-               id INTEGER PRIMARY KEY AUTOINCREMENT,
-               seller_email TEXT NOT NULL,
-               amount DECIMAL(10,2) NOT NULL,
-               fee DECIMAL(10,2) NOT NULL,
-               net_amount DECIMAL(10,2) NOT NULL,
-               method TEXT NOT NULL,
-               status TEXT DEFAULT 'pending',
-               request_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-               processed_date DATETIME,
-               processing_time TEXT,
-               reference_number TEXT,
-               FOREIGN KEY (seller_email) REFERENCES users (email)
-           )
-       ''')
+        CREATE TABLE IF NOT EXISTS withdrawal_requests (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            seller_email TEXT NOT NULL,
+            amount DECIMAL(10,2) NOT NULL,
+            fee DECIMAL(10,2) NOT NULL,
+            net_amount DECIMAL(10,2) NOT NULL,
+            method TEXT NOT NULL,
+            status TEXT DEFAULT 'pending',
+            request_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+            processed_date DATETIME,
+            processing_time TEXT,
+            reference_number TEXT,
+            FOREIGN KEY (seller_email) REFERENCES users(email)
+        )
+    ''')
 
-    # 🏦 LYNK INTEGRATION: Add Lynk payment fields to orders table
-    try:
-        cursor.execute('ALTER TABLE orders ADD COLUMN lynk_reference TEXT')
-        cursor.execute('ALTER TABLE orders ADD COLUMN payment_verified BOOLEAN DEFAULT FALSE')
-        print("✅ Added Lynk payment fields to orders table")
-    except:
-        pass  # Fields already exist
+    # Insert default super admin
+    cursor.execute('''
+        INSERT OR IGNORE INTO admin_users (email, password, admin_level, permissions)
+        VALUES (?, ?, ?, ?)
+    ''', ('admin@zozi.com', generate_password_hash('SuperAdmin2024!'), 'super_admin',
+          '{"users":true,"products":true,"orders":true,"analytics":true,"financials":true,"admin_management":true}'))
 
     # Insert default support agent
     cursor.execute('''
@@ -424,22 +424,8 @@ def init_db():
         VALUES (?, ?, ?, ?, ?, ?)
     ''', ('support@yaad.com', 'supportpassword', True, 'Support', 'Agent', False))
 
-    # Add missing columns to users table if they don't exist
-    try:
-        cursor.execute('ALTER TABLE users ADD COLUMN whatsapp_number TEXT')
-        print("✅ Added whatsapp_number field")
-    except:
-        pass  # Field already exists
-
-    try:
-        cursor.execute('ALTER TABLE users ADD COLUMN created_at DATETIME DEFAULT CURRENT_TIMESTAMP')
-        print("✅ Added created_at field to users table")
-    except:
-        pass  # Field already exists
-
     conn.commit()
     conn.close()
-
 
 def is_admin():
     """Check if current user is admin"""
@@ -474,26 +460,16 @@ def log_admin_activity(admin_email, action_type, target_type=None, target_id=Non
     except Exception as e:
         logger.error(f"Error logging admin activity: {e}")
 
-def log_admin_activity(admin_email, action_type, target_type, target_id, details):
-    try:
-        with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
-                INSERT INTO admin_activity_log 
-                (admin_email, action_type, target_type, target_id, details, timestamp)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (admin_email, action_type, target_type, target_id, details, datetime.now()))
-            conn.commit()
-    except Exception as e:
-        logger.error(f"Error logging admin activity: {e}")
-
-
-
 def reset_db():
     db_path = 'zo-zi.db'
     if os.path.exists(db_path):
         os.remove(db_path)
     init_db()
+
+def get_db():
+    conn = sqlite3.connect('zo-zi.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 INITIAL_PRODUCTS = {
@@ -2636,6 +2612,150 @@ def start_chat(seller_email):
                            cart_item_count=cart_data['cart_item_count'])
 
 
+
+
+@app.route('/seller/update_description', methods=['POST'])
+def update_seller_description():
+    if 'user' not in session or not session['user'].get('is_seller'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    try:
+        data = request.get_json()
+        description = data.get('description', '')
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Check if column exists, if not add it
+            try:
+                cursor.execute('ALTER TABLE users ADD COLUMN business_description TEXT')
+            except:
+                pass  # Column already exists
+
+            # Update description
+            cursor.execute('''
+                UPDATE users SET business_description = ? WHERE email = ?
+            ''', (description, session['user']['email']))
+
+            conn.commit()
+
+        return jsonify({'success': True})
+
+    except Exception as e:
+        logger.error(f"Error updating description: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+
+@app.route('/get_seller_info/<email>')
+def get_seller_info(email):
+    try:
+                with get_db() as conn:
+                    cursor = conn.cursor()
+                    cursor.execute('''
+                        SELECT email, first_name, business_name, profile_picture
+                        FROM users
+                        WHERE email = ? AND is_seller = 1
+                    ''', (email,))
+                    seller = cursor.fetchone()
+                    if not seller:
+                        return jsonify({'success': False, 'message': 'Seller not found'}), 404
+                    return jsonify({
+                        'success': True,
+                        'seller': {
+                            'email': seller['email'],
+                            'first_name': seller['first_name'],
+                            'business_name': seller['business_name'],
+                            'profile_picture': seller['profile_picture']
+                        }
+                    })
+    except Exception as e:
+        logger.error(f"Error getting seller info: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+
+    @app.route('/buyer/messages', endpoint='buyer_messages')
+    def buyer_messages():
+            if 'user' not in session:
+                return redirect(url_for('login'))
+
+            buyer_email = session['user']['email']
+
+            try:
+                with get_db() as conn:
+                    cursor = conn.cursor()
+
+                    # Get all conversations for this buyer
+                    cursor.execute('''
+                        SELECT c.id, c.seller_email, c.last_message_at,
+                               u.first_name, u.last_name, u.business_name,
+                               (SELECT COUNT(*) FROM messages m 
+                                WHERE m.conversation_id = c.id 
+                                AND m.receiver_email = ? 
+                                AND m.read_status = 0) as unread_count,
+                               (SELECT message FROM messages m2 
+                                WHERE m2.conversation_id = c.id 
+                                ORDER BY m2.timestamp DESC LIMIT 1) as last_message
+                        FROM conversations c
+                        JOIN users u ON c.seller_email = u.email
+                        WHERE c.buyer_email = ?
+                        ORDER BY c.last_message_at DESC
+                    ''', (buyer_email, buyer_email))
+
+                    conversations = []
+                    for row in cursor.fetchall():
+                        conversations.append({
+                            'id': row['id'],
+                            'seller_email': row['seller_email'],
+                            'seller_name': row['business_name'] or f"{row['first_name']} {row['last_name']}",
+                            'last_message': row['last_message'],
+                            'last_message_at': row['last_message_at'],
+                            'unread_count': row['unread_count'] or 0
+                        })
+
+                cart_data = get_cart_items()
+                return render_template(
+                    'buyer_messages.html',
+                    conversations=conversations,
+                    user=session['user'],
+                    cart_items=cart_data['items'],
+                    cart_total=cart_data['total'],
+                    discount=cart_data['discount'],
+                    cart_item_count=cart_data['cart_item_count']
+                )
+            except Exception as e:
+                logger.error(f"Error in buyer_messages: {e}")
+                return redirect(url_for('index'))
+
+
+@app.route('/api/unread_messages_count')
+def unread_messages_count():
+    """Get total unread message count for current user"""
+    if 'user' not in session:
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+
+    current_user_email = session['user']['email']
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT COUNT(*) as count
+                FROM messages m
+                WHERE m.receiver_email = ? AND m.read_status = 0
+            ''', (current_user_email,))
+
+            count = cursor.fetchone()['count']
+            return jsonify({'success': True, 'count': count})
+
+    except Exception as e:
+        logger.error(f"Error getting unread messages count: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# Add these missing routes to your app.py file
+
 @app.route('/send_message', methods=['POST'])
 def send_message():
     """Send a message between buyer and seller"""
@@ -2644,76 +2764,380 @@ def send_message():
 
     try:
         data = request.get_json()
-        receiver_id = data.get('receiver_id')
+        receiver_email = data.get('receiver_email')
         message = data.get('message')
 
-        if not receiver_id or not message:
-            return jsonify({'success': False, 'message': 'Missing data'}), 400
+        if not receiver_email or not message:
+            return jsonify({'success': False, 'message': 'Missing receiver or message'}), 400
 
-        sender_id = session['user']['email']
-        conversation_id = get_conversation_id(sender_id, receiver_id)
+        current_user_email = session['user']['email']
 
-        conn = get_postgres_connection()
-        if not conn:
-            return jsonify({'success': False, 'message': 'Chat service unavailable'}), 500
+        with get_db() as conn:
+            cursor = conn.cursor()
 
-        cur = conn.cursor()
-        cur.execute("""
-            INSERT INTO messages (sender_id, receiver_id, message, conversation_id)
-            VALUES (%s, %s, %s, %s)
-        """, (sender_id, receiver_id, message, conversation_id))
+            # Determine who is buyer and who is seller
+            cursor.execute('SELECT is_seller FROM users WHERE email = ?', (current_user_email,))
+            sender_user = cursor.fetchone()
+            cursor.execute('SELECT is_seller FROM users WHERE email = ?', (receiver_email,))
+            receiver_user = cursor.fetchone()
 
-        conn.commit()
-        cur.close()
-        conn.close()
+            if not sender_user or not receiver_user:
+                return jsonify({'success': False, 'message': 'User not found'}), 404
 
-        return jsonify({'success': True})
+            # Set buyer/seller emails correctly
+            if sender_user['is_seller']:
+                seller_email = current_user_email
+                buyer_email = receiver_email
+            else:
+                buyer_email = current_user_email
+                seller_email = receiver_email
+
+            # Get or create conversation
+            cursor.execute('''
+                SELECT id FROM conversations 
+                WHERE (buyer_email = ? AND seller_email = ?) 
+                OR (buyer_email = ? AND seller_email = ?)
+            ''', (buyer_email, seller_email, seller_email, buyer_email))
+
+            conversation = cursor.fetchone()
+
+            if not conversation:
+                # Create new conversation
+                cursor.execute('''
+                    INSERT INTO conversations (buyer_email, seller_email, created_at, last_message_at)
+                    VALUES (?, ?, ?, ?)
+                ''', (buyer_email, seller_email,
+                      datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                      datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+                conversation_id = cursor.lastrowid
+            else:
+                conversation_id = conversation['id']
+                # Update last message time
+                cursor.execute('''
+                    UPDATE conversations 
+                    SET last_message_at = ? 
+                    WHERE id = ?
+                ''', (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), conversation_id))
+
+            # Insert message
+            cursor.execute('''
+                INSERT INTO messages (conversation_id, sender_email, receiver_email, message, timestamp, read_status)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ''', (conversation_id, current_user_email, receiver_email, message,
+                  datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 0))
+
+            conn.commit()
+
+            return jsonify({
+                'success': True,
+                'message': 'Message sent successfully',
+                'conversation_id': conversation_id
+            })
 
     except Exception as e:
         logger.error(f"Error sending message: {e}")
         return jsonify({'success': False, 'message': 'Error sending message'}), 500
 
 
-@app.route('/get_messages/<receiver_id>')
-def get_messages(receiver_id):
-    """Get conversation history between two users"""
+@app.route('/get_messages/<other_email>')
+def get_messages_fixed(other_email):
+    """Get messages between current user and another user - FIXED VERSION"""
     if 'user' not in session:
-        return jsonify({'error': 'Not logged in'}), 401
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+
+    current_user_email = session['user']['email']
 
     try:
-        sender_id = session['user']['email']
-        conversation_id = get_conversation_id(sender_id, receiver_id)
+        with get_db() as conn:
+            cursor = conn.cursor()
 
-        conn = get_postgres_connection()
-        if not conn:
-            return jsonify({'messages': []})
+            # Find conversation between users
+            cursor.execute('''
+                SELECT id FROM conversations 
+                WHERE (buyer_email = ? AND seller_email = ?) 
+                OR (buyer_email = ? AND seller_email = ?)
+            ''', (current_user_email, other_email, other_email, current_user_email))
 
-        cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-        cur.execute("""
-            SELECT sender_id, receiver_id, message, timestamp
-            FROM messages
-            WHERE conversation_id = %s
-            ORDER BY timestamp ASC
-        """, (conversation_id,))
+            conversation = cursor.fetchone()
 
-        messages = []
-        for row in cur.fetchall():
-            messages.append({
-                'sender': row['sender_id'],
-                'receiver': row['receiver_id'],
-                'message': row['message'],
-                'timestamp': row['timestamp'].strftime('%Y-%m-%d %H:%M:%S')
-            })
+            if not conversation:
+                return jsonify({'success': True, 'messages': []})
 
-        cur.close()
-        conn.close()
+            # Get all messages for this conversation
+            cursor.execute('''
+                SELECT sender_email, receiver_email, message, timestamp, read_status
+                FROM messages
+                WHERE conversation_id = ?
+                ORDER BY timestamp ASC
+            ''', (conversation['id'],))
 
-        return jsonify({'messages': messages})
+            messages = []
+            for row in cursor.fetchall():
+                messages.append({
+                    'sender_email': row['sender_email'],
+                    'receiver_email': row['receiver_email'],
+                    'message': row['message'],
+                    'timestamp': row['timestamp'],
+                    'read_status': row['read_status']
+                })
+
+            # Mark messages as read for current user
+            cursor.execute('''
+                UPDATE messages 
+                SET read_status = 1 
+                WHERE conversation_id = ? AND receiver_email = ? AND read_status = 0
+            ''', (conversation['id'], current_user_email))
+            conn.commit()
+
+            return jsonify({'success': True, 'messages': messages})
 
     except Exception as e:
         logger.error(f"Error getting messages: {e}")
-        return jsonify({'messages': []})
+        return jsonify({'success': False, 'message': str(e)}), 500
 
+
+@app.route('/get_conversations')
+def get_conversations_fixed():
+    """Get all conversations for current user - FIXED VERSION"""
+    if 'user' not in session:
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+
+    current_user_email = session['user']['email']
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Get user's seller status
+            cursor.execute('SELECT is_seller FROM users WHERE email = ?', (current_user_email,))
+            user_info = cursor.fetchone()
+            is_seller = user_info['is_seller'] if user_info else False
+
+            if is_seller:
+                # If current user is seller, get conversations where they are the seller
+                cursor.execute('''
+                    SELECT DISTINCT
+                        c.buyer_email as other_email,
+                        c.last_message_at,
+                        u.first_name,
+                        u.last_name,
+                        u.business_name,
+                        (SELECT COUNT(*) FROM messages m 
+                         WHERE m.conversation_id = c.id 
+                         AND m.receiver_email = ? 
+                         AND m.read_status = 0) as unread_count
+                    FROM conversations c
+                    JOIN users u ON c.buyer_email = u.email
+                    WHERE c.seller_email = ?
+                    ORDER BY c.last_message_at DESC
+                ''', (current_user_email, current_user_email))
+            else:
+                # If current user is buyer, get conversations where they are the buyer
+                cursor.execute('''
+                    SELECT DISTINCT
+                        c.seller_email as other_email,
+                        c.last_message_at,
+                        u.first_name,
+                        u.last_name,
+                        u.business_name,
+                        (SELECT COUNT(*) FROM messages m 
+                         WHERE m.conversation_id = c.id 
+                         AND m.receiver_email = ? 
+                         AND m.read_status = 0) as unread_count
+                    FROM conversations c
+                    JOIN users u ON c.seller_email = u.email
+                    WHERE c.buyer_email = ?
+                    ORDER BY c.last_message_at DESC
+                ''', (current_user_email, current_user_email))
+
+            conversations = []
+            for row in cursor.fetchall():
+                seller_name = row['business_name'] or f"{row['first_name']} {row['last_name']}" or row['other_email']
+                conversations.append({
+                    'seller_email': row['other_email'],  # For compatibility
+                    'seller_name': seller_name,
+                    'unread_count': row['unread_count'] or 0,
+                    'last_message_at': row['last_message_at']
+                })
+
+            return jsonify({'success': True, 'conversations': conversations})
+
+    except Exception as e:
+        logger.error(f"Error getting conversations: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+
+# Socket.IO event handlers for real-time chat
+@socketio.on('join_conversation')
+def on_join_conversation(data):
+    """Join a conversation room for real-time updates"""
+    buyer_email = data.get('buyer_email')
+    seller_email = data.get('seller_email')
+    if buyer_email and seller_email:
+        room = f"chat_{min(buyer_email, seller_email)}_{max(buyer_email, seller_email)}"
+        join_room(room)
+        logger.info(f"User joined chat room: {room}")
+
+@socketio.on('leave_conversation')
+def on_leave_conversation(data):
+    """Leave a conversation room"""
+    buyer_email = data.get('buyer_email')
+    seller_email = data.get('seller_email')
+    if buyer_email and seller_email:
+        room = f"chat_{min(buyer_email, seller_email)}_{max(buyer_email, seller_email)}"
+        leave_room(room)
+        logger.info(f"User left chat room: {room}")
+
+@socketio.on('send_message')
+def handle_send_message(data):
+    """Handle real-time message sending"""
+    sender_email = data.get('sender_email')
+    receiver_email = data.get('receiver_email')
+    if sender_email and receiver_email:
+        room = f"chat_{min(sender_email, receiver_email)}_{max(sender_email, receiver_email)}"
+        emit('receive_message', data, room=room)
+        logger.info(f"Real-time message sent in room: {room}")
+
+@socketio.on('typing')
+def handle_typing(data):
+    """Handle typing indicators"""
+    sender_email = data.get('sender_email')
+    receiver_email = data.get('receiver_email')
+    if sender_email and receiver_email:
+        room = f"chat_{min(sender_email, receiver_email)}_{max(sender_email, receiver_email)}"
+        emit('user_typing', data, room=room, include_self=False)
+
+
+# Fix for the indentation error around line 2672
+# Replace the problematic buyer_messages function with this corrected version:
+
+@app.route('/buyer/messages')
+def buyer_messages():
+    """Buyer messages page"""
+    if 'user' not in session:
+        return redirect(url_for('login'))
+
+    buyer_email = session['user']['email']
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Get all conversations for this buyer
+            cursor.execute('''
+                SELECT c.id, c.seller_email, c.last_message_at,
+                       u.first_name, u.last_name, u.business_name,
+                       (SELECT COUNT(*) FROM messages m 
+                        WHERE m.conversation_id = c.id 
+                        AND m.receiver_email = ? 
+                        AND m.read_status = 0) as unread_count,
+                       (SELECT message FROM messages m2 
+                        WHERE m2.conversation_id = c.id 
+                        ORDER BY m2.timestamp DESC LIMIT 1) as last_message
+                FROM conversations c
+                JOIN users u ON c.seller_email = u.email
+                WHERE c.buyer_email = ?
+                ORDER BY c.last_message_at DESC
+            ''', (buyer_email, buyer_email))
+
+            conversations = []
+            for row in cursor.fetchall():
+                conversations.append({
+                    'id': row['id'],
+                    'seller_email': row['seller_email'],
+                    'seller_name': row['business_name'] or f"{row['first_name']} {row['last_name']}",
+                    'last_message': row['last_message'],
+                    'last_message_at': row['last_message_at'],
+                    'unread_count': row['unread_count'] or 0
+                })
+
+        cart_data = get_cart_items()
+        return render_template(
+            'buyer_messages.html',
+            conversations=conversations,
+            user=session['user'],
+            cart_items=cart_data['items'],
+            cart_total=cart_data['total'],
+            discount=cart_data['discount'],
+            cart_item_count=cart_data['cart_item_count']
+        )
+    except Exception as e:
+        logger.error(f"Error in buyer_messages: {e}")
+        return redirect(url_for('index'))
+
+
+# The issue was that the function definition was improperly nested.
+# Make sure this function is at the proper indentation level (no extra spaces before @app.route)
+
+
+@app.route('/seller/messages')
+def seller_messages():
+    """Seller messages page"""
+    if 'user' not in session or not session['user'].get('is_seller'):
+        return redirect(url_for('login'))
+
+    seller_email = session['user']['email']
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Get all conversations for this seller
+            cursor.execute('''
+                SELECT c.id, c.buyer_email, c.last_message_at,
+                       u.first_name, u.last_name,
+                       (SELECT COUNT(*) FROM messages m 
+                        WHERE m.conversation_id = c.id 
+                        AND m.receiver_email = ? 
+                        AND m.read_status = 0) as unread_count,
+                       (SELECT message FROM messages m2 
+                        WHERE m2.conversation_id = c.id 
+                        ORDER BY m2.timestamp DESC LIMIT 1) as last_message
+                FROM conversations c
+                JOIN users u ON c.buyer_email = u.email
+                WHERE c.seller_email = ?
+                ORDER BY c.last_message_at DESC
+            ''', (seller_email, seller_email))
+
+            conversations = []
+            for row in cursor.fetchall():
+                conversations.append({
+                    'id': row['id'],
+                    'buyer_email': row['buyer_email'],
+                    'buyer_name': f"{row['first_name']} {row['last_name']}",
+                    'last_message': row['last_message'],
+                    'last_message_at': row['last_message_at'],
+                    'unread_count': row['unread_count'] or 0
+                })
+
+        cart_data = get_cart_items()
+        return render_template(
+            'seller_messages.html',
+            conversations=conversations,
+            user=session['user'],
+            cart_items=cart_data['items'],
+            cart_total=cart_data['total'],
+            discount=cart_data['discount'],
+            cart_item_count=cart_data['cart_item_count']
+        )
+
+    except Exception as e:
+        logger.error(f"Error in seller_messages: {e}")
+        return redirect(url_for('seller_dashboard'))
+
+
+# Add navigation links to your templates
+@app.context_processor
+def inject_messaging_links():
+    """Add messaging navigation links"""
+    messaging_links = {}
+    if 'user' in session:
+        if session['user'].get('is_seller'):
+            messaging_links['seller_messages'] = url_for('seller_messages')
+        else:
+            messaging_links['buyer_messages'] = url_for('buyer_messages')
+    return messaging_links
 
 @app.route('/track_store_view', methods=['POST'])
 def track_store_view():
@@ -4503,14 +4927,15 @@ def seller_dashboard_data():
         logger.error(f"Error in seller_dashboard_data for {seller_email}: {e}\n{traceback.format_exc()}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+
 @app.route('/seller/<seller_email>')
 def seller_store(seller_email):
-    """Enhanced individual seller's store page"""
+    """Individual seller's store page"""
     try:
         with get_db() as conn:
             cursor = conn.cursor()
 
-            # Get seller info with enhanced data
+            # Get seller info
             cursor.execute('''
                 SELECT u.email, u.first_name, u.last_name, u.business_name, u.business_address,
                        u.profile_picture, u.phone_number, u.parish,
@@ -4533,14 +4958,10 @@ def seller_store(seller_email):
             seller_data['rating_count'] = seller_data['rating_count'] or 0
             seller_data['product_count'] = seller_data['product_count'] or 0
             seller_data['total_sales'] = seller_data['total_sales'] or 0
-
-            # Add join date (fallback to 2024 if no created_at)
             seller_data['join_date'] = '2024'
-
-            # Add business description (you can add this column later)
             seller_data['business_description'] = None
 
-            # Get seller's products with categories
+            # Get seller's products
             cursor.execute('''
                 SELECT * FROM products 
                 WHERE seller_email = ? 
@@ -4562,12 +4983,13 @@ def seller_store(seller_email):
                 if product_data['category']:
                     categories.add(product_data['category'])
 
-            # Convert categories to sorted list
             product_categories = sorted(list(categories))
 
         cart_data = get_cart_items()
+
+        # FIXED: Now renders the seller store template instead of redirecting
         return render_template(
-            'enhanced_seller_store.html',  # Use the new template
+            'seller_store_page.html',
             seller=seller_data,
             products=products,
             product_categories=product_categories,
@@ -4578,86 +5000,9 @@ def seller_store(seller_email):
             cart_item_count=cart_data['cart_item_count']
         )
     except Exception as e:
-        logger.error(f"Error in enhanced seller_store: {e}")
-        return redirect(url_for('find_sellers'))
-
-    @app.route('/seller/<seller_email>')
-    def seller_store(seller_email):
-        """Enhanced individual seller's store page"""
-        try:
-            with get_db() as conn:
-                cursor = conn.cursor()
-
-                # Get seller info with enhanced data
-                cursor.execute('''
-                    SELECT u.email, u.first_name, u.last_name, u.business_name, u.business_address,
-                           u.profile_picture, u.phone_number, u.parish,
-                           AVG(sr.rating) as avg_rating, COUNT(sr.rating) as rating_count,
-                           COUNT(DISTINCT p.product_key) as product_count,
-                           SUM(p.sold) as total_sales
-                    FROM users u
-                    LEFT JOIN seller_ratings sr ON u.email = sr.seller_email
-                    LEFT JOIN products p ON u.email = p.seller_email
-                    WHERE u.email = ? AND u.is_seller = 1
-                    GROUP BY u.email
-                ''', (seller_email,))
-
-                seller = cursor.fetchone()
-                if not seller:
-                    return render_template('404.html', error="Seller not found"), 404
-
-                seller_data = dict(seller)
-                seller_data['avg_rating'] = round(seller_data['avg_rating'], 1) if seller_data['avg_rating'] else 0
-                seller_data['rating_count'] = seller_data['rating_count'] or 0
-                seller_data['product_count'] = seller_data['product_count'] or 0
-                seller_data['total_sales'] = seller_data['total_sales'] or 0
-
-                # Add join date (fallback to 2024 if no created_at)
-                seller_data['join_date'] = '2024'
-
-                # Add business description (you can add this column later)
-                seller_data['business_description'] = None
-
-                # Get seller's products with categories
-                cursor.execute('''
-                    SELECT * FROM products 
-                    WHERE seller_email = ? 
-                    ORDER BY posted_date DESC, clicks DESC
-                ''', (seller_email,))
-
-                products = []
-                categories = set()
-                for row in cursor.fetchall():
-                    product_data = dict(row)
-                    try:
-                        product_data['image_urls'] = json.loads(product_data['image_urls'])
-                        product_data['sizes'] = json.loads(product_data['sizes'])
-                    except:
-                        product_data['image_urls'] = [product_data['image_url']] if product_data['image_url'] else []
-                        product_data['sizes'] = {}
-
-                    products.append(product_data)
-                    if product_data['category']:
-                        categories.add(product_data['category'])
-
-                # Convert categories to sorted list
-                product_categories = sorted(list(categories))
-
-            cart_data = get_cart_items()
-            return render_template(
-                'enhanced_seller_store.html',  # Use the new template
-                seller=seller_data,
-                products=products,
-                product_categories=product_categories,
-                cart_items=cart_data['items'],
-                cart_total=cart_data['total'],
-                discount=cart_data['discount'],
-                user=session.get('user'),
-                cart_item_count=cart_data['cart_item_count']
-            )
-        except Exception as e:
-            logger.error(f"Error in enhanced seller_store: {e}")
-            return redirect(url_for('find_sellers'))
+        logger.error(f"Error in seller_store: {e}")
+        # FIXED: Show error instead of redirecting
+        return render_template('404.html', error=f"Error loading store: {str(e)}"), 500
 
 @app.route('/product_listing')
 def product_listing():
@@ -5826,6 +6171,98 @@ def admin_api_lynk_orders():
         logger.error(f"Error getting Lynk orders: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+
+def fix_messaging_tables():
+    """Run this once to fix existing database schema"""
+    conn = sqlite3.connect('zo-zi.db')
+    cursor = conn.cursor()
+
+    try:
+        # Check if conversations table exists, create if not
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='conversations'")
+        if not cursor.fetchone():
+            cursor.execute('''
+                CREATE TABLE conversations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    buyer_email TEXT NOT NULL,
+                    seller_email TEXT NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(buyer_email, seller_email),
+                    FOREIGN KEY (buyer_email) REFERENCES users(email),
+                    FOREIGN KEY (seller_email) REFERENCES users(email)
+                )
+            ''')
+            print("✅ Created conversations table")
+
+        # Check if messages table exists, create if not
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='messages'")
+        if not cursor.fetchone():
+            cursor.execute('''
+                CREATE TABLE messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    conversation_id INTEGER NOT NULL,
+                    sender_email TEXT NOT NULL,
+                    receiver_email TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    read_status BOOLEAN DEFAULT 0,
+                    FOREIGN KEY (conversation_id) REFERENCES conversations(id),
+                    FOREIGN KEY (sender_email) REFERENCES users(email),
+                    FOREIGN KEY (receiver_email) REFERENCES users(email)
+                )
+            ''')
+            print("✅ Created messages table")
+
+        # Add missing columns if they don't exist
+        cursor.execute("PRAGMA table_info(conversations)")
+        columns = [column[1] for column in cursor.fetchall()]
+
+        if 'created_at' not in columns:
+            cursor.execute('ALTER TABLE conversations ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+            print("✅ Added created_at column")
+
+        if 'last_message_at' not in columns:
+            cursor.execute('ALTER TABLE conversations ADD COLUMN last_message_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP')
+            print("✅ Added last_message_at column")
+
+        # Create all necessary indexes
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_messages_conversation 
+            ON messages(conversation_id, timestamp)
+        ''')
+
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_messages_unread 
+            ON messages(receiver_email, read_status)
+        ''')
+
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_conversations_buyer
+            ON conversations(buyer_email)
+        ''')
+
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_conversations_seller
+            ON conversations(seller_email)
+        ''')
+
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_conversations_last_message
+            ON conversations(last_message_at DESC)
+        ''')
+
+        conn.commit()
+        print("✅ Database schema updated successfully!")
+        print("✅ All indexes created for optimal performance")
+
+    except Exception as e:
+        print(f"❌ Error updating database: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+
+
 def reset_database_fresh():
     """Reset the entire database - WARNING: This deletes all data!"""
     import os
@@ -5855,7 +6292,7 @@ def reset_database_fresh():
 
 
 if __name__ == '__main__':
-    init_db()
+    # Run this once to fix the database
+    fix_messaging_tables()
     socketio.run(app, debug=True, allow_unsafe_werkzeug=True)
-
 

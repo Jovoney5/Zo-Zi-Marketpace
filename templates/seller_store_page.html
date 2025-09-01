@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ seller.business_name or (seller.first_name + "'s Store") }} - Zo-Zi Marketplace</title>
+    <!-- Include Socket.IO for real-time chat -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.4/socket.io.js"></script>
     <style>
         * {
             margin: 0;
@@ -300,7 +303,6 @@
 
         .section-title::after {
             content: '';
-            position: absolute;
             bottom: -10px;
             left: 50%;
             transform: translateX(-50%);
@@ -357,7 +359,6 @@
 
         .product-card::before {
             content: '';
-            position: absolute;
             top: 0;
             left: 0;
             right: 0;
@@ -566,6 +567,253 @@
             opacity: 0.8;
         }
 
+        /* Chat Widget Styles */
+        .chat-widget {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+            font-family: Arial, sans-serif;
+        }
+
+        .chat-button {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #2ecc71, #27ae60);
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            box-shadow: 0 8px 25px rgba(46, 204, 113, 0.4);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .chat-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 12px 30px rgba(46, 204, 113, 0.5);
+        }
+
+        .chat-notification {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #e74c3c;
+            color: white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 12px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        .chat-window {
+            position: absolute;
+            bottom: 80px;
+            right: 0;
+            width: 350px;
+            height: 500px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            transform: scale(0.8) translateY(20px);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .chat-window.show {
+            display: flex;
+            transform: scale(1) translateY(0);
+            opacity: 1;
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+        }
+
+        .chat-header .seller-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .chat-header .default-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            font-weight: bold;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .chat-info h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .chat-info p {
+            margin: 2px 0 0 0;
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .chat-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 20px;
+            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.3s ease;
+        }
+
+        .chat-close:hover {
+            opacity: 1;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 15px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .chat-message {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .chat-message.received {
+            align-items: flex-start;
+        }
+
+        .message-sender {
+            font-size: 12px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 10px 14px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.4;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .chat-message.received .message-bubble {
+            background: white;
+            border-bottom-left-radius: 4px;
+        }
+
+        .chat-message.sent .message-bubble {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-time {
+            font-size: 10px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .chat-input-area {
+            padding: 15px;
+            background: white;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 20px;
+            font-size: 14px;
+            outline: none;
+            min-height: 40px;
+            max-height: 80px;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+
+        .chat-input:focus {
+            border-color: #667eea;
+        }
+
+        .chat-send-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: transform 0.2s ease;
+        }
+
+        .chat-send-btn:hover {
+            transform: scale(1.1);
+        }
+
+        .chat-send-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .chat-empty {
+            text-align: center;
+            padding: 30px 20px;
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+
+        .typing-indicator {
+            padding: 8px 15px;
+            color: #7f8c8d;
+            font-style: italic;
+            font-size: 12px;
+            display: none;
+        }
+
         /* Toast Notification */
         .toast {
             position: fixed;
@@ -583,11 +831,41 @@
             display: flex;
             align-items: center;
             gap: 10px;
+            max-width: 350px;
         }
 
         .toast.show {
             transform: translateX(0);
             opacity: 1;
+        }
+
+        .toast.error {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+        }
+
+        .toast-icon {
+            font-size: 20px;
+            animation: bounce 0.5s ease-in-out;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+
+        .toast-content {
+            flex: 1;
+        }
+
+        .toast-title {
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+
+        .toast-message {
+            font-size: 14px;
+            opacity: 0.9;
         }
 
         /* Responsive Design */
@@ -644,6 +922,13 @@
                 padding: 10px 20px;
                 font-size: 14px;
             }
+
+            .chat-window {
+                width: calc(100vw - 40px);
+                height: 70vh;
+                right: 20px;
+                left: 20px;
+            }
         }
 
         @media (max-width: 480px) {
@@ -697,15 +982,23 @@
             </div>
 
             <div class="store-actions">
-                <!-- Replace the existing contact-btn with this -->
-<button class="action-btn contact-btn" onclick="startChat('{{ seller.email }}')">
-    💬 Message Seller
-</button>
-
-                <a href="{{ url_for('index') }}" class="action-btn back-btn">
-                    <span>←</span> Back to Zo-Zi
-                </a>
-            </div>
+    <button class="action-btn share-btn" onclick="openShareModal()">
+        <span>📤</span> Share Store
+    </button>
+    {% if user and not user.is_seller %}
+    <button class="action-btn contact-btn" onclick="openChat()">
+        💬 Message Seller
+    </button>
+    {% endif %}
+    {% if user and user.is_seller and user.email == seller.email %}
+    <button class="action-btn contact-btn" onclick="openSellerMessages()">
+        💬 Messages <span id="sellerMessageBadge" style="background: red; color: white; border-radius: 50%; padding: 2px 8px; font-size: 12px; margin-left: 5px; display: none;">0</span>
+    </button>
+    {% endif %}
+    <a href="{{ url_for('index') }}" class="action-btn back-btn">
+        <span>←</span> Back to Zo-Zi
+    </a>
+</div>
         </nav>
     </header>
 
@@ -714,15 +1007,17 @@
         <div class="hero-content">
             <div class="hero-main">
                 <h2>Welcome to {{ seller.business_name or (seller.first_name + "'s Store") }}</h2>
-                <p class="hero-description">
-                    {% if seller.business_description %}
-                        {{ seller.business_description }}
-                    {% else %}
-                        Discover amazing products carefully curated just for you. We're committed to providing
-                        the highest quality items with exceptional customer service. Browse our collection and
-                        find exactly what you're looking for!
-                    {% endif %}
-                </p>
+                {% if user and user.email == seller.email %}
+                <div style="position: relative;">
+                    <button onclick="editDescription()" style="position: absolute; right: 0; top: 0; background: #667eea; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 14px;">
+                        ✏️ Edit Description
+                    </button>
+                    <p class="hero-description" id="storeDescription" style="padding-right: 150px;">
+                {% else %}
+                    <p class="hero-description" id="storeDescription">
+                {% endif %}
+                        {{ seller.business_description or 'Discover amazing products carefully curated just for you. We\'re committed to providing the highest quality items with exceptional customer service. Browse our collection and find exactly what you\'re looking for!' }}
+                    </p>
 
                 <div class="store-stats">
                     <div class="stat-card">
@@ -773,11 +1068,7 @@
                             {% endif %}
                         </div>
                         <span class="rating-text">
-                            {% if seller.avg_rating and seller.avg_rating > 0 %}
-                                {{ "%.1f"|format(seller.avg_rating) }}/5
-                            {% else %}
-                                No ratings yet
-                            {% endif %}
+                            {{ "%.1f"|format(seller.avg_rating or 0) }}/5
                         </span>
                     </div>
                 </div>
@@ -889,62 +1180,323 @@
         </div>
     </div>
 
+    <!-- Chat Widget -->
+    {% if user and not user.is_seller %}
+    <div class="chat-widget">
+        <button class="chat-button" onclick="toggleChat()" id="chatButton">
+            💬
+            <div class="chat-notification" id="chatNotification">0</div>
+        </button>
+
+        <div class="chat-window" id="chatWindow">
+            <div class="chat-header">
+                {% if seller.profile_picture %}
+                    <img src="{{ url_for('static', filename=seller.profile_picture) }}"
+                         alt="{{ seller.first_name }}"
+                         class="seller-avatar"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
+                    <div class="default-avatar" style="display: none;">
+                        {{ (seller.first_name or 'S')[0].upper() }}
+                    </div>
+                {% else %}
+                    <div class="default-avatar">
+                        {{ (seller.first_name or 'S')[0].upper() }}
+                    </div>
+                {% endif %}
+                <div class="chat-info">
+                    <h3>{{ seller.business_name or seller.first_name }}</h3>
+                    <p id="chatStatus">Usually responds quickly</p>
+                </div>
+                <button class="chat-close" onclick="closeChat()">×</button>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                <div class="chat-empty">Start a conversation with {{ seller.first_name }}!</div>
+            </div>
+            <div class="typing-indicator" id="typingIndicator">
+                {{ seller.first_name }} is typing...
+            </div>
+            <div class="chat-input-area">
+                <textarea id="chatInput" class="chat-input" placeholder="Type your message..." rows="2"></textarea>
+                <button class="chat-send-btn" id="chatSendBtn" onclick="sendChatMessage()">➤</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <script>
         // Store URL for sharing
         const storeUrl = window.location.href;
-        const storeName = "{{ seller.business_name or (seller.first_name + "'s Store") }}";
+        const storeName = "{{ seller.business_name or (seller.first_name + "'s Store") | safe }}";
+        const buyerEmail = '{{ user.email if user else "anonymous" | safe }}';
+        const sellerEmail = '{{ seller.email | safe }}';
+
+        // Chat functionality
+        let chatOpen = false;
+        let socket;
+
+        // Initialize Socket.IO connection
+        function initializeSocket() {
+            socket = io();
+            socket.on('connect', () => {
+                console.log('Connected to Socket.IO');
+                if (buyerEmail !== 'anonymous') {
+                    socket.emit('join_conversation', {
+                        buyer_email: buyerEmail,
+                        seller_email: sellerEmail
+                    });
+                }
+            });
+
+            socket.on('receive_message', (data) => {
+                displayChatMessage(data.message, data.sender_email === buyerEmail, data.sender_name, data.sender_email, data.timestamp);
+                if (!chatOpen) {
+                    showChatNotification();
+                }
+                scrollChatToBottom();
+            });
+
+            socket.on('user_typing', (data) => {
+                if (data.sender_email !== buyerEmail) {
+                    showTypingIndicator(data.is_typing);
+                }
+            });
+        }
 
         // Initialize share modal
         function initializeShareModal() {
             document.getElementById('storeUrl').value = storeUrl;
-
             const shareText = `Check out ${storeName} on Zo-Zi! Amazing products and great service. 🛍️`;
-
-            // Update social share links
             document.getElementById('facebookShare').href = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(storeUrl)}`;
             document.getElementById('twitterShare').href = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(storeUrl)}`;
             document.getElementById('whatsappShare').href = `https://wa.me/?text=${encodeURIComponent(shareText + ' ' + storeUrl)}`;
             document.getElementById('emailShare').href = `mailto:?subject=${encodeURIComponent('Check out ' + storeName + ' on Zo-Zi!')}&body=${encodeURIComponent(shareText + '\n\n' + storeUrl)}`;
         }
 
-        // Open share modal
+        // Open/close share modal
         function openShareModal() {
             document.getElementById('shareModal').style.display = 'block';
             document.body.style.overflow = 'hidden';
         }
 
-        // Close share modal
         function closeShareModal() {
             document.getElementById('shareModal').style.display = 'none';
             document.body.style.overflow = 'auto';
         }
 
-        // Copy store URL to clipboard
+        // Copy store URL
         async function copyStoreUrl() {
             const urlInput = document.getElementById('storeUrl');
             try {
                 await navigator.clipboard.writeText(urlInput.value);
                 showToast('📋 Copied!', 'Store URL copied to clipboard');
             } catch (err) {
-                // Fallback for older browsers
                 urlInput.select();
                 document.execCommand('copy');
                 showToast('📋 Copied!', 'Store URL copied to clipboard');
             }
         }
 
-        // Show toast notification
+        // Edit store description
+        function editDescription() {
+            const descriptionElement = document.getElementById('storeDescription');
+            const currentText = descriptionElement.innerText;
+            const editHTML = `
+                <textarea id="editDescriptionText" style="width: 100%; min-height: 150px; padding: 10px; border: 2px solid #667eea; border-radius: 8px; font-size: 16px; font-family: inherit; resize: vertical;">${currentText}</textarea>
+                <div style="margin-top: 10px;">
+                    <button onclick="saveDescription()" style="background: #2ecc71; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-right: 10px;">Save</button>
+                    <button onclick="cancelEdit()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Cancel</button>
+                </div>
+            `;
+            descriptionElement.parentElement.innerHTML = editHTML;
+        }
+
+        async function saveDescription() {
+            const newDescription = document.getElementById('editDescriptionText').value;
+            try {
+                const response = await fetch('/seller/update_description', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify({ description: newDescription })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    location.reload();
+                } else {
+                    showToast('Error', 'Failed to save description', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showToast('Error', 'Failed to save description', 'error');
+            }
+        }
+
+        function cancelEdit() {
+            location.reload();
+        }
+
+        // Chat functions
+        function toggleChat() {
+            if (buyerEmail === 'anonymous') {
+                showToast('⚠️ Login Required', 'Please login to message the seller', 'error');
+                setTimeout(() => window.location.href = '/login?next=' + encodeURIComponent(window.location.href), 2000);
+                return;
+            }
+            const chatWindow = document.getElementById('chatWindow');
+            const chatButton = document.getElementById('chatButton');
+            chatOpen = !chatOpen;
+            if (chatOpen) {
+                chatWindow.classList.add('show');
+                chatButton.innerHTML = '✕';
+                document.getElementById('chatInput').focus();
+                loadChatMessages();
+                hideNotification();
+            } else {
+                chatWindow.classList.remove('show');
+                chatButton.innerHTML = '💬';
+            }
+        }
+
+        function closeChat() {
+            chatOpen = false;
+            document.getElementById('chatWindow').classList.remove('show');
+            document.getElementById('chatButton').innerHTML = '💬';
+        }
+
+        async function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const sendButton = document.getElementById('chatSendBtn');
+            const message = input.value.trim();
+            if (!message) return;
+            sendButton.disabled = true;
+            displayChatMessage(message, true, 'You', buyerEmail, new Date().toLocaleString());
+            input.value = '';
+            scrollChatToBottom();
+            try {
+                const response = await fetch('/send_message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify({
+                        receiver_email: sellerEmail,
+                        message: message
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    socket.emit('send_message', {
+                        conversation_id: data.conversation_id,
+                        sender_email: buyerEmail,
+                        sender_name: '{{ user.first_name or "Buyer" | safe }}',
+                        receiver_email: sellerEmail,
+                        message: message,
+                        timestamp: new Date().toLocaleString()
+                    });
+                } else {
+                    showToast('Error', data.message || 'Failed to send message', 'error');
+                }
+            } catch (error) {
+                console.error('Send message error:', error);
+                showToast('Error', 'Network error while sending message', 'error');
+            } finally {
+                sendButton.disabled = false;
+            }
+        }
+
+        function displayChatMessage(text, isSent, senderName, senderEmail, timestamp) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const emptyState = messagesContainer.querySelector('.chat-empty');
+            if (emptyState) emptyState.remove();
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${isSent ? 'sent' : 'received'}`;
+            messageDiv.innerHTML = `
+                <div class="message-sender">${senderName} (${senderEmail})</div>
+                <div class="message-bubble">${text}</div>
+                <div class="message-time">${timestamp}</div>
+            `;
+            messagesContainer.appendChild(messageDiv);
+            scrollChatToBottom();
+        }
+
+        // Seller messaging functions
+function openSellerMessages() {
+    window.location.href = '/seller/messages';
+}
+
+// Check for new messages for sellers
+async function checkSellerMessages() {
+    // Only check if the current user owns this store
+    if ('{{ user.email if user else "" | safe }}' === sellerEmail && '{{ user.is_seller if user else false | safe }}' === 'True') {
+        try {
+            const response = await fetch('/api/unread_messages_count');
+            const data = await response.json();
+            const badge = document.getElementById('sellerMessageBadge');
+            if (badge) {
+                if (data.count > 0) {
+                    badge.textContent = data.count;
+                    badge.style.display = 'inline';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }
+        } catch (error) {
+            console.error('Error checking seller messages:', error);
+        }
+    }
+}
+
+        async function loadChatMessages() {
+            try {
+                const response = await fetch(`/get_messages/${sellerEmail}`);
+                const data = await response.json();
+                if (data.success && data.messages && data.messages.length > 0) {
+                    const messagesContainer = document.getElementById('chatMessages');
+                    messagesContainer.innerHTML = '';
+                    data.messages.forEach(msg => {
+                        const senderName = msg.sender_email === buyerEmail ? 'You' : '{{ seller.first_name | safe }}';
+                        displayChatMessage(msg.message, msg.sender_email === buyerEmail, senderName, msg.sender_email, msg.timestamp);
+                    });
+                    scrollChatToBottom();
+                }
+            } catch (error) {
+                console.error('Error loading messages:', error);
+                showToast('Error', 'Failed to load chat history', 'error');
+            }
+        }
+
+        function showTypingIndicator(isTyping) {
+            document.getElementById('typingIndicator').style.display = isTyping ? 'block' : 'none';
+            scrollChatToBottom();
+        }
+
+        function scrollChatToBottom() {
+            const messagesContainer = document.getElementById('chatMessages');
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function showChatNotification() {
+            const notification = document.getElementById('chatNotification');
+            let count = parseInt(notification.textContent) || 0;
+            notification.textContent = count + 1;
+            notification.style.display = 'flex';
+        }
+
+        function hideNotification() {
+            const notification = document.getElementById('chatNotification');
+            notification.textContent = '0';
+            notification.style.display = 'none';
+        }
+
         function showToast(title, message, type = 'success') {
             const existingToast = document.querySelector('.toast');
-            if (existingToast) {
-                existingToast.remove();
-            }
-
+            if (existingToast) existingToast.remove();
             const toast = document.createElement('div');
-            toast.className = 'toast';
-
-            const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
-
+            toast.className = `toast ${type}`;
+            const icon = type === 'success' ? '✅' : '❌';
             toast.innerHTML = `
                 <div class="toast-icon">${icon}</div>
                 <div class="toast-content">
@@ -952,7 +1504,6 @@
                     <div class="toast-message">${message}</div>
                 </div>
             `;
-
             document.body.appendChild(toast);
             setTimeout(() => toast.classList.add('show'), 100);
             setTimeout(() => {
@@ -961,20 +1512,19 @@
             }, 3000);
         }
 
+        function getCSRFToken() {
+            return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        }
+
         // Category filtering
         function initializeFilters() {
             const filterBtns = document.querySelectorAll('.filter-btn');
             const productCards = document.querySelectorAll('.product-card');
-
             filterBtns.forEach(btn => {
                 btn.addEventListener('click', () => {
                     const category = btn.dataset.category;
-
-                    // Update active button
                     filterBtns.forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
-
-                    // Filter products
                     productCards.forEach(card => {
                         if (category === 'all' || card.dataset.category === category) {
                             card.style.display = 'block';
@@ -987,7 +1537,7 @@
             });
         }
 
-        // Add to cart functionality
+        // Add to cart
         async function addToCart(productKey, price, imageUrl) {
             try {
                 const response = await fetch('/cart', {
@@ -1003,7 +1553,6 @@
                         image_url: imageUrl
                     })
                 });
-
                 const data = await response.json();
                 if (data.success) {
                     showToast('🛒 Added to Cart!', 'Product successfully added to your cart');
@@ -1016,190 +1565,66 @@
             }
         }
 
-        // Get CSRF token (if needed)
-        function getCSRFToken() {
-            const csrfMeta = document.querySelector('meta[name="csrf-token"]');
-            return csrfMeta ? csrfMeta.getAttribute('content') : '';
-        }
+        // Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    initializeShareModal();
+    initializeFilters();
+    initializeSocket();
 
-        // Close modal when clicking outside
-        document.addEventListener('click', (e) => {
-            const modal = document.getElementById('shareModal');
-            if (e.target === modal) {
-                closeShareModal();
+    // Check for seller messages only if current user owns this store
+    if ('{{ user.email if user else "" | safe }}' === sellerEmail && '{{ user.is_seller if user else false | safe }}' === 'True') {
+        checkSellerMessages();
+        setInterval(checkSellerMessages, 30000); // Check every 30 seconds
+    }
+
+    const chatInput = document.getElementById('chatInput');
+    if (chatInput) {
+        let typingTimer;
+        chatInput.addEventListener('input', () => {
+            if (socket && buyerEmail !== 'anonymous') {
+                socket.emit('typing', { is_typing: true, sender_email: buyerEmail, receiver_email: sellerEmail });
+                clearTimeout(typingTimer);
+                typingTimer = setTimeout(() => {
+                    socket.emit('typing', { is_typing: false, sender_email: buyerEmail, receiver_email: sellerEmail });
+                }, 1000);
             }
         });
-
-        // Close modal with Escape key
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                closeShareModal();
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
             }
         });
+    }
 
-        // Smooth scroll for category buttons
-        function smoothScrollToProducts() {
-            document.querySelector('.store-categories').scrollIntoView({
-                behavior: 'smooth'
-            });
-        }
+    document.body.style.opacity = '0';
+    setTimeout(() => {
+        document.body.style.transition = 'opacity 0.5s ease';
+        document.body.style.opacity = '1';
+    }, 100);
+});
 
-        // Lazy loading for product images
-        function initializeLazyLoading() {
-            const images = document.querySelectorAll('.product-image');
+document.addEventListener('click', (e) => {
+    const chatWidget = document.querySelector('.chat-widget');
+    const shareModal = document.getElementById('shareModal');
+    if (chatOpen && !chatWidget.contains(e.target) && !e.target.closest('.contact-btn')) {
+        closeChat();
+    }
+    if (e.target === shareModal) {
+        closeShareModal();
+    }
+});
 
-            const imageObserver = new IntersectionObserver((entries, observer) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        const img = entry.target;
-                        img.style.opacity = '0';
-                        img.onload = () => {
-                            img.style.transition = 'opacity 0.3s ease';
-                            img.style.opacity = '1';
-                        };
-                        observer.unobserve(img);
-                    }
-                });
-            });
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeShareModal();
+        if (chatOpen) closeChat();
+    }
+});
 
-            images.forEach(img => imageObserver.observe(img));
-        }
-
-        // Initialize store analytics (track page views)
-        function trackStoreView() {
-            // Send analytics data to backend
-            fetch('/track_store_view', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    seller_email: '{{ seller.email }}',
-                    timestamp: new Date().toISOString()
-                })
-            }).catch(error => {
-                console.log('Analytics tracking failed:', error);
-            });
-        }
-
-        // Add product hover effects
-        function initializeProductHovers() {
-            const productCards = document.querySelectorAll('.product-card');
-
-            productCards.forEach(card => {
-                card.addEventListener('mouseenter', () => {
-                    card.style.transform = 'translateY(-10px) scale(1.02)';
-                });
-
-                card.addEventListener('mouseleave', () => {
-                    card.style.transform = 'translateY(0) scale(1)';
-                });
-            });
-        }
-
-        // Initialize search functionality (if added to store)
-        function initializeStoreSearch() {
-            const searchInput = document.getElementById('storeSearch');
-            if (searchInput) {
-                searchInput.addEventListener('input', (e) => {
-                    const searchTerm = e.target.value.toLowerCase();
-                    const productCards = document.querySelectorAll('.product-card');
-
-                    productCards.forEach(card => {
-                        const productName = card.querySelector('.product-name').textContent.toLowerCase();
-                        if (productName.includes(searchTerm)) {
-                            card.style.display = 'block';
-                        } else {
-                            card.style.display = 'none';
-                        }
-                    });
-                });
-            }
-        }
-
-        // Initialize store page
-        document.addEventListener('DOMContentLoaded', () => {
-            initializeShareModal();
-            initializeFilters();
-            initializeLazyLoading();
-            initializeProductHovers();
-            initializeStoreSearch();
-            trackStoreView();
-
-            // Add loading animation
-            document.body.style.opacity = '0';
-            setTimeout(() => {
-                document.body.style.transition = 'opacity 0.5s ease';
-                document.body.style.opacity = '1';
-            }, 100);
-        });
-
-        // Handle page visibility for analytics
-        document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) {
-                trackStoreView();
-            }
-        });
-
-        // Add keyboard shortcuts
-        document.addEventListener('keydown', (e) => {
-            if (e.ctrlKey || e.metaKey) {
-                switch (e.key) {
-                    case 's':
-                        e.preventDefault();
-                        openShareModal();
-                        break;
-                    case 'f':
-                        e.preventDefault();
-                        const searchInput = document.getElementById('storeSearch');
-                        if (searchInput) searchInput.focus();
-                        break;
-                }
-            }
-        });
-
-        // Add scroll animations
-        function initializeScrollAnimations() {
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if (entry.isIntersecting) {
-                        entry.target.style.opacity = '1';
-                        entry.target.style.transform = 'translateY(0)';
-                    }
-                });
-            }, { threshold: 0.1 });
-
-            document.querySelectorAll('.product-card, .stat-card').forEach(el => {
-                el.style.opacity = '0';
-                el.style.transform = 'translateY(20px)';
-                el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
-                observer.observe(el);
-            });
-        }
-
-        // Initialize scroll animations after DOM load
-        setTimeout(initializeScrollAnimations, 500);
-
-        // Performance optimization: Defer non-critical JavaScript
-        if ('requestIdleCallback' in window) {
-            requestIdleCallback(() => {
-                // Initialize non-critical features here
-                console.log('Store page fully loaded and optimized');
-            });
-        }
-
-
-        // Add chat functionality
-function startChat(sellerEmail) {
-    {% if user %}
-        window.location.href = `/start_chat/${sellerEmail}`;
-    {% else %}
-        showToast('⚠️ Login Required', 'Please login to message the seller', 'error');
-        setTimeout(() => {
-            window.location.href = '/login?next=' + encodeURIComponent(window.location.href);
-        }, 2000);
-    {% endif %}
-}
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && chatOpen) hideNotification();
+});
     </script>
 </body>
 </html>

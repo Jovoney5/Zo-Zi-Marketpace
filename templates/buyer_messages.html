@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>My Messages - Zo-Zi</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.4/socket.io.js"></script>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #3498db 0%, #8e44ad 100%);
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(255,255,255,0.95);
+            padding: 15px 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 28px;
+        }
+
+        .nav-links {
+            margin-top: 10px;
+        }
+
+        .nav-links a {
+            color: #3498db;
+            text-decoration: none;
+            margin-right: 20px;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover {
+            color: #2c3e50;
+        }
+
+        .messages-container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .messages-header {
+            background: rgba(255,255,255,0.95);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .messages-header h2 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+
+        .messages-header p {
+            color: #7f8c8d;
+            margin: 0;
+        }
+
+        .conversations-list {
+            display: grid;
+            gap: 15px;
+        }
+
+        .conversation-card {
+            background: rgba(255,255,255,0.95);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .conversation-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .seller-avatar {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #3498db, #8e44ad);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+
+        .conversation-info {
+            flex: 1;
+        }
+
+        .seller-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .last-message {
+            color: #7f8c8d;
+            font-size: 14px;
+            margin-bottom: 5px;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .message-time {
+            color: #bdc3c7;
+            font-size: 12px;
+        }
+
+        .conversation-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .unread-badge {
+            background: #e74c3c;
+            color: white;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .chat-btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .chat-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.3);
+        }
+
+        .empty-messages {
+            background: rgba(255,255,255,0.95);
+            border-radius: 12px;
+            padding: 60px 20px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .empty-icon {
+            font-size: 64px;
+            color: #bdc3c7;
+            margin-bottom: 20px;
+        }
+
+        .empty-title {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .empty-text {
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+
+        /* Chat Modal */
+        .chat-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+        }
+
+        .chat-window {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 600px;
+            height: 70vh;
+            background: white;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .chat-header {
+            background: linear-gradient(135deg, #3498db, #8e44ad);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .chat-title {
+            font-size: 18px;
+            font-weight: bold;
+        }
+
+        .close-chat {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            opacity: 0.8;
+        }
+
+        .close-chat:hover {
+            opacity: 1;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #f8f9fa;
+        }
+
+        .chat-message {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chat-message.received {
+            align-items: flex-start;
+        }
+
+        .chat-message.sent {
+            align-items: flex-end;
+        }
+
+        .message-bubble {
+            max-width: 70%;
+            padding: 10px 15px;
+            border-radius: 18px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .chat-message.received .message-bubble {
+            background: white;
+            border-bottom-left-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .chat-message.sent .message-bubble {
+            background: linear-gradient(135deg, #3498db, #8e44ad);
+            color: white;
+            border-bottom-right-radius: 4px;
+        }
+
+        .message-time {
+            font-size: 11px;
+            color: #999;
+            margin-top: 5px;
+        }
+
+        .chat-input-area {
+            padding: 15px 20px;
+            background: white;
+            border-top: 1px solid #eee;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 2px solid #ddd;
+            border-radius: 20px;
+            font-size: 14px;
+            outline: none;
+            resize: none;
+            max-height: 100px;
+        }
+
+        .chat-input:focus {
+            border-color: #3498db;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #3498db, #8e44ad);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+        }
+
+        .send-btn:hover {
+            transform: scale(1.1);
+        }
+
+        @media (max-width: 768px) {
+            .conversation-card {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .conversation-info {
+                width: 100%;
+            }
+
+            .last-message {
+                max-width: 100%;
+            }
+
+            .chat-window {
+                width: 95%;
+                height: 80vh;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>💬 My Messages</h1>
+        <div class="nav-links">
+            <a href="{{ url_for('index') }}">← Back to Home</a>
+            <a href="{{ url_for('orders') }}">My Orders</a>
+        </div>
+    </div>
+
+    <div class="messages-container">
+        <div class="messages-header">
+            <h2>Seller Conversations</h2>
+            <p>Chat with sellers about products, shipping, and get support</p>
+        </div>
+
+        {% if conversations %}
+            <div class="conversations-list">
+                {% for conv in conversations %}
+                    <div class="conversation-card" data-seller-email="{{ conv.seller_email }}">
+                        <div class="seller-avatar">
+                            {{ conv.seller_name[0].upper() if conv.seller_name else 'S' }}
+                        </div>
+
+                        <div class="conversation-info">
+                            <div class="seller-name">{{ conv.seller_name }}</div>
+                            <div class="last-message">
+                                {{ conv.last_message[:50] + '...' if conv.last_message and conv.last_message|length > 50 else (conv.last_message or 'No messages yet') }}
+                            </div>
+                            <div class="message-time">
+                                {% if conv.last_message_at %}
+                                    {{ moment(conv.last_message_at).fromNow() if moment else conv.last_message_at }}
+                                {% else %}
+                                    Recently
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <div class="conversation-actions">
+                            {% if conv.unread_count > 0 %}
+                                <div class="unread-badge">{{ conv.unread_count }}</div>
+                            {% endif %}
+                            <button class="chat-btn" onclick="openChat('{{ conv.seller_email }}', '{{ conv.seller_name }}')">
+                                💬 Chat
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-messages">
+                <div class="empty-icon">📭</div>
+                <div class="empty-title">No Conversations Yet</div>
+                <div class="empty-text">Start chatting with sellers to get help with products and orders</div>
+            </div>
+        {% endif %}
+    </div>
+
+    <!-- Chat Modal -->
+    <div class="chat-modal" id="chatModal">
+        <div class="chat-window">
+            <div class="chat-header">
+                <div class="chat-title" id="chatTitle">Chat with Seller</div>
+                <button class="close-chat" onclick="closeChat()">×</button>
+            </div>
+
+            <div class="chat-messages" id="chatMessages">
+                <div class="empty-chat">Select a conversation to start chatting</div>
+            </div>
+
+            <div class="chat-input-area">
+                <textarea id="chatInput" class="chat-input" placeholder="Type your message..." rows="2"></textarea>
+                <button class="send-btn" onclick="sendMessage()">→</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSellerEmail = '';
+        let socket;
+        const buyerEmail = '{{ user.email | safe }}';
+
+        // Initialize Socket.IO
+        function initializeSocket() {
+            socket = io();
+
+            socket.on('connect', () => {
+                console.log('Connected to Socket.IO');
+            });
+
+            socket.on('receive_message', (data) => {
+                if (data.sender_email === currentSellerEmail) {
+                    displayMessage(data.message, false, data.timestamp);
+                    updateConversationPreview(data.sender_email, data.message);
+                }
+            });
+        }
+
+        function openChat(sellerEmail, sellerName) {
+            currentSellerEmail = sellerEmail;
+            document.getElementById('chatTitle').textContent = `Chat with ${sellerName}`;
+            document.getElementById('chatModal').style.display = 'block';
+            loadMessages();
+        }
+
+        function closeChat() {
+            document.getElementById('chatModal').style.display = 'none';
+            currentSellerEmail = '';
+        }
+
+        async function loadMessages() {
+            if (!currentSellerEmail) return;
+
+            try {
+                const response = await fetch(`/get_messages/${currentSellerEmail}`);
+                const data = await response.json();
+
+                const messagesContainer = document.getElementById('chatMessages');
+                messagesContainer.innerHTML = '';
+
+                if (data.success && data.messages && data.messages.length > 0) {
+                    data.messages.forEach(msg => {
+                        displayMessage(
+                            msg.message,
+                            msg.sender_email === buyerEmail,
+                            msg.timestamp
+                        );
+                    });
+                } else {
+                    messagesContainer.innerHTML = '<div class="empty-chat">No messages yet</div>';
+                }
+
+                scrollToBottom();
+
+            } catch (error) {
+                console.error('Error loading messages:', error);
+            }
+        }
+
+        function displayMessage(text, isSent, timestamp) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const emptyState = messagesContainer.querySelector('.empty-chat');
+            if (emptyState) emptyState.remove();
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${isSent ? 'sent' : 'received'}`;
+            messageDiv.innerHTML = `
+                <div class="message-bubble">${escapeHTML(text)}</div>
+                <div class="message-time">${timestamp || 'Just now'}</div>
+            `;
+            messagesContainer.appendChild(messageDiv);
+            scrollToBottom();
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+
+            if (!message || !currentSellerEmail) return;
+
+            // Display message immediately
+            displayMessage(message, true, 'Sending...');
+            input.value = '';
+
+            try {
+                const response = await fetch('/send_message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify({
+                        receiver_email: currentSellerEmail,
+                        message: message
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Emit socket event
+                    if (socket && socket.connected) {
+                        socket.emit('send_message', {
+                            sender_email: buyerEmail,
+                            receiver_email: currentSellerEmail,
+                            message: message,
+                            timestamp: new Date().toLocaleString()
+                        });
+                    }
+
+                    // Update conversation preview
+                    updateConversationPreview(currentSellerEmail, message);
+                } else {
+                    alert('Failed to send message: ' + data.message);
+                }
+
+            } catch (error) {
+                console.error('Error sending message:', error);
+                alert('Failed to send message');
+            }
+        }
+
+        function updateConversationPreview(sellerEmail, lastMessage) {
+            const conversationCard = document.querySelector(`[data-seller-email="${sellerEmail}"]`);
+            if (conversationCard) {
+                const lastMessageEl = conversationCard.querySelector('.last-message');
+                if (lastMessageEl) {
+                    lastMessageEl.textContent = lastMessage.length > 50 ? lastMessage.substring(0, 50) + '...' : lastMessage;
+                }
+            }
+        }
+
+        function scrollToBottom() {
+            const container = document.getElementById('chatMessages');
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function getCSRFToken() {
+            return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+        }
+
+        function escapeHTML(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeSocket();
+
+            // Enter key to send message
+            document.getElementById('chatInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+
+            // Click outside modal to close
+            document.getElementById('chatModal').addEventListener('click', (e) => {
+                if (e.target.id === 'chatModal') {
+                    closeChat();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
