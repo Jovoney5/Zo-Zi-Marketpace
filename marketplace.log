@@ -1,0 +1,122 @@
+2025-09-06 00:44:41,450 - WARNING - Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+2025-09-06 00:44:41,527 - WARNING -  * Debugger is active!
+2025-09-06 00:44:41,561 - INFO -  * Debugger PIN: 124-015-107
+2025-09-06 00:45:06,868 - INFO - 127.0.0.1 - - [06/Sep/2025 00:45:06] "GET /seller_financials HTTP/1.1" 200 -
+2025-09-06 00:45:41,269 - INFO - 127.0.0.1 - - [06/Sep/2025 00:45:41] "GET /seller_financials HTTP/1.1" 200 -
+2025-09-06 00:46:07,395 - INFO - 127.0.0.1 - - [06/Sep/2025 00:46:07] "GET /seller_financials HTTP/1.1" 200 -
+2025-09-06 00:46:35,106 - INFO - 127.0.0.1 - - [06/Sep/2025 00:46:35] "GET /seller_financials HTTP/1.1" 200 -
+2025-09-06 00:47:15,106 - INFO - 127.0.0.1 - - [06/Sep/2025 00:47:15] "GET /seller_financials HTTP/1.1" 200 -
+2025-09-06 00:47:35,104 - INFO - 127.0.0.1 - - [06/Sep/2025 00:47:35] "GET /seller_financials HTTP/1.1" 200 -
+2025-09-06 00:48:16,039 - INFO - 127.0.0.1 - - [06/Sep/2025 00:48:16] "GET /seller_financials HTTP/1.1" 200 -
+2025-09-06 00:48:36,041 - INFO - 127.0.0.1 - - [06/Sep/2025 00:48:36] "GET /seller_financials HTTP/1.1" 200 -
+2025-09-06 00:48:44,590 - INFO -  * Detected change in '/Users/jovoneybrown/Desktop/Zo-Zi-Marketpace/app.py', reloading
+2025-09-06 00:48:48,446 - WARNING - Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+2025-09-06 00:48:48,503 - WARNING -  * Debugger is active!
+2025-09-06 00:48:48,535 - INFO -  * Debugger PIN: 124-015-107
+2025-09-06 00:49:02,044 - WARNING - Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+2025-09-06 00:49:02,124 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-09-06 00:49:02,125 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-06 00:49:02,125 - INFO -  * Restarting with stat
+2025-09-06 00:49:03,343 - WARNING - Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+2025-09-06 00:49:03,408 - WARNING -  * Debugger is active!
+2025-09-06 00:49:03,439 - INFO -  * Debugger PIN: 124-015-107
+2025-09-06 00:49:16,982 - INFO - 127.0.0.1 - - [06/Sep/2025 00:49:16] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:50:12,339 - INFO - 127.0.0.1 - - [06/Sep/2025 00:50:12] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:50:17,906 - WARNING - Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+2025-09-06 00:50:17,970 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-09-06 00:50:17,970 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-06 00:50:17,970 - INFO -  * Restarting with stat
+2025-09-06 00:50:18,723 - WARNING - Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+2025-09-06 00:50:18,765 - WARNING -  * Debugger is active!
+2025-09-06 00:50:18,781 - INFO -  * Debugger PIN: 124-015-107
+2025-09-06 00:50:46,049 - INFO - 127.0.0.1 - - [06/Sep/2025 00:50:46] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:51:06,041 - INFO - 127.0.0.1 - - [06/Sep/2025 00:51:06] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:51:36,789 - INFO - 127.0.0.1 - - [06/Sep/2025 00:51:36] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:52:06,049 - INFO - 127.0.0.1 - - [06/Sep/2025 00:52:06] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:53:07,039 - INFO - 127.0.0.1 - - [06/Sep/2025 00:53:07] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:53:36,093 - INFO - 127.0.0.1 - - [06/Sep/2025 00:53:36] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:54:05,632 - INFO - 127.0.0.1 - - [06/Sep/2025 00:54:05] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:54:46,040 - INFO - 127.0.0.1 - - [06/Sep/2025 00:54:46] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:55:06,438 - INFO - 127.0.0.1 - - [06/Sep/2025 00:55:06] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:55:36,048 - INFO - 127.0.0.1 - - [06/Sep/2025 00:55:36] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:55:46,803 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-09-06 00:55:46,803 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-06 00:55:46,804 - INFO -  * Restarting with stat
+2025-09-06 00:55:48,086 - WARNING -  * Debugger is active!
+2025-09-06 00:55:48,108 - INFO -  * Debugger PIN: 124-015-107
+2025-09-06 00:56:06,106 - INFO - 127.0.0.1 - - [06/Sep/2025 00:56:06] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:57:02,638 - INFO - 127.0.0.1 - - [06/Sep/2025 00:57:02] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:57:06,194 - INFO - 127.0.0.1 - - [06/Sep/2025 00:57:06] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:57:33,181 - INFO -  * Detected change in '/Users/jovoneybrown/Desktop/Zo-Zi-Marketpace/app.py', reloading
+2025-09-06 00:57:33,657 - INFO -  * Restarting with stat
+2025-09-06 00:57:37,202 - WARNING -  * Debugger is active!
+2025-09-06 00:57:37,236 - INFO -  * Debugger PIN: 124-015-107
+2025-09-06 00:57:37,416 - INFO - 127.0.0.1 - - [06/Sep/2025 00:57:37] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:57:58,830 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-09-06 00:57:58,831 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-06 00:57:58,831 - INFO -  * Restarting with stat
+2025-09-06 00:58:00,599 - WARNING -  * Debugger is active!
+2025-09-06 00:58:00,640 - INFO -  * Debugger PIN: 124-015-107
+2025-09-06 00:58:08,616 - INFO - 127.0.0.1 - - [06/Sep/2025 00:58:08] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:58:09,823 - WARNING - Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+2025-09-06 00:58:57,916 - WARNING - Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+2025-09-06 00:58:58,005 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-09-06 00:58:58,006 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-06 00:58:58,006 - INFO -  * Restarting with stat
+2025-09-06 00:58:58,836 - WARNING - Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+2025-09-06 00:58:58,874 - WARNING -  * Debugger is active!
+2025-09-06 00:58:58,889 - INFO -  * Debugger PIN: 124-015-107
+2025-09-06 00:59:07,919 - INFO - 127.0.0.1 - - [06/Sep/2025 00:59:07] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 00:59:40,569 - INFO - 127.0.0.1 - - [06/Sep/2025 00:59:40] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 01:00:15,377 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-09-06 01:00:15,378 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-06 01:00:15,378 - INFO -  * Restarting with stat
+2025-09-06 01:00:16,205 - WARNING -  * Debugger is active!
+2025-09-06 01:00:16,222 - INFO -  * Debugger PIN: 124-015-107
+2025-09-06 01:01:20,225 - INFO - 127.0.0.1 - - [06/Sep/2025 01:01:20] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 01:01:56,613 - WARNING - Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+2025-09-06 01:01:56,722 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-09-06 01:01:56,724 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-06 01:01:56,725 - INFO -  * Restarting with stat
+2025-09-06 01:01:58,667 - WARNING - Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+2025-09-06 01:01:58,726 - WARNING -  * Debugger is active!
+2025-09-06 01:01:58,760 - INFO -  * Debugger PIN: 124-015-107
+2025-09-06 01:02:12,378 - INFO - 127.0.0.1 - - [06/Sep/2025 01:02:12] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 01:02:38,520 - INFO - 127.0.0.1 - - [06/Sep/2025 01:02:38] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 01:03:06,154 - INFO - 127.0.0.1 - - [06/Sep/2025 01:03:06] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 01:04:07,075 - INFO - 127.0.0.1 - - [06/Sep/2025 01:04:07] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 01:04:16,644 - INFO -  * Detected change in '/Users/jovoneybrown/Desktop/Zo-Zi-Marketpace/app.py', reloading
+2025-09-06 01:04:17,055 - INFO -  * Restarting with stat
+2025-09-06 01:04:20,563 - WARNING - Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+2025-09-06 01:04:20,697 - WARNING -  * Debugger is active!
+2025-09-06 01:04:20,868 - INFO -  * Debugger PIN: 124-015-107
+2025-09-06 01:04:38,439 - INFO - 127.0.0.1 - - [06/Sep/2025 01:04:38] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 01:05:07,711 - INFO - 127.0.0.1 - - [06/Sep/2025 01:05:07] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 01:05:43,171 - INFO - 127.0.0.1 - - [06/Sep/2025 01:05:43] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 01:05:51,401 - INFO -  * Detected change in '/Users/jovoneybrown/Desktop/Zo-Zi-Marketpace/app.py', reloading
+2025-09-06 01:05:51,750 - INFO -  * Restarting with stat
+2025-09-06 01:05:53,894 - WARNING - Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+2025-09-06 01:05:53,963 - WARNING -  * Debugger is active!
+2025-09-06 01:05:53,998 - INFO -  * Debugger PIN: 124-015-107
+2025-09-06 01:06:10,096 - INFO - 127.0.0.1 - - [06/Sep/2025 01:06:10] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 01:06:14,373 - WARNING - Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+2025-09-06 01:06:14,484 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2025-09-06 01:06:14,484 - INFO - [33mPress CTRL+C to quit[0m
+2025-09-06 01:06:14,484 - INFO -  * Restarting with stat
+2025-09-06 01:06:16,514 - WARNING - Werkzeug appears to be used in a production deployment. Consider switching to a production web server instead.
+2025-09-06 01:06:16,569 - WARNING -  * Debugger is active!
+2025-09-06 01:06:16,605 - INFO -  * Debugger PIN: 124-015-107
+2025-09-06 01:06:52,454 - INFO - 127.0.0.1 - - [06/Sep/2025 01:06:52] "[31m[1mGET /seller_financials HTTP/1.1[0m" 401 -
+2025-09-06 01:06:55,596 - INFO - 127.0.0.1 - - [06/Sep/2025 01:06:55] "[35m[1mGET / HTTP/1.1[0m" 500 -
+2025-09-06 01:06:55,691 - INFO - 127.0.0.1 - - [06/Sep/2025 01:06:55] "GET /?__debugger__=yes&cmd=resource&f=style.css HTTP/1.1" 200 -
+2025-09-06 01:06:55,693 - INFO - 127.0.0.1 - - [06/Sep/2025 01:06:55] "GET /?__debugger__=yes&cmd=resource&f=debugger.js HTTP/1.1" 200 -
+2025-09-06 01:06:55,803 - INFO - 127.0.0.1 - - [06/Sep/2025 01:06:55] "GET /?__debugger__=yes&cmd=resource&f=console.png&s=dchz4FTVqlzoZ2jTN9Ni HTTP/1.1" 200 -
+2025-09-06 01:06:55,841 - INFO - 127.0.0.1 - - [06/Sep/2025 01:06:55] "GET /?__debugger__=yes&cmd=resource&f=console.png HTTP/1.1" 200 -

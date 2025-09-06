@@ -228,6 +228,11 @@
             </div>
         </div>
 
+        <!-- Show error message if not eligible -->
+        {% if error %}
+            <p class="error">{{ error }}</p>
+        {% endif %}
+
         <form method="POST" action="{{ url_for('select_gift') }}">
             <button type="submit" class="select-button" {{ 'disabled' if (purchase_count | default(0.5)) < 5 }}>CLAIM YUH FREE ITEM!</button>
             {% if (purchase_count | default(0.5)) < 5 %}
@@ -244,13 +249,15 @@
                             <p><strong>Category:</strong> {{ gift.category }}</p>
                             <p><strong>In Stock:</strong> {{ gift.amount }}</p>
                             <div class="form-check">
-                                <input class="form-check-input" type="radio" name="gift_key" id="gift_{{ gift.gift_key }}" value="{{ gift.gift_key }}" required>
-                                <label class="form-check-label" for="gift_{{ gift.gift_key }}">Pick dis one</label>
+                                <input class="form-check-input" type="radio" name="gift_key" id="gift_{{ gift.product_key }}" value="{{ gift.product_key }}" required>
+                                <label class="form-check-label" for="gift_{{ gift.product_key }}">Pick dis one</label>
                             </div>
                         </div>
                     {% endfor %}
                 {% else %}
-                    <p class="error">Complete di 5 purchase and choose any of the free product available</p>
+                    {% if not error %}
+                        <p class="error">Complete di 5 purchase and choose any of the free product available</p>
+                    {% endif %}
                 {% endif %}
             </div>
         </form>
@@ -264,49 +271,10 @@
             }
         });
 
-        async function addToCart(productKey, price, imageUrl) {
-            try {
-                const response = await fetch('/cart', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ product_key: productKey, price: price, quantity: 1, image_url: imageUrl, action: 'add' })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    document.querySelector('.cart-total').textContent = data.cart_item_count || 0;
-                    fetchCartItems();
-                } else {
-                    alert(data.message || 'Failed to add gift to cart.');
-                }
-            } catch (error) {
-                console.error('Add to cart error:', error);
-                alert('Network error while adding to cart.');
-            }
-        }
-
-        async function removeFromCart(productKey) {
-            try {
-                const response = await fetch('/cart', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ product_key: productKey, action: 'remove' })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    document.querySelector('.cart-total').textContent = data.cart_item_count || 0;
-                    fetchCartItems();
-                } else {
-                    alert(data.message || 'Failed to remove gift from cart.');
-                }
-            } catch (error) {
-                console.error('Remove from cart error:', error);
-                alert('Network error while removing from cart.');
-            }
-        }
-
+        // ADDED: Cart dropdown functionality to match your existing pattern
         async function fetchCartItems() {
             try {
-                const response = await fetch('/cart');
+                const response = await fetch('/cart/data');
                 const data = await response.json();
                 const cartItemsDiv = document.getElementById('cartItems');
                 const cartTotalBadge = document.querySelector('.cart-total');
@@ -321,7 +289,7 @@
                         itemDiv.innerHTML = `
                             <img src="/static/${item.image_url}" alt="${item.product_key}" onerror="this.src='/static/placeholder.jpg'">
                             <div class="cart-item-details">
-                                <p>${item.product_key}</p>
+                                <p>${item.name || item.product_key}</p>
                                 <p>${item.price} JMD x ${item.quantity}</p>
                             </div>
                             <span class="remove-item" onclick="removeFromCart('${item.product_key}')">x</span>
@@ -338,9 +306,36 @@
             }
         }
 
-        const searchInput = document.getElementById('search');
-        const suggestionsDiv = document.getElementById('suggestions');
-        const searchIcon = document.querySelector('.search-icon');
+        async function removeFromCart(productKey) {
+            try {
+                const response = await fetch('/update_cart', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify({
+                        product_key: productKey,
+                        quantity: 0
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    document.querySelector('.cart-total').textContent = data.cart_item_count || 0;
+                    fetchCartItems();
+                } else {
+                    alert(data.message || 'Failed to remove gift from cart.');
+                }
+            } catch (error) {
+                console.error('Remove from cart error:', error);
+                alert('Network error while removing from cart.');
+            }
+        }
+
+        function getCSRFToken() {
+            const meta = document.querySelector('meta[name="csrf-token"]');
+            return meta ? meta.getAttribute('content') : '';
+        }
 
         async function showSuggestions() {
             const query = searchInput.value;
@@ -348,16 +343,21 @@
                 suggestionsDiv.style.display = 'none';
                 return;
             }
-            const response = await fetch(`/search_suggestions?query=${encodeURIComponent(query)}`);
-            const data = await response.json();
-            suggestionsDiv.innerHTML = '';
-            data.suggestions.forEach(suggestion => {
-                const a = document.createElement('a');
-                a.href = `/product/${suggestion.key.replace(/ /g, '+')}`;
-                a.innerHTML = `<img src="/static/${suggestion.image_url}" alt="${suggestion.name}" onerror="this.src='/static/placeholder.jpg'"><span>${suggestion.name}</span>`;
-                suggestionsDiv.appendChild(a);
-            });
-            suggestionsDiv.style.display = data.suggestions.length ? 'block' : 'none';
+            try {
+                const response = await fetch(`/autocomplete?query=${encodeURIComponent(query)}`);
+                const data = await response.json();
+                suggestionsDiv.innerHTML = '';
+                data.forEach(suggestion => {
+                    const a = document.createElement('a');
+                    a.href = `/product/${suggestion.product_key.replace(/ /g, '+')}`;
+                    a.innerHTML = `<img src="/static/${suggestion.image_url}" alt="${suggestion.name}" onerror="this.src='/static/placeholder.jpg'"><span>${suggestion.name}</span>`;
+                    suggestionsDiv.appendChild(a);
+                });
+                suggestionsDiv.style.display = data.length ? 'block' : 'none';
+            } catch (error) {
+                console.error('Error loading suggestions:', error);
+                suggestionsDiv.style.display = 'none';
+            }
         }
 
         async function triggerSearch() {
@@ -366,14 +366,12 @@
                 alert('Please enter at least 2 characters to search.');
                 return;
             }
-            const response = await fetch(`/search_suggestions?query=${encodeURIComponent(query)}`);
-            const data = await response.json();
-            if (data.suggestions.length > 0) {
-                window.location.href = `/product/${data.suggestions[0].key.replace(/ /g, '+')}`;
-            } else {
-                alert('No products found for your search.');
-            }
+            window.location.href = `/search?query=${encodeURIComponent(query)}`;
         }
+
+        const searchInput = document.getElementById('search');
+        const suggestionsDiv = document.getElementById('suggestions');
+        const searchIcon = document.querySelector('.search-icon');
 
         searchInput.addEventListener('input', showSuggestions);
         searchIcon.addEventListener('click', triggerSearch);
@@ -384,6 +382,7 @@
             }
         });
 
+        // ADDED: Cart dropdown functionality
         const cartIcon = document.querySelector('.cart-icon');
         const cartDropdown = document.getElementById('cartDropdown');
         cartIcon.addEventListener('click', (e) => {

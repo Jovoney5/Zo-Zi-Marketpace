@@ -934,6 +934,7 @@ def internal_error(e):
         }), 500
     return render_template('404.html', error="Internal server error"), 500
 
+
 @app.route('/free')
 def free():
     if 'user' not in session:
@@ -941,26 +942,27 @@ def free():
 
     cart_data = get_cart_items()
     error = None
+
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT discount_applied, discount_used FROM users WHERE email = ?', (session['user']['email'],))
         user = cursor.fetchone()
+
+        # ALWAYS show the gifts so users can see what's available
+        cursor.execute('SELECT * FROM products WHERE price = 0')
+        gifts = [
+            dict(row,
+                 image_urls=json.loads(row['image_urls']),
+                 sizes=json.loads(row['sizes'])
+                 )
+            for row in cursor.fetchall()
+        ]
+
+        # Check eligibility AFTER getting gifts
         if user['discount_used'] or not user['discount_applied']:
             error = "Yuh nuh eligible fi a free gift right now, mi fren. Shop more to qualify!"
-            gifts = []
-        else:
-            cursor.execute('SELECT * FROM products WHERE price = 0')
-            gifts = [
-                dict(row,
-                     image_urls=json.loads(row['image_urls']),
-                     sizes=json.loads(row['sizes']),
-                     gift_key=next((k for k, v in FREE_PRODUCTS.items() if v['name'] == row['name']),
-                                   row['product_key'])
-                     )
-                for row in cursor.fetchall()
-            ]
-            if not gifts:
-                error = "No free gifts deh yah right now, mi fren. Check back later, yuh hear?"
+        elif not gifts:
+            error = "No free gifts deh yah right now, mi fren. Check back later, yuh hear!"
 
     return render_template(
         'free.html',
@@ -1389,7 +1391,6 @@ def receipt(order_id):
 
 
 # Add these routes to your app.py file
-
 @app.route('/agent/orders/all', methods=['GET'])
 def agent_get_all_orders():
     """Get all orders for agent dashboard"""
@@ -1400,17 +1401,14 @@ def agent_get_all_orders():
         with get_db() as conn:
             cursor = conn.cursor()
 
-            # Get all orders with customer info
+            # Get all orders with customer info and items
             cursor.execute('''
                 SELECT 
                     o.order_id, o.user_email, o.full_name, o.phone_number,
                     o.address, o.parish, o.post_office, o.total, o.discount,
                     o.payment_method, o.order_date, o.status, o.shipping_option,
-                    o.shipping_fee, o.tax,
-                    COUNT(oi.product_key) as item_count
+                    o.shipping_fee, o.tax
                 FROM orders o
-                LEFT JOIN order_items oi ON o.order_id = oi.order_id
-                GROUP BY o.order_id
                 ORDER BY o.order_date DESC
             ''')
 
@@ -1421,7 +1419,33 @@ def agent_get_all_orders():
                 order['discount'] = float(order['discount'] or 0)
                 order['shipping_fee'] = float(order['shipping_fee'] or 0)
                 order['tax'] = float(order['tax'] or 0)
-                order['item_count'] = order['item_count'] or 0
+
+                # Get seller info from order items
+                cursor.execute('''
+                    SELECT DISTINCT p.seller_email, u.business_name, u.first_name, u.last_name
+                    FROM order_items oi
+                    JOIN products p ON oi.product_key = p.product_key
+                    LEFT JOIN users u ON p.seller_email = u.email
+                    WHERE oi.order_id = ?
+                ''', (order['order_id'],))
+
+                sellers = cursor.fetchall()
+
+                if sellers:
+                    if len(sellers) == 1:
+                        seller = sellers[0]
+                        order['seller_info'] = {
+                            'email': seller['seller_email'],
+                            'business_name': seller['business_name'],
+                            'name': f"{seller['first_name'] or ''} {seller['last_name'] or ''}".strip()
+                        }
+                    else:
+                        # Multiple sellers
+                        order['seller_info'] = None
+                        order['multiple_sellers'] = True
+                else:
+                    order['seller_info'] = {'email': 'Unknown', 'business_name': 'Unknown', 'name': 'Unknown'}
+
                 orders.append(order)
 
             return jsonify({
@@ -1449,22 +1473,19 @@ def agent_search_orders():
         with get_db() as conn:
             cursor = conn.cursor()
 
-            # Search orders by ID, customer email, or name
+            # Search orders
             cursor.execute('''
                 SELECT 
                     o.order_id, o.user_email, o.full_name, o.phone_number,
                     o.address, o.parish, o.post_office, o.total, o.discount,
                     o.payment_method, o.order_date, o.status, o.shipping_option,
-                    o.shipping_fee, o.tax,
-                    COUNT(oi.product_key) as item_count
+                    o.shipping_fee, o.tax
                 FROM orders o
-                LEFT JOIN order_items oi ON o.order_id = oi.order_id
                 WHERE 
                     o.order_id LIKE ? OR 
                     o.user_email LIKE ? OR 
                     o.full_name LIKE ? OR
                     o.phone_number LIKE ?
-                GROUP BY o.order_id
                 ORDER BY o.order_date DESC
             ''', (f'%{search_query}%', f'%{search_query}%', f'%{search_query}%', f'%{search_query}%'))
 
@@ -1475,7 +1496,32 @@ def agent_search_orders():
                 order['discount'] = float(order['discount'] or 0)
                 order['shipping_fee'] = float(order['shipping_fee'] or 0)
                 order['tax'] = float(order['tax'] or 0)
-                order['item_count'] = order['item_count'] or 0
+
+                # Get seller info
+                cursor.execute('''
+                    SELECT DISTINCT p.seller_email, u.business_name, u.first_name, u.last_name
+                    FROM order_items oi
+                    JOIN products p ON oi.product_key = p.product_key
+                    LEFT JOIN users u ON p.seller_email = u.email
+                    WHERE oi.order_id = ?
+                ''', (order['order_id'],))
+
+                sellers = cursor.fetchall()
+
+                if sellers:
+                    if len(sellers) == 1:
+                        seller = sellers[0]
+                        order['seller_info'] = {
+                            'email': seller['seller_email'],
+                            'business_name': seller['business_name'],
+                            'name': f"{seller['first_name'] or ''} {seller['last_name'] or ''}".strip()
+                        }
+                    else:
+                        order['seller_info'] = None
+                        order['multiple_sellers'] = True
+                else:
+                    order['seller_info'] = {'email': 'Unknown', 'business_name': 'Unknown', 'name': 'Unknown'}
+
                 orders.append(order)
 
             return jsonify({
@@ -1525,7 +1571,7 @@ def agent_get_order_details(order_id):
                 SELECT 
                     oi.product_key, oi.quantity, oi.price,
                     COALESCE(p.name, oi.product_key) as product_name,
-                    COALESCE(p.image_url, 'placeholder.jpg') as image_url,
+                    COALESCE(p.image_url, 'jam all.jpg') as image_url,
                     COALESCE(p.category, 'Unknown') as category
                 FROM order_items oi
                 LEFT JOIN products p ON oi.product_key = p.product_key
@@ -6255,7 +6301,6 @@ def fix_messaging_tables():
         conn.commit()
         print("✅ Database schema updated successfully!")
         print("✅ All indexes created for optimal performance")
-
     except Exception as e:
         print(f"❌ Error updating database: {e}")
         conn.rollback()

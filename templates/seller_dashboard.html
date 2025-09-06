@@ -270,16 +270,16 @@
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(0,100,0,0.3);
         }
-        .withdraw-btn:hover {
+        .withdraw-btn:hover:not(:disabled) {
             background: linear-gradient(135deg, #228B22 0%, #32CD32 100%);
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0,100,0,0.4);
         }
         .withdraw-btn:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
+            background: #ccc !important;
+            cursor: not-allowed !important;
+            transform: none !important;
+            box-shadow: none !important;
         }
 
         /* Fee calculation display */
@@ -635,17 +635,17 @@
             <div class="financial-card earnings">
                 <div class="financial-icon">💰</div>
                 <div class="financial-label">Total Earnings</div>
-                <div class="financial-value" id="totalEarnings">J${{ financial_data.total_earnings | format_currency }}</div>
+                <div class="financial-value" id="totalEarnings">J${{ "{:,.2f}".format(financial_data.total_earnings) }}</div>
             </div>
             <div class="financial-card balance">
                 <div class="financial-icon">💳</div>
                 <div class="financial-label">Available Balance</div>
-                <div class="financial-value" id="availableBalance">J${{ financial_data.available_balance | format_currency }}</div>
+                <div class="financial-value" id="availableBalance">J${{ "{:,.2f}".format(financial_data.available_balance) }}</div>
             </div>
             <div class="financial-card pending">
                 <div class="financial-icon">⏳</div>
                 <div class="financial-label">Pending Withdrawals</div>
-                <div class="financial-value" id="pendingWithdrawals">J${{ financial_data.pending_withdrawals | format_currency }}</div>
+                <div class="financial-value" id="pendingWithdrawals">J${{ "{:,.2f}".format(financial_data.pending_withdrawals) }}</div>
             </div>
             <div class="financial-card products">
                 <div class="financial-icon">📦</div>
@@ -684,7 +684,7 @@
             <div style="text-align: center; padding: 40px; background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); border-radius: 15px; border: 2px solid #dee2e6;">
                 <h3 style="color: #006400; margin-bottom: 15px;">📊 Business Performance</h3>
                 <p style="color: #6c757d; font-size: 16px;">You have <strong>{{ financial_data.total_products }}</strong> products listed with <strong>{{ financial_data.total_sold }}</strong> total sales.</p>
-                <p style="color: #6c757d; font-size: 16px;">Total revenue generated: <strong style="color: #28a745;">J${{ financial_data.total_earnings | format_currency }}</strong></p>
+                <p style="color: #6c757d; font-size: 16px;">Total revenue generated: <strong style="color: #28a745;">J${{ "{:,.2f}".format(financial_data.total_earnings) }}</strong></p>
                 <div style="margin-top: 20px;">
                     <button onclick="showTab('products')" style="background: #006400; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; margin: 0 10px;">View Products</button>
                     <button onclick="showTab('transactions')" style="background: #28a745; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; margin: 0 10px;">View Transactions</button>
@@ -699,7 +699,7 @@
                 <h2>💰 Withdraw Your Earnings</h2>
 
                 <div class="balance-display">
-                    Available Balance: J$<span id="withdrawBalanceDisplay">{{ financial_data.available_balance | format_currency }}</span>
+                    Available Balance: J$<span id="withdrawBalanceDisplay">{{ "{:,.2f}".format(financial_data.available_balance) }}</span>
                 </div>
 
                 {% if financial_data.available_balance < 500 %}
@@ -736,9 +736,9 @@
                 <div class="withdrawal-form">
                     <div class="form-group">
                         <label for="withdrawAmount">Amount (JMD)</label>
-                        <input type="number" id="withdrawAmount" min="500" max="{{ financial_data.available_balance }}" placeholder="Minimum J$500">
+                        <input type="number" id="withdrawAmount" min="500" max="{{ financial_data.available_balance }}" placeholder="Minimum J$500" step="0.01">
                     </div>
-                    <button class="withdraw-btn" onclick="processWithdrawal()" disabled>Withdraw</button>
+                    <button class="withdraw-btn" id="withdrawButton" onclick="processWithdrawal()" disabled>Withdraw</button>
                 </div>
 
                 <div id="feeCalculation" class="fee-calculation">
@@ -780,7 +780,7 @@
                                     | Processing: {{ w.processing_time }}
                                 </small>
                             </div>
-                            <div class="transaction-amount negative">-J${{ w.amount | format_currency }}</div>
+                            <div class="transaction-amount negative">-J${{ "{:,.2f}".format(w.amount) }}</div>
                         </div>
                     {% endfor %}
                 </div>
@@ -809,7 +809,7 @@
                                 {% if t.product_key %}<small>Product: {{ t.product_key }}</small>{% endif %}
                             </div>
                             <div class="transaction-amount {{ 'positive' if t.amount > 0 else 'negative' }}">
-                                {{ '+' if t.amount > 0 else '' }}J${{ (t.amount|abs) | format_currency }}
+                                {{ '+' if t.amount > 0 else '' }}J${{ "{:,.2f}".format(t.amount|abs) }}
                             </div>
                         </div>
                     {% endfor %}
@@ -859,10 +859,10 @@
                             data-product-date="{{ product.posted_date }}">
                             <td>{{ product.name }}</td>
                             <td>{{ product.category }}</td>
-                            <td>J${{ product.price | format_currency }}</td>
+                            <td>J${{ "{:,.2f}".format(product.price) }}</td>
                             <td>{{ product.posted_date }}</td>
                             <td>{{ product.sold }}</td>
-                            <td>J${{ product.revenue | format_currency }}</td>
+                            <td>J${{ "{:,.2f}".format(product.revenue) }}</td>
                             <td>{{ product.clicks }}</td>
                             <td>{{ product.likes }}</td>
                             <td>{{ product.amount }}</td>
@@ -876,9 +876,15 @@
     </div>
 
     <script>
-        // Initialize with backend data
+        // Initialize with backend data - FIXED FINANCIAL DATA HANDLING
         const sellerProducts = {{ seller_products | tojson }};
-        let financialData = {{ financial_data | tojson }};
+        let financialData = {
+            total_earnings: {{ financial_data.total_earnings }},
+            available_balance: {{ financial_data.available_balance }},
+            pending_withdrawals: {{ financial_data.pending_withdrawals }},
+            total_products: {{ financial_data.total_products }},
+            total_sold: {{ financial_data.total_sold or 0 }}
+        };
 
         // Global variables
         let selectedWithdrawalMethod = null;
@@ -919,37 +925,90 @@
             document.getElementById('selected-product-name').textContent = `Selected: ${productData.name}`;
         }
 
-        // Enhanced withdrawal functionality
-        document.querySelectorAll('.withdrawal-option').forEach(option => {
-            option.addEventListener('click', function() {
-                document.querySelectorAll('.withdrawal-option').forEach(opt => opt.classList.remove('selected'));
-                this.classList.add('selected');
-                selectedWithdrawalMethod = this.dataset.method;
+        // FIXED: Enhanced withdrawal functionality with proper validation
+        function initializeWithdrawalSystem() {
+            console.log('Initializing withdrawal system...');
 
-                updateWithdrawButton();
-                calculateFees();
+            // Add click handlers to withdrawal options
+            document.querySelectorAll('.withdrawal-option').forEach(option => {
+                option.addEventListener('click', function() {
+                    console.log('Withdrawal option clicked:', this.dataset.method);
+
+                    // Remove selected class from all options
+                    document.querySelectorAll('.withdrawal-option').forEach(opt => {
+                        opt.classList.remove('selected');
+                    });
+
+                    // Add selected class to clicked option
+                    this.classList.add('selected');
+                    selectedWithdrawalMethod = this.dataset.method;
+
+                    console.log('Selected withdrawal method:', selectedWithdrawalMethod);
+                    updateWithdrawButton();
+                    calculateFees();
+                });
             });
-        });
 
-        document.getElementById('withdrawAmount').addEventListener('input', function() {
-            updateWithdrawButton();
-            calculateFees();
-        });
-
-        function updateWithdrawButton() {
-            const amount = parseFloat(document.getElementById('withdrawAmount').value) || 0;
-            const withdrawBtn = document.querySelector('.withdraw-btn');
-            withdrawBtn.disabled = !(amount >= 500 && selectedWithdrawalMethod && amount <= financialData.available_balance);
+            // Add input handler to amount field
+            const amountInput = document.getElementById('withdrawAmount');
+            if (amountInput) {
+                amountInput.addEventListener('input', function() {
+                    console.log('Amount input changed:', this.value);
+                    updateWithdrawButton();
+                    calculateFees();
+                });
+            }
         }
 
+        // FIXED: Proper button update logic with clear validation
+        function updateWithdrawButton() {
+            const amount = parseFloat(document.getElementById('withdrawAmount').value) || 0;
+            const withdrawBtn = document.getElementById('withdrawButton');
+
+            console.log('Updating withdraw button...');
+            console.log('Amount:', amount);
+            console.log('Selected method:', selectedWithdrawalMethod);
+            console.log('Available balance:', financialData.available_balance);
+
+            const isAmountValid = amount >= 500 && amount <= financialData.available_balance;
+            const isMethodSelected = selectedWithdrawalMethod !== null;
+            const shouldEnable = isAmountValid && isMethodSelected;
+
+            console.log('Amount valid:', isAmountValid);
+            console.log('Method selected:', isMethodSelected);
+            console.log('Should enable button:', shouldEnable);
+
+            withdrawBtn.disabled = !shouldEnable;
+
+            // Update button text based on state
+            if (!isMethodSelected) {
+                withdrawBtn.textContent = 'Select Method First';
+            } else if (!isAmountValid) {
+                if (amount < 500) {
+                    withdrawBtn.textContent = 'Min J$500 Required';
+                } else if (amount > financialData.available_balance) {
+                    withdrawBtn.textContent = 'Insufficient Balance';
+                } else {
+                    withdrawBtn.textContent = 'Enter Amount';
+                }
+            } else {
+                withdrawBtn.textContent = 'Withdraw';
+            }
+        }
+
+        // FIXED: Accurate fee calculation
         function calculateFees() {
             const amount = parseFloat(document.getElementById('withdrawAmount').value) || 0;
             const feeCalc = document.getElementById('feeCalculation');
 
             if (amount >= 500 && selectedWithdrawalMethod) {
                 let fee = 0;
-                if (selectedWithdrawalMethod === 'instant') fee = amount * 0.04;
-                else if (selectedWithdrawalMethod === 'paypal') fee = amount * 0.02;
+                if (selectedWithdrawalMethod === 'instant') {
+                    fee = amount * 0.04; // 4% for instant
+                } else if (selectedWithdrawalMethod === 'paypal') {
+                    fee = amount * 0.02; // 2% for PayPal
+                }
+                // Standard is free (fee = 0)
 
                 const netAmount = amount - fee;
 
@@ -963,10 +1022,16 @@
             }
         }
 
+        // FIXED: Enhanced withdrawal processing with real financial updates
         async function processWithdrawal() {
             const amount = parseFloat(document.getElementById('withdrawAmount').value);
             const feedback = document.getElementById('withdrawalFeedback');
 
+            console.log('Processing withdrawal...');
+            console.log('Amount:', amount);
+            console.log('Method:', selectedWithdrawalMethod);
+
+            // Validation checks
             if (!selectedWithdrawalMethod) {
                 showFeedback('Please select a withdrawal method', 'error');
                 return;
@@ -978,30 +1043,41 @@
             }
 
             if (amount > financialData.available_balance) {
-                showFeedback('Insufficient balance', 'error');
+                showFeedback('Insufficient balance for this withdrawal', 'error');
                 return;
             }
 
             // Show processing message
             showFeedback('Processing withdrawal request...', 'success');
-            document.querySelector('.withdraw-btn').disabled = true;
+            document.getElementById('withdrawButton').disabled = true;
 
             try {
+                // FIXED: Proper API call with error handling
                 const response = await fetch('/seller_withdraw', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ amount, method: selectedWithdrawalMethod })
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    },
+                    body: JSON.stringify({
+                        amount: amount,
+                        method: selectedWithdrawalMethod
+                    })
                 });
 
                 const result = await response.json();
+
                 if (result.success) {
                     showFeedback(result.message, 'success');
 
-                    // Update financial data immediately
-                    financialData.available_balance -= amount;
+                    // FIXED: Update financial data immediately with accurate calculations
+                    const oldBalance = financialData.available_balance;
+                    financialData.available_balance = Math.max(0, oldBalance - amount);
                     financialData.pending_withdrawals += amount;
 
-                    // Update UI
+                    console.log('Balance updated from', oldBalance, 'to', financialData.available_balance);
+
+                    // Update UI display
                     updateFinancialDisplay();
 
                     // Reset form
@@ -1010,13 +1086,15 @@
                     document.querySelectorAll('.withdrawal-option').forEach(opt => opt.classList.remove('selected'));
                     selectedWithdrawalMethod = null;
 
-                    // Simulate withdrawal completion after 5 seconds
+                    updateWithdrawButton();
+
+                    // Simulate withdrawal completion (in production this would be handled by payment processor)
                     setTimeout(() => {
-                        financialData.pending_withdrawals -= amount;
+                        financialData.pending_withdrawals = Math.max(0, financialData.pending_withdrawals - amount);
                         updateFinancialDisplay();
                         showFeedback(`Withdrawal of J${amount.toFixed(2)} completed successfully!`, 'success');
 
-                        // Refresh the page to show updated withdrawal history
+                        // Refresh page to show updated withdrawal history
                         setTimeout(() => {
                             window.location.reload();
                         }, 2000);
@@ -1026,9 +1104,13 @@
                     showFeedback(result.message || 'Error processing withdrawal', 'error');
                 }
             } catch (error) {
-                showFeedback('Error connecting to server', 'error');
+                console.error('Withdrawal error:', error);
+                showFeedback('Error connecting to server. Please try again.', 'error');
             } finally {
-                document.querySelector('.withdraw-btn').disabled = false;
+                // Re-enable button after processing
+                setTimeout(() => {
+                    updateWithdrawButton();
+                }, 2000);
             }
         }
 
@@ -1042,50 +1124,79 @@
             }, 5000);
         }
 
+        // FIXED: Accurate financial display updates
         function updateFinancialDisplay() {
-            document.getElementById('totalEarnings').textContent = `J${financialData.total_earnings.toFixed(2)}`;
-            document.getElementById('availableBalance').textContent = `J${financialData.available_balance.toFixed(2)}`;
-            document.getElementById('pendingWithdrawals').textContent = `J${financialData.pending_withdrawals.toFixed(2)}`;
-            document.getElementById('withdrawBalanceDisplay').textContent = financialData.available_balance.toFixed(2);
+            // Format currency properly
+            const formatCurrency = (amount) => {
+                return Number(amount).toLocaleString('en-US', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                });
+            };
 
-            // Update withdrawal amount max
+            document.getElementById('totalEarnings').textContent = `J${formatCurrency(financialData.total_earnings)}`;
+            document.getElementById('availableBalance').textContent = `J${formatCurrency(financialData.available_balance)}`;
+            document.getElementById('pendingWithdrawals').textContent = `J${formatCurrency(financialData.pending_withdrawals)}`;
+            document.getElementById('withdrawBalanceDisplay').textContent = formatCurrency(financialData.available_balance);
+
+            // Update withdrawal amount max attribute
             const withdrawAmountInput = document.getElementById('withdrawAmount');
             if (withdrawAmountInput) {
                 withdrawAmountInput.max = financialData.available_balance;
             }
         }
 
+        // FIXED: Enhanced data refresh with proper error handling
         async function refreshFinancialData() {
             try {
                 showFeedback('Refreshing financial data...', 'success');
 
-                const response = await fetch('/seller_financials');
+                const response = await fetch('/seller_financials', {
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token() }}'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const data = await response.json();
 
                 if (data.success) {
-                    financialData = data.financial_data;
+                    // Update financial data with proper validation
+                    financialData.total_earnings = Number(data.financial_data.total_earnings) || 0;
+                    financialData.available_balance = Number(data.financial_data.available_balance) || 0;
+                    financialData.pending_withdrawals = Number(data.financial_data.pending_withdrawals) || 0;
+
                     updateFinancialDisplay();
                     showFeedback('Financial data refreshed successfully!', 'success');
                 } else {
-                    showFeedback('Error refreshing data', 'error');
+                    showFeedback(data.message || 'Error refreshing data', 'error');
                 }
             } catch (error) {
+                console.error('Refresh error:', error);
                 showFeedback('Error connecting to server', 'error');
             }
         }
 
-        // Auto-refresh financial data every 30 seconds
+        // Auto-refresh financial data every 30 seconds with error handling
         setInterval(async function() {
             try {
                 const response = await fetch('/seller_financials');
-                const data = await response.json();
-                if (data.success) {
-                    const oldBalance = financialData.available_balance;
-                    financialData = data.financial_data;
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        const oldBalance = financialData.available_balance;
 
-                    // Only update if there's a significant change
-                    if (Math.abs(oldBalance - financialData.available_balance) > 0.01) {
-                        updateFinancialDisplay();
+                        financialData.total_earnings = Number(data.financial_data.total_earnings) || 0;
+                        financialData.available_balance = Number(data.financial_data.available_balance) || 0;
+                        financialData.pending_withdrawals = Number(data.financial_data.pending_withdrawals) || 0;
+
+                        // Only update display if there's a significant change
+                        if (Math.abs(oldBalance - financialData.available_balance) > 0.01) {
+                            updateFinancialDisplay();
+                        }
                     }
                 }
             } catch (error) {
@@ -1112,31 +1223,44 @@
             });
         });
 
-        // Initialize on page load
+        // FIXED: Initialize on page load with proper error handling
         window.addEventListener('DOMContentLoaded', () => {
-            updateFinancialDisplay();
+            console.log('DOM loaded, initializing seller dashboard...');
 
-            if (sellerProducts.length > 0) {
-                initializeProductTable();
-            }
+            try {
+                // Initialize withdrawal system
+                initializeWithdrawalSystem();
 
-            // Show welcome animation for new sellers
-            if (sellerProducts.length === 0) {
-                const welcomeSection = document.querySelector('.welcome-section');
-                if (welcomeSection) {
-                    welcomeSection.style.opacity = '0';
-                    welcomeSection.style.transform = 'translateY(20px)';
+                // Update financial display
+                updateFinancialDisplay();
 
-                    setTimeout(() => {
-                        welcomeSection.style.transition = 'all 0.8s ease';
-                        welcomeSection.style.opacity = '1';
-                        welcomeSection.style.transform = 'translateY(0)';
-                    }, 500);
+                // Initialize product table if products exist
+                if (sellerProducts && sellerProducts.length > 0) {
+                    initializeProductTable();
                 }
+
+                // Show welcome animation for new sellers
+                if (!sellerProducts || sellerProducts.length === 0) {
+                    const welcomeSection = document.querySelector('.welcome-section');
+                    if (welcomeSection) {
+                        welcomeSection.style.opacity = '0';
+                        welcomeSection.style.transform = 'translateY(20px)';
+
+                        setTimeout(() => {
+                            welcomeSection.style.transition = 'all 0.8s ease';
+                            welcomeSection.style.opacity = '1';
+                            welcomeSection.style.transform = 'translateY(0)';
+                        }, 500);
+                    }
+                }
+
+                console.log('Seller dashboard initialized successfully');
+            } catch (error) {
+                console.error('Error initializing dashboard:', error);
             }
         });
 
-        // Add keyboard shortcuts
+        // Add keyboard shortcuts for better UX
         document.addEventListener('keydown', function(e) {
             // Alt + 1-4 for tab switching
             if (e.altKey) {
@@ -1147,6 +1271,16 @@
                     case '4': showTab('products'); break;
                 }
             }
+        });
+
+        // Add better error handling for network issues
+        window.addEventListener('online', function() {
+            showFeedback('Connection restored', 'success');
+            refreshFinancialData();
+        });
+
+        window.addEventListener('offline', function() {
+            showFeedback('Connection lost - some features may not work', 'error');
         });
     </script>
 </body>
