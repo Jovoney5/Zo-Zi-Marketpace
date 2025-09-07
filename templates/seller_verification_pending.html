@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zo-Zi - Verification Pending</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f4; }
+        video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+
+        .container { max-width: 800px; margin: 50px auto; padding: 40px; background: rgba(255, 255, 255, 0.95); border-radius: 15px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+
+        .status-icon { font-size: 80px; margin-bottom: 20px; }
+        .status-title { color: #006400; font-size: 36px; margin-bottom: 20px; }
+        .status-message { color: #666; font-size: 18px; line-height: 1.6; margin-bottom: 30px; }
+
+        .timeline { background: #f8f9fa; padding: 30px; border-radius: 10px; margin: 30px 0; text-align: left; }
+        .timeline-item { display: flex; align-items: center; margin: 15px 0; }
+        .timeline-icon { width: 30px; height: 30px; border-radius: 50%; margin-right: 15px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .timeline-icon.completed { background: #28a745; color: white; }
+        .timeline-icon.current { background: #ffc107; color: black; }
+        .timeline-icon.pending { background: #dee2e6; color: #6c757d; }
+
+        .contact-section { background: #d1ecf1; padding: 25px; border-radius: 10px; margin: 30px 0; }
+        .contact-section h3 { color: #0c5460; margin-bottom: 15px; }
+        .contact-info { color: #0c5460; font-size: 16px; line-height: 1.5; }
+
+        .btn { background: #006400; color: white; padding: 15px 30px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; text-decoration: none; display: inline-block; margin: 10px; }
+        .btn:hover { background: #228B22; }
+        .btn-secondary { background: #6c757d; }
+        .btn-secondary:hover { background: #5a6268; }
+    </style>
+</head>
+<body>
+    <video autoplay loop muted playsinline>
+        <source src="{{ url_for('static', filename='flag_vid.webm') }}" type="video/webm">
+    </video>
+
+    <div class="container">
+        <div class="status-icon">⏳</div>
+        <h1 class="status-title">Verification in Progress</h1>
+        <p class="status-message">
+            Thanks for submitting your verification documents! Our team is reviewing your ID and TRN information to ensure everything meets Jamaican business requirements.
+        </p>
+
+        <div class="timeline">
+            <h3 style="color: #006400; margin-bottom: 20px;">Verification Progress</h3>
+
+            <div class="timeline-item">
+                <div class="timeline-icon completed">✓</div>
+                <span>Documents submitted successfully</span>
+            </div>
+
+            <div class="timeline-item">
+                <div class="timeline-icon current">⏳</div>
+                <span><strong>Under review by our verification team</strong></span>
+            </div>
+
+            <div class="timeline-item">
+                <div class="timeline-icon pending">3</div>
+                <span>Phone verification call (if needed)</span>
+            </div>
+
+            <div class="timeline-item">
+                <div class="timeline-icon pending">4</div>
+                <span>Approval and dashboard access</span>
+            </div>
+        </div>
+
+        <div class="contact-section">
+            <h3>📞 Expect a Call Soon!</h3>
+            <p class="contact-info">
+                Our verification team may call you within the next <strong>30 minutes to 2 hours</strong> to confirm your details and answer any questions. Please keep your phone nearby!
+            </p>
+            <p class="contact-info">
+                <strong>Business Hours:</strong> Monday - Friday, 9:00 AM - 5:00 PM<br>
+                <strong>Contact:</strong> (876) 555-ZOZI | verification@zozi.com
+            </p>
+        </div>
+
+        <div style="margin-top: 40px;">
+            <a href="{{ url_for('index') }}" class="btn">🏠 Back to Home</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-secondary">🚪 Logout</a>
+        </div>
+
+        <p style="color: #666; font-size: 14px; margin-top: 30px;">
+            Verification typically takes 24-48 hours. You'll receive an email once your account is approved!
+        </p>
+    </div>
+</body>
+</html>

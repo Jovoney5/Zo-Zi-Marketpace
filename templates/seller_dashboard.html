@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() if csrf_token else '' }}">
     <title>ZoZi - Seller Dashboard</title>
     <style>
         body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f4; padding-top: 80px; }
@@ -620,6 +621,21 @@
     <div class="dashboard-container">
         <h1>💰 Seller Dashboard - {{ user.first_name or 'Welcome' }}!</h1>
 
+        <!-- Store Link Section -->
+        <div style="text-align: center; margin: 20px 0 30px 0;">
+            <a href="{{ url_for('seller_store', seller_email=user.email) }}"
+               target="_blank"
+               style="background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 15px 30px; border-radius: 50px; text-decoration: none; font-weight: bold; display: inline-block; font-size: 16px; box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3); transition: all 0.3s ease; margin-right: 15px;">
+                🏪 Visit Your Store
+            </a>
+            <a href="{{ url_for('seller_store', seller_email=user.email) }}"
+               target="_blank"
+               style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 15px 30px; border-radius: 50px; text-decoration: none; font-weight: bold; display: inline-block; font-size: 16px; box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3); transition: all 0.3s ease;">
+                🔗 Share Store Link
+            </a>
+        </div>
+        <!-- End Store Link Section -->
+
         {% if not seller_products %}
         <!-- Welcome Section for New Sellers -->
         <div class="welcome-section">
@@ -1057,7 +1073,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': '{{ csrf_token() }}'
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                     },
                     body: JSON.stringify({
                         amount: amount,
@@ -1153,7 +1169,7 @@
 
                 const response = await fetch('/seller_financials', {
                     headers: {
-                        'X-CSRFToken': '{{ csrf_token() }}'
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
                     }
                 });
 

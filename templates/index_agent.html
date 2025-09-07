@@ -182,6 +182,59 @@
             letter-spacing: 0.5px;
         }
 
+        /* Main Dashboard Tabs */
+        .dashboard-tabs {
+            display: flex;
+            justify-content: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 10px;
+            margin: 20px auto;
+            max-width: 1200px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .tab-button {
+            background: transparent;
+            border: none;
+            padding: 15px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            color: #6c757d;
+            transition: all 0.3s ease;
+            margin: 0 5px;
+        }
+
+        .tab-button.active {
+            background: #006400;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0,100,0,0.3);
+        }
+
+        .tab-button:hover:not(.active) {
+            background: #e9ecef;
+            color: #495057;
+        }
+
+        .tab-content {
+            display: none;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         /* Order Management Styles */
         .main-container {
             max-width: 1200px;
@@ -189,7 +242,7 @@
             padding: 0 20px;
         }
 
-        .order-search-section {
+        .order-search-section, .verification-search-section {
             background: rgba(255, 255, 255, 0.95);
             border-radius: 10px;
             padding: 25px;
@@ -247,11 +300,12 @@
             background: white;
         }
 
-        .orders-section {
+        .orders-section, .verifications-section {
             background: rgba(255, 255, 255, 0.95);
             border-radius: 10px;
             padding: 25px;
             box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
         }
 
         .section-title {
@@ -261,20 +315,20 @@
             text-align: center;
         }
 
-        .orders-table {
+        .orders-table, .verification-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 15px;
         }
 
-        .orders-table th,
-        .orders-table td {
+        .orders-table th, .orders-table td,
+        .verification-table th, .verification-table td {
             padding: 12px;
             text-align: left;
             border-bottom: 1px solid #eee;
         }
 
-        .orders-table th {
+        .orders-table th, .verification-table th {
             background: #f8f9fa;
             font-weight: bold;
             color: #333;
@@ -282,7 +336,7 @@
             top: 0;
         }
 
-        .orders-table tr:hover {
+        .orders-table tr:hover, .verification-table tr:hover {
             background: #f8f9fa;
         }
 
@@ -302,6 +356,22 @@
         .status-delivered { background: #28a745; color: white; }
         .status-cancelled { background: #dc3545; color: white; }
         .status-refunded { background: #6c757d; color: white; }
+
+        /* Verification specific badges */
+        .verification-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-align: center;
+            min-width: 100px;
+            display: inline-block;
+        }
+
+        .verification-pending-documents { background: #ffc107; color: #000; }
+        .verification-pending-review { background: #fd7e14; color: white; }
+        .verification-approved { background: #28a745; color: white; }
+        .verification-rejected { background: #dc3545; color: white; }
 
         .action-btns {
             display: flex;
@@ -327,11 +397,16 @@
             color: white;
         }
 
+        .btn-review {
+            background: #17a2b8;
+            color: white;
+        }
+
         .btn:hover {
             opacity: 0.8;
         }
 
-        .order-details-modal {
+        .order-details-modal, .verification-modal {
             display: none;
             position: fixed;
             z-index: 1000;
@@ -348,7 +423,7 @@
             padding: 20px;
             border-radius: 10px;
             width: 80%;
-            max-width: 600px;
+            max-width: 800px;
             max-height: 80vh;
             overflow-y: auto;
         }
@@ -442,6 +517,69 @@
             background: #218838;
         }
 
+        /* Verification specific styles */
+        .document-preview {
+            max-width: 300px;
+            max-height: 200px;
+            border-radius: 8px;
+            margin: 10px 0;
+            cursor: pointer;
+            border: 2px solid #ddd;
+        }
+
+        .document-preview:hover {
+            border-color: #006400;
+        }
+
+        .verification-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn-approve {
+            background: #28a745;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-reject {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .btn-approve:hover { background: #218838; }
+        .btn-reject:hover { background: #c82333; }
+
+        .rejection-form {
+            margin-top: 15px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .rejection-form.show {
+            display: block;
+        }
+
+        .rejection-form textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            rows: 4;
+        }
+
         .loading {
             text-align: center;
             padding: 20px;
@@ -483,10 +621,13 @@
             .main-container { padding: 0 10px; }
             .search-container { flex-direction: column; align-items: stretch; }
             .search-input { min-width: auto; }
-            .orders-table { font-size: 14px; }
-            .orders-table th, .orders-table td { padding: 8px 4px; }
+            .orders-table, .verification-table { font-size: 14px; }
+            .orders-table th, .orders-table td,
+            .verification-table th, .verification-table td { padding: 8px 4px; }
             .modal-content { width: 95%; margin: 2% auto; }
             .info-grid { grid-template-columns: 1fr; }
+            .dashboard-tabs { flex-wrap: wrap; }
+            .tab-button { margin: 5px; }
         }
 
         @media (max-width: 480px) {
@@ -538,54 +679,120 @@
 
     <div class="dashboard-header">
         <h1>Agent Dashboard</h1>
-        <p class="dashboard-subheader">Order Management Portal</p>
+        <p class="dashboard-subheader">Order Management & Seller Verification Portal</p>
     </div>
 
-    <div class="main-container">
-        <!-- Order Search Section -->
-        <div class="order-search-section">
-            <h2 class="section-title">🔍 Search & Manage Orders</h2>
+    <!-- Main Dashboard Tabs -->
+    <div class="dashboard-tabs">
+        <button class="tab-button active" onclick="showMainTab('orders')">📦 Order Management</button>
+        <button class="tab-button" onclick="showMainTab('verifications')">🔍 Seller Verifications</button>
+        <button class="tab-button" onclick="showMainTab('analytics')">📊 Analytics</button>
+    </div>
 
-            <div class="search-container">
-                <input type="text"
-                       id="orderSearch"
-                       class="search-input"
-                       placeholder="Search by Order ID, Customer Email, or Name...">
-                <button class="search-btn" onclick="searchOrders()">Search Orders</button>
-                <button class="search-btn" onclick="loadAllOrders()" style="background: #6c757d;">Load All Orders</button>
+    <!-- Orders Tab Content -->
+    <div id="orders" class="tab-content active">
+        <div class="main-container">
+            <!-- Order Search Section -->
+            <div class="order-search-section">
+                <h2 class="section-title">🔍 Search & Manage Orders</h2>
+
+                <div class="search-container">
+                    <input type="text"
+                           id="orderSearch"
+                           class="search-input"
+                           placeholder="Search by Order ID, Customer Email, or Name...">
+                    <button class="search-btn" onclick="searchOrders()">Search Orders</button>
+                    <button class="search-btn" onclick="loadAllOrders()" style="background: #6c757d;">Load All Orders</button>
+                </div>
+
+                <div class="filter-section">
+                    <select id="statusFilter" class="filter-select">
+                        <option value="">All Statuses</option>
+                        <option value="pending">Pending</option>
+                        <option value="preparing">Preparing Order</option>
+                        <option value="on-the-way">Order On The Way</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="cancelled">Cancelled</option>
+                        <option value="refunded">Refunded</option>
+                    </select>
+
+                    <select id="dateFilter" class="filter-select">
+                        <option value="">All Time</option>
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month">This Month</option>
+                    </select>
+
+                    <button class="search-btn" onclick="applyFilters()" style="background: #17a2b8;">Apply Filters</button>
+                </div>
+
+                <div id="searchAlert"></div>
             </div>
 
-            <div class="filter-section">
-                <select id="statusFilter" class="filter-select">
-                    <option value="">All Statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="preparing">Preparing Order</option>
-                    <option value="on-the-way">Order On The Way</option>
-                    <option value="delivered">Delivered</option>
-                    <option value="cancelled">Cancelled</option>
-                    <option value="refunded">Refunded</option>
-                </select>
+            <!-- Orders Results Section -->
+            <div class="orders-section">
+                <h2 class="section-title">📦 Order Results</h2>
 
-                <select id="dateFilter" class="filter-select">
-                    <option value="">All Time</option>
-                    <option value="today">Today</option>
-                    <option value="week">This Week</option>
-                    <option value="month">This Month</option>
-                </select>
-
-                <button class="search-btn" onclick="applyFilters()" style="background: #17a2b8;">Apply Filters</button>
+                <div id="ordersContainer">
+                    <div class="loading">
+                        <p>Click "Load All Orders" to view all orders or use the search above</p>
+                    </div>
+                </div>
             </div>
-
-            <div id="searchAlert"></div>
         </div>
+    </div>
 
-        <!-- Orders Results Section -->
-        <div class="orders-section">
-            <h2 class="section-title">📦 Order Results</h2>
+    <!-- Verifications Tab Content -->
+    <div id="verifications" class="tab-content">
+        <div class="main-container">
+            <!-- Verification Search Section -->
+            <div class="verification-search-section">
+                <h2 class="section-title">🔍 Seller Verification Management</h2>
 
-            <div id="ordersContainer">
+                <div class="search-container">
+                    <input type="text"
+                           id="verificationSearch"
+                           class="search-input"
+                           placeholder="Search by seller email, business name, or TRN...">
+                    <button class="search-btn" onclick="searchVerifications()">Search Verifications</button>
+                    <button class="search-btn" onclick="loadAllVerifications()" style="background: #6c757d;">Load All</button>
+                </div>
+
+                <div class="filter-section">
+                    <select id="verificationStatusFilter" class="filter-select">
+                        <option value="">All Verification Status</option>
+                        <option value="pending_documents">Pending Documents</option>
+                        <option value="pending_review">Pending Review</option>
+                        <option value="approved">Approved</option>
+                        <option value="rejected">Rejected</option>
+                    </select>
+                    <button class="search-btn" onclick="loadPendingVerifications()" style="background: #ffc107; color: black;">Pending Review Only</button>
+                    <button class="search-btn" onclick="applyVerificationFilters()" style="background: #17a2b8;">Apply Filters</button>
+                </div>
+
+                <div id="verificationAlert"></div>
+            </div>
+
+            <!-- Verifications Results Section -->
+            <div class="verifications-section">
+                <h2 class="section-title">📋 Verification Results</h2>
+
+                <div id="verificationsContainer">
+                    <div class="loading">
+                        <p>Click "Load All" to view verifications or "Pending Review Only" for priority items</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Analytics Tab Content -->
+    <div id="analytics" class="tab-content">
+        <div class="main-container">
+            <div class="orders-section">
+                <h2 class="section-title">📊 Platform Analytics</h2>
                 <div class="loading">
-                    <p>Click "Load All Orders" to view all orders or use the search above</p>
+                    <p>Analytics dashboard coming soon...</p>
                 </div>
             </div>
         </div>
@@ -597,6 +804,16 @@
             <span class="close" onclick="closeModal()">&times;</span>
             <div id="modalContent">
                 <!-- Modal content will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Verification Details Modal -->
+    <div id="verificationModal" class="verification-modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeVerificationModal()">&times;</span>
+            <div id="verificationModalContent">
+                <!-- Verification modal content will be populated here -->
             </div>
         </div>
     </div>
@@ -616,6 +833,20 @@
         // Global variables
         let allOrders = [];
         let filteredOrders = [];
+        let allVerifications = [];
+        let filteredVerifications = [];
+
+        // Main tab switching
+        function showMainTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(button => button.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            document.querySelector(`button[onclick="showMainTab('${tabName}')"]`).classList.add('active');
+        }
+
+        // ===========================================
+        // ORDER MANAGEMENT FUNCTIONS
+        // ===========================================
 
         // Load all orders
         async function loadAllOrders() {
@@ -715,63 +946,63 @@
 
         // Display orders in table
         function displayOrders(orders) {
-    const container = document.getElementById('ordersContainer');
+            const container = document.getElementById('ordersContainer');
 
-    if (!orders || orders.length === 0) {
-        container.innerHTML = '<div class="no-orders"><p>No orders to display</p></div>';
-        return;
-    }
+            if (!orders || orders.length === 0) {
+                container.innerHTML = '<div class="no-orders"><p>No orders to display</p></div>';
+                return;
+            }
 
-    const tableHTML = `
-        <table class="orders-table">
-            <thead>
-                <tr>
-                    <th>Order ID</th>
-                    <th>Customer</th>
-                    <th>Date</th>
-                    <th>Total</th>
-                    <th>Status</th>
-                    <th>Seller</th>
-                    <th>Actions</th>
-                </tr>
-            </thead>
-            <tbody>
-                ${orders.map(order => `
-                    <tr>
-                        <td>#${order.order_id}</td>
-                        <td>
-                            <div>${order.full_name || 'N/A'}</div>
-                            <div style="font-size: 12px; color: #666;">${order.user_email || 'N/A'}</div>
-                        </td>
-                        <td>${formatDate(order.order_date)}</td>
-                        <td>$${parseFloat(order.total || 0).toFixed(2)} JMD</td>
-                        <td>
-                            <span class="status-badge status-${order.status || 'pending'}">
-                                ${getStatusText(order.status)}
-                            </span>
-                        </td>
-                        <td>
-                            <div style="font-size: 12px;">
-                                ${order.seller_info ?
-                                    `<div>${order.seller_info.business_name || order.seller_info.name || 'Unknown'}</div>
-                                     <div style="color: #666;">${order.seller_info.email || ''}</div>`
-                                    : 'Multiple Sellers'}
-                            </div>
-                        </td>
-                        <td>
-                            <div class="action-btns">
-                                <button class="btn btn-view" onclick="viewOrder('${order.order_id}')">View</button>
-                                <button class="btn btn-update" onclick="showUpdateModal('${order.order_id}')">Update</button>
-                            </div>
-                        </td>
-                    </tr>
-                `).join('')}
-            </tbody>
-        </table>
-    `;
+            const tableHTML = `
+                <table class="orders-table">
+                    <thead>
+                        <tr>
+                            <th>Order ID</th>
+                            <th>Customer</th>
+                            <th>Date</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Seller</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${orders.map(order => `
+                            <tr>
+                                <td>#${order.order_id}</td>
+                                <td>
+                                    <div>${order.full_name || 'N/A'}</div>
+                                    <div style="font-size: 12px; color: #666;">${order.user_email || 'N/A'}</div>
+                                </td>
+                                <td>${formatDate(order.order_date)}</td>
+                                <td>${parseFloat(order.total || 0).toFixed(2)} JMD</td>
+                                <td>
+                                    <span class="status-badge status-${order.status || 'pending'}">
+                                        ${getStatusText(order.status)}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div style="font-size: 12px;">
+                                        ${order.seller_info ?
+                                            `<div>${order.seller_info.business_name || order.seller_info.name || 'Unknown'}</div>
+                                             <div style="color: #666;">${order.seller_info.email || ''}</div>`
+                                            : 'Multiple Sellers'}
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="action-btns">
+                                        <button class="btn btn-view" onclick="viewOrder('${order.order_id}')">View</button>
+                                        <button class="btn btn-update" onclick="showUpdateModal('${order.order_id}')">Update</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
 
-    container.innerHTML = tableHTML;
-}
+            container.innerHTML = tableHTML;
+        }
 
         // View order details
         async function viewOrder(orderId) {
@@ -875,7 +1106,7 @@
                         </div>
                         <div class="info-item">
                             <strong>Total:</strong>
-                            <span>$${parseFloat(order.total || 0).toFixed(2)} JMD</span>
+                            <span>${parseFloat(order.total || 0).toFixed(2)} JMD</span>
                         </div>
                     </div>
                 </div>
@@ -892,7 +1123,7 @@
                                      onerror="this.src='/static/placeholder.jpg';">
                                 <div>
                                     <div><strong>${item.product_name || item.product_key}</strong></div>
-                                    <div>Qty: ${item.quantity} × $${parseFloat(item.price || 0).toFixed(2)} = $${parseFloat((item.price || 0) * (item.quantity || 0)).toFixed(2)} JMD</div>
+                                    <div>Qty: ${item.quantity} × ${parseFloat(item.price || 0).toFixed(2)} = ${parseFloat((item.price || 0) * (item.quantity || 0)).toFixed(2)} JMD</div>
                                 </div>
                             </div>
                         `).join('')}
@@ -969,7 +1200,369 @@
             }
         }
 
-        // Utility functions
+        // ===========================================
+        // VERIFICATION MANAGEMENT FUNCTIONS
+        // ===========================================
+
+        // Load all verifications
+        async function loadAllVerifications() {
+            const container = document.getElementById('verificationsContainer');
+            container.innerHTML = '<div class="loading"><p>Loading all verifications...</p></div>';
+
+            try {
+                const response = await fetch('/agent/verifications/all');
+                const data = await response.json();
+
+                if (data.success) {
+                    allVerifications = data.verifications;
+                    filteredVerifications = [...allVerifications];
+                    displayVerifications(filteredVerifications);
+                    showVerificationAlert('success', `Loaded ${allVerifications.length} verifications successfully`);
+                } else {
+                    showVerificationAlert('error', data.message || 'Failed to load verifications');
+                    container.innerHTML = '<div class="no-orders"><p>Failed to load verifications</p></div>';
+                }
+            } catch (error) {
+                console.error('Error loading verifications:', error);
+                showVerificationAlert('error', 'Error loading verifications');
+                container.innerHTML = '<div class="no-orders"><p>Error loading verifications</p></div>';
+            }
+        }
+
+        // Load pending verifications
+        async function loadPendingVerifications() {
+            const container = document.getElementById('verificationsContainer');
+            container.innerHTML = '<div class="loading"><p>Loading pending verifications...</p></div>';
+
+            try {
+                const response = await fetch('/agent/verifications/pending');
+                const data = await response.json();
+
+                if (data.success) {
+                    allVerifications = data.verifications;
+                    filteredVerifications = [...allVerifications];
+                    displayVerifications(filteredVerifications);
+                    showVerificationAlert('success', `Found ${allVerifications.length} pending verifications`);
+                } else {
+                    showVerificationAlert('error', data.message || 'No pending verifications found');
+                    container.innerHTML = '<div class="no-orders"><p>No pending verifications</p></div>';
+                }
+            } catch (error) {
+                console.error('Error loading pending verifications:', error);
+                showVerificationAlert('error', 'Error loading verifications');
+            }
+        }
+
+        // Search verifications
+        async function searchVerifications() {
+            const searchTerm = document.getElementById('verificationSearch').value.trim();
+
+            if (!searchTerm) {
+                showVerificationAlert('error', 'Please enter a search term');
+                return;
+            }
+
+            const container = document.getElementById('verificationsContainer');
+            container.innerHTML = '<div class="loading"><p>Searching verifications...</p></div>';
+
+            try {
+                // Filter from existing data
+                const filtered = allVerifications.filter(verification =>
+                    verification.seller_email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                    (verification.business_name && verification.business_name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                    (verification.trn_number && verification.trn_number.includes(searchTerm)) ||
+                    (verification.seller_name && verification.seller_name.toLowerCase().includes(searchTerm.toLowerCase()))
+                );
+
+                filteredVerifications = filtered;
+                displayVerifications(filteredVerifications);
+                showVerificationAlert('success', `Found ${filteredVerifications.length} verifications matching "${searchTerm}"`);
+            } catch (error) {
+                console.error('Error searching verifications:', error);
+                showVerificationAlert('error', 'Error searching verifications');
+            }
+        }
+
+        // Apply verification filters
+        function applyVerificationFilters() {
+            const statusFilter = document.getElementById('verificationStatusFilter').value;
+
+            let filtered = [...allVerifications];
+
+            // Apply status filter
+            if (statusFilter) {
+                filtered = filtered.filter(verification => verification.verification_status === statusFilter);
+            }
+
+            filteredVerifications = filtered;
+            displayVerifications(filteredVerifications);
+            showVerificationAlert('success', `Applied filters - ${filteredVerifications.length} verifications shown`);
+        }
+
+        // Display verifications in table
+        function displayVerifications(verifications) {
+            const container = document.getElementById('verificationsContainer');
+
+            if (!verifications || verifications.length === 0) {
+                container.innerHTML = '<div class="no-orders"><p>No verifications to display</p></div>';
+                return;
+            }
+
+            const tableHTML = `
+                <table class="verification-table">
+                    <thead>
+                        <tr>
+                            <th>Seller</th>
+                            <th>Business Name</th>
+                            <th>TRN</th>
+                            <th>Submitted</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${verifications.map(verification => `
+                            <tr>
+                                <td>
+                                    <div>${verification.seller_name || 'N/A'}</div>
+                                    <div style="font-size: 12px; color: #666;">${verification.seller_email}</div>
+                                </td>
+                                <td>${verification.business_name || 'N/A'}</td>
+                                <td>${verification.trn_number || 'N/A'}</td>
+                                <td>${formatDate(verification.submitted_at)}</td>
+                                <td>
+                                    <span class="verification-badge verification-${verification.verification_status.replace('_', '-')}">
+                                        ${getVerificationStatusText(verification.verification_status)}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="action-btns">
+                                        <button class="btn btn-review" onclick="viewVerification('${verification.seller_email}')">Review</button>
+                                    </div>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = tableHTML;
+        }
+
+        // View verification details
+        async function viewVerification(sellerEmail) {
+            try {
+                const response = await fetch(`/agent/verifications/${sellerEmail}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    showVerificationModal(data.verification);
+                } else {
+                    showVerificationAlert('error', 'Failed to load verification details');
+                }
+            } catch (error) {
+                console.error('Error loading verification details:', error);
+                showVerificationAlert('error', 'Error loading verification details');
+            }
+        }
+
+        // Show verification modal
+        function showVerificationModal(verification) {
+            const modalContent = `
+                <h2>Seller Verification Review</h2>
+
+                <div class="modal-section">
+                    <h3>Seller Information</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <strong>Name:</strong>
+                            <span>${verification.seller_name || 'N/A'}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Email:</strong>
+                            <span>${verification.seller_email}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Business Name:</strong>
+                            <span>${verification.business_name || 'N/A'}</span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Phone:</strong>
+                            <span>${verification.phone_number || 'N/A'}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-section">
+                    <h3>Verification Documents</h3>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4>ID Document (${verification.id_document_type || 'Unknown Type'})</h4>
+                        <img src="/static/${verification.id_document_path}"
+                             alt="ID Document"
+                             class="document-preview"
+                             onclick="window.open('/static/${verification.id_document_path}', '_blank')">
+                    </div>
+
+                    <div style="margin-bottom: 20px;">
+                        <h4>TRN Document (TRN: ${verification.trn_number})</h4>
+                        <img src="/static/${verification.trn_document_path}"
+                             alt="TRN Document"
+                             class="document-preview"
+                             onclick="window.open('/static/${verification.trn_document_path}', '_blank')">
+                    </div>
+
+                    ${verification.notes ? `
+                        <div style="margin-bottom: 20px;">
+                            <h4>Additional Notes</h4>
+                            <p style="background: #f8f9fa; padding: 15px; border-radius: 5px;">${verification.notes}</p>
+                        </div>
+                    ` : ''}
+                </div>
+
+                <div class="modal-section">
+                    <h3>Verification Status</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <strong>Current Status:</strong>
+                            <span class="verification-badge verification-${verification.verification_status.replace('_', '-')}">
+                                ${getVerificationStatusText(verification.verification_status)}
+                            </span>
+                        </div>
+                        <div class="info-item">
+                            <strong>Submitted:</strong>
+                            <span>${formatDate(verification.submitted_at)}</span>
+                        </div>
+                        ${verification.reviewed_at ? `
+                            <div class="info-item">
+                                <strong>Reviewed:</strong>
+                                <span>${formatDate(verification.reviewed_at)}</span>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+
+                ${verification.verification_status === 'pending_review' ? `
+                    <div class="verification-actions">
+                        <button class="btn-approve" onclick="approveVerification('${verification.seller_email}')">
+                            ✅ Approve Seller
+                        </button>
+                        <button class="btn-reject" onclick="showRejectionForm()">
+                            ❌ Reject Application
+                        </button>
+                    </div>
+
+                    <div id="rejectionForm" class="rejection-form">
+                        <h4>Rejection Reason</h4>
+                        <textarea id="rejectionReason" placeholder="Please provide a detailed reason for rejection..."></textarea>
+                        <div style="margin-top: 15px;">
+                            <button class="btn-reject" onclick="rejectVerification('${verification.seller_email}')">
+                                Submit Rejection
+                            </button>
+                            <button class="btn" onclick="hideRejectionForm()" style="background: #6c757d;">Cancel</button>
+                        </div>
+                    </div>
+                ` : ''}
+
+                ${verification.rejection_reason ? `
+                    <div class="modal-section" style="background: #f8d7da; border: 1px solid #f5c6cb;">
+                        <h4 style="color: #721c24;">Rejection Reason</h4>
+                        <p style="color: #721c24;">${verification.rejection_reason}</p>
+                    </div>
+                ` : ''}
+            `;
+
+            document.getElementById('verificationModalContent').innerHTML = modalContent;
+            document.getElementById('verificationModal').style.display = 'block';
+        }
+
+        // Approve verification
+        async function approveVerification(sellerEmail) {
+            if (!confirm('Are you sure you want to approve this seller verification?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/agent/verifications/approve', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        seller_email: sellerEmail
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showVerificationAlert('success', 'Seller verification approved successfully!');
+                    closeVerificationModal();
+                    loadAllVerifications(); // Refresh the list
+                } else {
+                    showVerificationAlert('error', data.message || 'Failed to approve verification');
+                }
+            } catch (error) {
+                console.error('Error approving verification:', error);
+                showVerificationAlert('error', 'Error approving verification');
+            }
+        }
+
+        // Reject verification
+        async function rejectVerification(sellerEmail) {
+            const reason = document.getElementById('rejectionReason').value.trim();
+
+            if (!reason) {
+                showVerificationAlert('error', 'Please provide a rejection reason');
+                return;
+            }
+
+            if (!confirm('Are you sure you want to reject this seller verification?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/agent/verifications/reject', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({
+                        seller_email: sellerEmail,
+                        reason: reason
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showVerificationAlert('success', 'Seller verification rejected');
+                    closeVerificationModal();
+                    loadAllVerifications(); // Refresh the list
+                } else {
+                    showVerificationAlert('error', data.message || 'Failed to reject verification');
+                }
+            } catch (error) {
+                console.error('Error rejecting verification:', error);
+                showVerificationAlert('error', 'Error rejecting verification');
+            }
+        }
+
+        // Show/hide rejection form
+        function showRejectionForm() {
+            document.getElementById('rejectionForm').classList.add('show');
+        }
+
+        function hideRejectionForm() {
+            document.getElementById('rejectionForm').classList.remove('show');
+        }
+
+        // ===========================================
+        // UTILITY FUNCTIONS
+        // ===========================================
+
         function getStatusText(status) {
             const statusMap = {
                 'pending': 'Pending',
@@ -978,6 +1571,16 @@
                 'delivered': 'Delivered',
                 'cancelled': 'Cancelled',
                 'refunded': 'Refunded'
+            };
+            return statusMap[status] || status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown';
+        }
+
+        function getVerificationStatusText(status) {
+            const statusMap = {
+                'pending_documents': 'Pending Documents',
+                'pending_review': 'Pending Review',
+                'approved': 'Approved',
+                'rejected': 'Rejected'
             };
             return statusMap[status] || status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown';
         }
@@ -1001,28 +1604,68 @@
             }, 5000);
         }
 
+        function showVerificationAlert(type, message) {
+            const alertContainer = document.getElementById('verificationAlert');
+            alertContainer.innerHTML = `
+                <div class="alert alert-${type}">
+                    ${message}
+                </div>
+            `;
+
+            setTimeout(() => {
+                alertContainer.innerHTML = '';
+            }, 5000);
+        }
+
         function closeModal() {
             document.getElementById('orderModal').style.display = 'none';
         }
 
-        // Event listeners
+        function closeVerificationModal() {
+            document.getElementById('verificationModal').style.display = 'none';
+        }
+
+        // ===========================================
+        // EVENT LISTENERS
+        // ===========================================
+
+        // Search on Enter key
         document.getElementById('orderSearch').addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
                 searchOrders();
             }
         });
 
-        // Close modal when clicking outside
+        document.getElementById('verificationSearch').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchVerifications();
+            }
+        });
+
+        // Close modals when clicking outside
         window.onclick = function(event) {
-            const modal = document.getElementById('orderModal');
-            if (event.target === modal) {
+            const orderModal = document.getElementById('orderModal');
+            const verificationModal = document.getElementById('verificationModal');
+
+            if (event.target === orderModal) {
                 closeModal();
+            }
+            if (event.target === verificationModal) {
+                closeVerificationModal();
             }
         }
 
-        // Load orders on page load
+        // Load initial data on page load
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Agent dashboard loaded');
+            // Auto-load pending verifications when verification tab is first accessed
+            const originalShowMainTab = showMainTab;
+            showMainTab = function(tabName) {
+                originalShowMainTab(tabName);
+                if (tabName === 'verifications' && allVerifications.length === 0) {
+                    loadPendingVerifications();
+                }
+            };
         });
     </script>
 </body>

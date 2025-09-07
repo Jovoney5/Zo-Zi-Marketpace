@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zo-Zi - Seller Verification</title>
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f4; }
+        video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+
+        .navbar { display: flex; justify-content: space-between; align-items: center; background: rgba(255, 255, 255, 0.8); padding: 10px 20px; z-index: 2; position: relative; }
+        .brand a { font-size: 24px; font-weight: bold; color: black; text-decoration: none; }
+        .brand a:hover { color: #FFD700; }
+
+        .verification-container { max-width: 800px; margin: 50px auto; padding: 40px; background: rgba(255, 255, 255, 0.95); border-radius: 15px; z-index: 1; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+
+        .header-section { text-align: center; margin-bottom: 40px; }
+        .header-section h1 { color: #006400; font-size: 32px; margin-bottom: 10px; }
+        .header-section p { color: #666; font-size: 18px; line-height: 1.6; }
+
+        .jamaica-flag { background: linear-gradient(to right, #006400 33%, #FFD700 33%, #FFD700 66%, #000 66%); height: 6px; border-radius: 3px; margin: 20px 0; }
+
+        .step-indicator { display: flex; justify-content: center; margin-bottom: 40px; }
+        .step { display: flex; align-items: center; margin: 0 20px; }
+        .step-number { width: 40px; height: 40px; border-radius: 50%; background: #ddd; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; margin-right: 10px; }
+        .step.active .step-number { background: #006400; }
+        .step.completed .step-number { background: #28a745; }
+
+        .verification-section { background: #f8f9fa; padding: 30px; border-radius: 10px; margin-bottom: 30px; border-left: 5px solid #006400; }
+        .verification-section h3 { color: #006400; margin-bottom: 20px; font-size: 24px; }
+
+        .upload-area { border: 3px dashed #006400; border-radius: 10px; padding: 40px; text-align: center; margin: 20px 0; background: #f9fff9; }
+        .upload-icon { font-size: 48px; color: #006400; margin-bottom: 15px; }
+        .upload-text { color: #666; font-size: 16px; margin-bottom: 20px; }
+
+        .choose-file-btn { background: linear-gradient(135deg, #006400 0%, #228B22 100%); color: white; padding: 15px 30px; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; transition: all 0.3s ease; }
+        .choose-file-btn:hover { background: linear-gradient(135deg, #228B22 0%, #32CD32 100%); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,100,0,0.3); }
+
+        .file-input { display: none; }
+
+        .uploaded-file { background: #d4edda; border: 1px solid #c3e6cb; border-radius: 8px; padding: 15px; margin: 15px 0; display: none; }
+        .uploaded-file.show { display: block; }
+        .file-info { display: flex; align-items: center; justify-content: space-between; }
+        .file-name { font-weight: bold; color: #155724; }
+        .remove-file { background: #dc3545; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+
+        .form-group { margin-bottom: 25px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: bold; color: #006400; font-size: 16px; }
+        .form-group input, .form-group select { width: 100%; padding: 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: #006400; }
+
+        .requirements { background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        .requirements h4 { color: #856404; margin-bottom: 15px; }
+        .requirements ul { color: #856404; margin: 0; padding-left: 20px; }
+        .requirements li { margin-bottom: 8px; }
+
+        .submit-btn { background: linear-gradient(135deg, #006400 0%, #228B22 100%); color: white; padding: 18px 40px; border: none; border-radius: 10px; cursor: pointer; font-size: 18px; font-weight: bold; width: 100%; margin-top: 30px; transition: all 0.3s ease; box-sizing: border-box; }
+        .submit-btn:hover:not(:disabled) { background: linear-gradient(135deg, #228B22 0%, #32CD32 100%); transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,100,0,0.3); }
+        .submit-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+        .error { color: #dc3545; background: #f8d7da; border: 1px solid #f5c6cb; padding: 15px; border-radius: 8px; margin: 20px 0; }
+        .success { color: #155724; background: #d4edda; border: 1px solid #c3e6cb; padding: 15px; border-radius: 8px; margin: 20px 0; }
+
+        .info-box { background: #d1ecf1; border: 1px solid #bee5eb; border-radius: 8px; padding: 20px; margin: 20px 0; }
+        .info-box h4 { color: #0c5460; margin-bottom: 10px; }
+        .info-box p { color: #0c5460; margin: 0; line-height: 1.5; }
+
+        @media (max-width: 768px) {
+            .verification-container { margin: 20px; padding: 20px; }
+            .step-indicator { flex-wrap: wrap; }
+            .step { margin: 10px; }
+        }
+    </style>
+</head>
+<body>
+    <video autoplay loop muted playsinline id="bgVideo">
+        <source src="flag_vid.webm" type="video/webm">
+    </video>
+
+    <div class="navbar">
+        <div class="brand"><a href="/">Zo-Zi</a></div>
+        <div>
+            <button onclick="alert('Logout clicked')" style="background: #FFD700; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; font-weight: bold;">Logout</button>
+        </div>
+    </div>
+
+    <div class="verification-container">
+        <div class="header-section">
+            <h1>🇯🇲 Seller Verification</h1>
+            <div class="jamaica-flag"></div>
+            <p>Welcome to the Zo-Zi seller verification process! To start selling on our platform, we need to verify your identity and Tax Registration Number (TRN) as required by Jamaican law.</p>
+        </div>
+
+        <div class="step-indicator">
+            <div class="step active">
+                <div class="step-number">1</div>
+                <span>Upload Documents</span>
+            </div>
+            <div class="step">
+                <div class="step-number">2</div>
+                <span>Agent Review</span>
+            </div>
+            <div class="step">
+                <div class="step-number">3</div>
+                <span>Approval</span>
+            </div>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" id="verificationForm">
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}"/>
+<!-- ID Document Section -->
+<div class="verification-section">
+    <h3>📄 Government ID Document</h3>
+
+    <div class="requirements">
+        <h4>Acceptable Documents:</h4>
+        <ul>
+            <li>Valid Jamaican Driver's License</li>
+            <li>Valid Jamaican Passport</li>
+            <li>Jamaican National ID</li>
+            <li>Other Government-issued photo ID</li>
+        </ul>
+    </div>
+
+                <div class="form-group">
+                    <label for="id_document_type">ID Document Type</label>
+                    <select name="id_document_type" id="id_document_type" required>
+                        <option value="">Select document type</option>
+                        <option value="drivers_license">Driver's License</option>
+                        <option value="passport">Passport</option>
+                        <option value="national_id">National ID</option>
+                        <option value="other_gov_id">Other Government ID</option>
+                    </select>
+                </div>
+
+                <div class="upload-area">
+                    <div class="upload-icon">📷</div>
+                    <div class="upload-text">Upload your ID document</div>
+                    <button type="button" class="choose-file-btn" onclick="document.getElementById('id_document').click()">
+                        📁 Choose File
+                    </button>
+                    <br><small style="color: #666; margin-top: 10px; display: block;">Supported formats: JPG, PNG, PDF (Max 5MB)</small>
+                </div>
+
+                <input type="file" id="id_document" name="id_document" class="file-input" accept=".jpg,.jpeg,.png,.pdf" required>
+
+                <div id="id_uploaded" class="uploaded-file">
+                    <div class="file-info">
+                        <span class="file-name" id="id_filename"></span>
+                        <button type="button" class="remove-file" onclick="removeFile('id_document')">Remove</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TRN Section -->
+            <div class="verification-section">
+                <h3>🏛️ Tax Registration Number (TRN)</h3>
+
+                <div class="info-box">
+                    <h4>What is a TRN?</h4>
+                    <p>Your Tax Registration Number (TRN) is required for all business activities in Jamaica. If you don't have one, you can apply at any Tax Administration Jamaica (TAJ) office or online at <strong>www.jamaicatax.gov.jm</strong></p>
+                </div>
+
+                <div class="form-group">
+                    <label for="trn_number">TRN Number</label>
+                    <input type="text" id="trn_number" name="trn_number" placeholder="Enter your 9-digit TRN" pattern="[0-9]{9}" maxlength="9" required>
+                    <small style="color: #666;">Format: 123456789 (9 digits)</small>
+                </div>
+
+                <div class="upload-area">
+                    <div class="upload-icon">📋</div>
+                    <div class="upload-text">Upload TRN Certificate or Letter from TAJ</div>
+                    <label for="trn_document" class="choose-file-btn" style="display: inline-block; cursor: pointer; text-decoration: none;">
+                        📁 Choose File
+                    </label>
+                    <br><small style="color: #666; margin-top: 10px; display: block;">Supported formats: JPG, PNG, PDF (Max 5MB)</small>
+                </div>
+
+                <input type="file" id="trn_document" name="trn_document" class="file-input" accept=".jpg,.jpeg,.png,.pdf" required>
+
+                <div id="trn_uploaded" class="uploaded-file">
+                    <div class="file-info">
+                        <span class="file-name" id="trn_filename"></span>
+                        <button type="button" class="remove-file" onclick="removeFile('trn_document')">Remove</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Notes -->
+            <div class="verification-section">
+                <h3>📝 Additional Information (Optional)</h3>
+                <div class="form-group">
+                    <label for="notes">Any additional information or questions?</label>
+                    <textarea name="notes" id="notes" rows="4" style="width: 100%; padding: 15px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box;" placeholder="Feel free to add any additional information that might help with your verification..."></textarea>
+                </div>
+            </div>
+
+            <button type="submit" class="submit-btn" id="submitBtn" disabled>
+                🚀 Submit for Verification
+            </button>
+
+            <div class="info-box" style="margin-top: 30px;">
+                <h4>What happens next?</h4>
+                <p>Once you submit your documents, our verification team will review them within <strong>24-48 hours</strong>. You'll receive a call or email with the status of your verification. Upon approval, you'll gain full access to your seller dashboard!</p>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const video = document.getElementById("bgVideo");
+        if (video) {
+            video.addEventListener("timeupdate", function() {
+                if (video.currentTime >= 17) video.currentTime = 0;
+            });
+        }
+
+        // File upload tracking
+        let uploadedFiles = {
+            id_document: null,
+            trn_document: null
+        };
+
+        // Setup file upload handlers
+        function setupFileUpload(inputId, displayId, filenameId) {
+            const input = document.getElementById(inputId);
+            const display = document.getElementById(displayId);
+            const filename = document.getElementById(filenameId);
+
+            if (!input) return;
+
+            input.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+
+                if (file) {
+                    // Validate file size (5MB max)
+                    if (file.size > 5 * 1024 * 1024) {
+                        alert('File size must be less than 5MB');
+                        input.value = '';
+                        return;
+                    }
+
+                    // Validate file type
+                    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+                    if (!allowedTypes.includes(file.type)) {
+                        alert('Please select a JPG, PNG, or PDF file');
+                        input.value = '';
+                        return;
+                    }
+
+                    uploadedFiles[inputId] = file;
+                    if (filename) filename.textContent = file.name;
+                    if (display) display.classList.add('show');
+                    updateSubmitButton();
+                }
+            });
+        }
+
+        function removeFile(inputId) {
+            const input = document.getElementById(inputId);
+            const display = document.getElementById(inputId.replace('_document', '_uploaded'));
+
+            if (input) input.value = '';
+            uploadedFiles[inputId] = null;
+            if (display) display.classList.remove('show');
+            updateSubmitButton();
+        }
+
+        function updateSubmitButton() {
+            const submitBtn = document.getElementById('submitBtn');
+            const idType = document.getElementById('id_document_type').value;
+            const trnNumber = document.getElementById('trn_number').value;
+            const hasIdDoc = uploadedFiles.id_document !== null;
+            const hasTrnDoc = uploadedFiles.trn_document !== null;
+
+            const isValid = idType && trnNumber.length === 9 && hasIdDoc && hasTrnDoc;
+            if (submitBtn) submitBtn.disabled = !isValid;
+        }
+
+        // Initialize when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            // Setup file uploads
+            setupFileUpload('id_document', 'id_uploaded', 'id_filename');
+            setupFileUpload('trn_document', 'trn_uploaded', 'trn_filename');
+
+            // Add event listeners for form validation
+            const idTypeSelect = document.getElementById('id_document_type');
+            const trnInput = document.getElementById('trn_number');
+
+            if (idTypeSelect) {
+                idTypeSelect.addEventListener('change', updateSubmitButton);
+            }
+
+            if (trnInput) {
+                trnInput.addEventListener('input', function(e) {
+                    // Only allow numbers
+                    this.value = this.value.replace(/[^0-9]/g, '');
+                    updateSubmitButton();
+                });
+            }
+
+            // Form submission handling
+            const form = document.getElementById('verificationForm');
+            if (form) {
+                form.addEventListener('submit', function(e) {
+                    const submitBtn = document.getElementById('submitBtn');
+                    if (submitBtn) {
+                        submitBtn.textContent = 'Submitting...';
+                        submitBtn.disabled = true;
+                    }
+                    // Form will now submit normally to your backend
+                });
+            }
+        });
+    </script>
+</body>
+</html>

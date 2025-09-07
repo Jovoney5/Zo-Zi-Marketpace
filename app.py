@@ -81,7 +81,6 @@ logger = logging.getLogger(__name__)
 def inject_csrf_token():
     return dict(csrf_token=generate_csrf)
 
-
 def init_db():
     conn = sqlite3.connect('zo-zi.db')
     conn.row_factory = sqlite3.Row
@@ -112,6 +111,8 @@ def init_db():
             delivery_address TEXT,
             billing_address TEXT,
             whatsapp_number TEXT,
+            business_description TEXT,
+            verification_status TEXT DEFAULT 'pending_documents',
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -411,6 +412,26 @@ def init_db():
         )
     ''')
 
+    # Create seller_verifications table (only once)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS seller_verifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            seller_email TEXT NOT NULL UNIQUE,
+            verification_status TEXT DEFAULT 'pending_documents',
+            id_document_path TEXT,
+            id_document_type TEXT,
+            trn_number TEXT,
+            trn_document_path TEXT,
+            submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            reviewed_at DATETIME,
+            reviewed_by TEXT,
+            rejection_reason TEXT,
+            notes TEXT,
+            phone_verified BOOLEAN DEFAULT FALSE,
+            FOREIGN KEY (seller_email) REFERENCES users(email)
+        )
+    ''')
+
     # Insert default super admin
     cursor.execute('''
         INSERT OR IGNORE INTO admin_users (email, password, admin_level, permissions)
@@ -642,6 +663,7 @@ FREE_PRODUCTS = {
     }
 }
 
+
 def migrate_products():
     with get_db() as conn:
         cursor = conn.cursor()
@@ -703,6 +725,32 @@ def migrate_products():
             ))
         conn.commit()
         logger.info(f"Migrated {len(INITIAL_PRODUCTS)} initial products and {len(FREE_PRODUCTS)} free products")
+
+
+def ensure_support_user():  # ✅ Now it's OUTSIDE migrate_products
+    """Ensure the support user exists in the database"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Check if support user exists
+            cursor.execute('SELECT email FROM users WHERE email = ?', ('support@yaad.com',))
+            if not cursor.fetchone():
+                # Create the support user
+                cursor.execute('''
+                    INSERT INTO users (email, password, is_support, first_name, last_name, is_seller,
+                                     phone_number, address, parish, post_office, discount_applied, discount_used)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', ('support@yaad.com', 'supportpassword', True, 'Support', 'Agent', False,
+                      '876-555-0000', 'Kingston Office', 'Kingston', 'Half Way Tree Post Office', False, False))
+                conn.commit()
+                logger.info("Support user created successfully")
+            else:
+                logger.info("Support user already exists")
+
+    except Exception as e:
+        logger.error(f"Error ensuring support user: {e}")
+
 
 def get_db():
     conn = sqlite3.connect('zo-zi.db')
@@ -2126,13 +2174,19 @@ def signup():
                     VALUES (?, ?, ?, ?)
                 ''', (email, 0, 0, 0))
 
+                # Create initial verification record for new seller
+                cursor.execute('''
+                    INSERT INTO seller_verifications (seller_email, verification_status)
+                    VALUES (?, 'pending_documents')
+                ''', (email,))
+
                 conn.commit()
 
                 user_data['password'] = '[PROTECTED]'
                 session.clear()  # Clear all session data
                 session['user'] = user_data
                 logger.info(f"New seller signed up: {email}, is_seller: {user_data['is_seller']}")
-                return redirect(url_for('seller_dashboard'))
+                return redirect(url_for('seller_verification'))
             else:
                 return render_template('signup.html', error="Invalid form type!")
     return render_template('signup.html', error=None)
@@ -2257,7 +2311,7 @@ def login():
                     log_admin_activity(identifier, 'login', description='Admin logged in')
                     return redirect(url_for('admin_dashboard_page'))
 
-                # Check regular users
+                # Check regular users (including support agents)
                 cursor.execute('SELECT * FROM users WHERE (email = ? OR phone_number = ?)',
                                (identifier, identifier))
                 user = cursor.fetchone()
@@ -2290,7 +2344,7 @@ def login():
                             logger.warning(f"Hash verification failed: {hash_error}")
                             password_valid = False
                     else:
-                        # Plain text password
+                        # Plain text password (for support agent)
                         password_valid = (user['password'] == password)
                         logger.info(f"Plain text password check result: {password_valid}")
 
@@ -2310,7 +2364,13 @@ def login():
 
                         session['user'] = user_data
 
-                        # *** NEW: RESTORE CART FROM DATABASE ***
+                        # *** SUPPORT AGENT CHECK: Redirect support agents to their dashboard ***
+                        if user['is_support']:
+                            session['support_user'] = user_data
+                            logger.info(f"Support agent logged in: {user['email']}")
+                            return redirect(url_for('agent_dashboard'))  # ✅ Changed from 'customer_service'
+
+                        # *** REGULAR USER: RESTORE CART FROM DATABASE ***
                         session_cart = session.get('cart', {})
                         restored_cart = restore_cart_from_db(user['email'])
 
@@ -2350,6 +2410,16 @@ def login():
                                    error="An error occurred during login. Please try again.")
 
     return render_template('login.html')
+
+
+@app.route('/agent_dashboard')
+def agent_dashboard():
+    """Agent dashboard with enhanced features"""
+    if 'user' not in session or not session['user'].get('is_support'):
+        return redirect(url_for('login'))
+
+    # The template should be the HTML file you showed me
+    return render_template('index_agent.html', user=session['user'])
 
 
 @app.route('/debug_login', methods=['POST'])
@@ -4399,7 +4469,171 @@ def handmade():
 
 
 # Add these routes to your app.py
+@app.route('/seller_verification', methods=['GET', 'POST'])
+def seller_verification():
+    """Seller ID and TRN verification page"""
+    if 'user' not in session or not session['user'].get('is_seller'):
+        return redirect(url_for('login'))
 
+    user_email = session['user']['email']
+
+    if request.method == 'POST':
+        try:
+            # Get form data
+            id_document_type = request.form.get('id_document_type')
+            trn_number = request.form.get('trn_number', '').strip()
+            notes = request.form.get('notes', '').strip()
+
+            # Validate TRN format (9 digits)
+            if not re.match(r'^\d{9}$', trn_number):
+                from flask_wtf.csrf import generate_csrf
+                return render_template('seller_verification.html',
+                                       error="TRN must be exactly 9 digits",
+                                       csrf_token=generate_csrf())
+
+            # Check for uploaded files
+            if 'id_document' not in request.files or 'trn_document' not in request.files:
+                from flask_wtf.csrf import generate_csrf
+                return render_template('seller_verification.html',
+                                       error="Both ID document and TRN document are required",
+                                       csrf_token=generate_csrf())
+
+            id_file = request.files['id_document']
+            trn_file = request.files['trn_document']
+
+            if not id_file.filename or not trn_file.filename:
+                from flask_wtf.csrf import generate_csrf
+                return render_template('seller_verification.html',
+                                       error="Please upload both required documents",
+                                       csrf_token=generate_csrf())
+
+            # Validate file types
+            allowed_extensions = {'png', 'jpg', 'jpeg', 'pdf'}
+
+            def allowed_file(filename):
+                return '.' in filename and filename.rsplit('.', 1)[1].lower() in allowed_extensions
+
+            if not allowed_file(id_file.filename) or not allowed_file(trn_file.filename):
+                from flask_wtf.csrf import generate_csrf
+                return render_template('seller_verification.html',
+                                       error="Only PNG, JPG, JPEG, and PDF files are allowed",
+                                       csrf_token=generate_csrf())
+
+            # Create verification documents directory
+            verification_dir = os.path.join(app.config['UPLOAD_FOLDER'], 'verifications')
+            os.makedirs(verification_dir, exist_ok=True)
+
+            # Save files with secure names
+            verification_id = str(uuid.uuid4())[:8]
+
+            id_filename = f"{verification_id}_id.{id_file.filename.rsplit('.', 1)[1].lower()}"
+            trn_filename = f"{verification_id}_trn.{trn_file.filename.rsplit('.', 1)[1].lower()}"
+
+            id_path = os.path.join(verification_dir, id_filename)
+            trn_path = os.path.join(verification_dir, trn_filename)
+
+            id_file.save(id_path)
+            trn_file.save(trn_path)
+
+            # Store in database
+            with get_db() as conn:
+                cursor = conn.cursor()
+
+                # Check if verification already exists
+                cursor.execute('''
+                    SELECT id FROM seller_verifications WHERE seller_email = ?
+                ''', (user_email,))
+
+                existing = cursor.fetchone()
+
+                if existing:
+                    # Update existing verification
+                    cursor.execute('''
+                        UPDATE seller_verifications 
+                        SET id_document_path = ?, id_document_type = ?, trn_number = ?, 
+                            trn_document_path = ?, notes = ?, verification_status = 'pending_review',
+                            submitted_at = CURRENT_TIMESTAMP
+                        WHERE seller_email = ?
+                    ''', (f"verifications/{id_filename}", id_document_type, trn_number,
+                          f"verifications/{trn_filename}", notes, user_email))
+                else:
+                    # Create new verification
+                    cursor.execute('''
+                        INSERT INTO seller_verifications 
+                        (seller_email, id_document_path, id_document_type, trn_number, 
+                         trn_document_path, notes, verification_status)
+                        VALUES (?, ?, ?, ?, ?, ?, 'pending_review')
+                    ''', (user_email, f"verifications/{id_filename}", id_document_type,
+                          trn_number, f"verifications/{trn_filename}", notes))
+
+                conn.commit()
+
+            # Update session
+            session['user']['verification_status'] = 'pending_review'
+            session.modified = True
+
+            logger.info(f"Verification documents submitted for seller: {user_email}")
+
+            return redirect(url_for('seller_verification_pending'))
+
+        except Exception as e:
+            logger.error(f"Error in seller verification: {e}")
+            from flask_wtf.csrf import generate_csrf
+            return render_template('seller_verification.html',
+                                   error="An error occurred while processing your verification. Please try again.",
+                                   csrf_token=generate_csrf())
+
+    # GET request - check current verification status
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT verification_status FROM seller_verifications WHERE seller_email = ?
+        ''', (user_email,))
+        verification = cursor.fetchone()
+
+        if verification:
+            status = verification['verification_status']
+            if status == 'approved':
+                return redirect(url_for('seller_dashboard'))
+            elif status == 'pending_review':
+                return redirect(url_for('seller_verification_pending'))
+            elif status == 'rejected':
+                return redirect(url_for('seller_verification_rejected'))
+
+    # Generate CSRF token for the form
+    from flask_wtf.csrf import generate_csrf
+    return render_template('seller_verification.html', csrf_token=generate_csrf())
+
+
+@app.route('/seller_verification_pending')
+def seller_verification_pending():
+    """Pending verification status page"""
+    if 'user' not in session or not session['user'].get('is_seller'):
+        return redirect(url_for('login'))
+
+    return render_template('seller_verification_pending.html', user=session['user'])
+
+
+@app.route('/seller_verification_rejected')
+def seller_verification_rejected():
+    """Rejected verification status page"""
+    if 'user' not in session or not session['user'].get('is_seller'):
+        return redirect(url_for('login'))
+
+    user_email = session['user']['email']
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT rejection_reason, reviewed_at 
+            FROM seller_verifications 
+            WHERE seller_email = ?
+        ''', (user_email,))
+        verification = cursor.fetchone()
+
+    return render_template('seller_verification_rejected.html',
+                           user=session['user'],
+                           verification=verification)
 
 # Replace your existing seller_dashboard route with this complete version
 @app.route('/seller_dashboard')
@@ -4408,6 +4642,25 @@ def seller_dashboard():
         return redirect(url_for('login'))
 
     seller_email = session['user']['email']
+
+    with get_db() as conn:
+        cursor = conn.cursor()
+        # Check verification status from seller_verifications table
+        cursor.execute('''
+            SELECT verification_status FROM seller_verifications WHERE seller_email = ?
+        ''', (seller_email,))
+        verification_record = cursor.fetchone()
+
+        if verification_record:
+            verification_status = verification_record['verification_status']
+            if verification_status == 'pending_review':
+                return redirect(url_for('seller_verification_pending'))
+            elif verification_status == 'rejected':
+                return redirect(url_for('seller_verification_rejected'))
+            # If approved, continue to dashboard
+        else:
+            # No verification record exists, redirect to verification
+            return redirect(url_for('seller_verification'))
 
     try:
         with get_db() as conn:
@@ -4615,6 +4868,8 @@ def seller_withdraw():
         return jsonify({'success': False, 'message': 'Not logged in'})
 
     user_email = session['user']['email']
+
+
 
     try:
         data = request.get_json()
@@ -5073,62 +5328,90 @@ def product_listing():
         cart_item_count=cart_data['cart_item_count']
     )
 
+
 @app.route('/seller/new_product', methods=['GET', 'POST'])
 def new_product():
     if 'user' not in session:
         return redirect(url_for('login'))
+
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute('SELECT * FROM users WHERE email = ? AND is_seller = ?', (session['user']['email'], True))
         if not cursor.fetchone():
             return redirect(url_for('login'))
+
         if request.method == 'POST':
-            name = request.form['name']
-            category = request.form['category']
-            description = request.form['description']
-            brand = request.form['brand']
-            parish = request.form['parish']
-            original_cost = float(request.form['original_cost'])
-            selling_price = float(request.form['selling_price'])
-            colors = request.form.getlist('colors[]')
-            sizes = {}
-            for color in colors:
-                if color:
-                    if category == 'Shoes':
-                        size_list = request.form.getlist(f'sizes_{color}[]')
-                        if size_list:
-                            sizes[color] = [size for size in size_list if size]
-                    else:
-                        size = request.form.get(f'sizes_{color}', '')
-                        if size:
-                            sizes[color] = size
-            image_urls = []
-            for i in range(5):
-                file_key = f'image_{i}'
-                if file_key in request.files and request.files[file_key].filename:
-                    file = request.files[file_key]
-                    if file and allowed_file(file.filename):
-                        filename = secure_filename(file.filename)
-                        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                        image_urls.append(f"uploads/{filename}")
-            if not image_urls:
-                return render_template('new_product.html', parishes=PARISHES, error="At least one image is required")
-            roi = ((selling_price - original_cost) / original_cost) * 100 if original_cost > 0 else 0
-            product_key = f"{name} - {selling_price} JMD"
-            cursor.execute('SELECT product_key FROM products WHERE product_key = ?', (product_key,))
-            if cursor.fetchone():
-                product_key = f"{name} - {selling_price} JMD - {datetime.now().strftime('%s')}"
-            cursor.execute('''
-                INSERT INTO products (product_key, name, price, description, image_url, image_urls, shipping, brand, category,
-                                    original_cost, roi, sizes, seller_email, sold, clicks, likes, posted_date, amount)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                product_key, name, selling_price, description, image_urls[0], json.dumps(image_urls),
-                parish, brand, category, original_cost, roi, json.dumps(sizes),
-                session['user']['email'], 0, 0, 0, datetime.now().strftime('%Y-%m-%d'), 10
-            ))
-            conn.commit()
-            return redirect(url_for('seller_dashboard'))
+            try:
+                name = request.form['name']
+                category = request.form['category']
+                description = request.form['description']
+                brand = request.form['brand']
+                parish = request.form['parish']
+                original_cost = float(request.form['original_cost'])
+                selling_price = float(request.form['selling_price'])
+                colors = request.form.getlist('colors[]')
+                sizes = {}
+
+                for color in colors:
+                    if color:
+                        if category == 'Shoes':
+                            size_list = request.form.getlist(f'sizes_{color}[]')
+                            if size_list:
+                                sizes[color] = [size for size in size_list if size]
+                        else:
+                            size = request.form.get(f'sizes_{color}', '')
+                            if size:
+                                sizes[color] = size
+
+                image_urls = []
+                for i in range(5):
+                    file_key = f'image_{i}'
+                    if file_key in request.files and request.files[file_key].filename:
+                        file = request.files[file_key]
+                        if file and allowed_file(file.filename):
+                            filename = secure_filename(file.filename)
+                            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                            image_urls.append(f"uploads/{filename}")
+
+                if not image_urls:
+                    cart_data = get_cart_items()
+                    return render_template('new_product.html',
+                                           parishes=PARISHES,
+                                           error="At least one image is required",
+                                           cart_total=cart_data['total'],
+                                           discount=cart_data['discount'],
+                                           cart_item_count=cart_data['cart_item_count'])
+
+                roi = ((selling_price - original_cost) / original_cost) * 100 if original_cost > 0 else 0
+                product_key = f"{name} - {selling_price} JMD"
+
+                cursor.execute('SELECT product_key FROM products WHERE product_key = ?', (product_key,))
+                if cursor.fetchone():
+                    product_key = f"{name} - {selling_price} JMD - {datetime.now().strftime('%s')}"
+
+                cursor.execute('''
+                    INSERT INTO products (product_key, name, price, description, image_url, image_urls, shipping, brand, category,
+                                        original_cost, roi, sizes, seller_email, sold, clicks, likes, posted_date, amount)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ''', (
+                    product_key, name, selling_price, description, image_urls[0], json.dumps(image_urls),
+                    parish, brand, category, original_cost, roi, json.dumps(sizes),
+                    session['user']['email'], 0, 0, 0, datetime.now().strftime('%Y-%m-%d'), 10
+                ))
+                conn.commit()
+                return redirect(url_for('seller_dashboard'))
+
+            except Exception as e:
+                logger.error(f"Error in new_product POST: {e}")
+                cart_data = get_cart_items()
+                return render_template('new_product.html',
+                                       parishes=PARISHES,
+                                       error="An error occurred while creating the product. Please try again.",
+                                       cart_total=cart_data['total'],
+                                       discount=cart_data['discount'],
+                                       cart_item_count=cart_data['cart_item_count'])
+
+    # GET request - render the form
     cart_data = get_cart_items()
     return render_template(
         'new_product.html',
@@ -5137,6 +5420,199 @@ def new_product():
         discount=cart_data['discount'],
         cart_item_count=cart_data['cart_item_count']
     )
+
+
+@app.route('/agent/verifications/all')
+def agent_get_all_verifications():
+    """Get all seller verifications for agent dashboard"""
+    if 'user' not in session or not session['user'].get('is_support'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                   SELECT sv.*, u.first_name, u.last_name, u.business_name, u.phone_number,
+                          u.first_name || ' ' || u.last_name as seller_name
+                   FROM seller_verifications sv
+                   JOIN users u ON sv.seller_email = u.email
+                   ORDER BY sv.submitted_at DESC
+               ''')
+
+            verifications = []
+            for row in cursor.fetchall():
+                verification = dict(row)
+                verifications.append(verification)
+
+            return jsonify({
+                'success': True,
+                'verifications': verifications
+            })
+
+    except Exception as e:
+        logger.error(f"Error getting verifications for agent: {e}")
+        return jsonify({'success': False, 'message': 'Error loading verifications'}), 500
+
+
+@app.route('/agent/verifications/pending')
+def agent_get_pending_verifications():
+    """Get pending seller verifications"""
+    if 'user' not in session or not session['user'].get('is_support'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                   SELECT sv.*, u.first_name, u.last_name, u.business_name, u.phone_number,
+                          u.first_name || ' ' || u.last_name as seller_name
+                   FROM seller_verifications sv
+                   JOIN users u ON sv.seller_email = u.email
+                   WHERE sv.verification_status = 'pending_review'
+                   ORDER BY sv.submitted_at ASC
+               ''')
+
+            verifications = []
+            for row in cursor.fetchall():
+                verification = dict(row)
+                verifications.append(verification)
+
+            return jsonify({
+                'success': True,
+                'verifications': verifications
+            })
+
+    except Exception as e:
+        logger.error(f"Error getting pending verifications: {e}")
+        return jsonify({'success': False, 'message': 'Error loading verifications'}), 500
+
+
+@app.route('/agent/verifications/<seller_email>')
+def agent_get_verification_details(seller_email):
+    """Get detailed verification information"""
+    if 'user' not in session or not session['user'].get('is_support'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute('''
+                   SELECT sv.*, u.first_name, u.last_name, u.business_name, u.phone_number,
+                          u.first_name || ' ' || u.last_name as seller_name
+                   FROM seller_verifications sv
+                   JOIN users u ON sv.seller_email = u.email
+                   WHERE sv.seller_email = ?
+               ''', (seller_email,))
+
+            verification = cursor.fetchone()
+            if not verification:
+                return jsonify({'success': False, 'message': 'Verification not found'}), 404
+
+            return jsonify({
+                'success': True,
+                'verification': dict(verification)
+            })
+
+    except Exception as e:
+        logger.error(f"Error getting verification details: {e}")
+        return jsonify({'success': False, 'message': 'Error loading verification details'}), 500
+
+
+@app.route('/agent/verifications/approve', methods=['POST'])
+def approve_seller_verification():
+    """Approve a seller verification"""
+    if 'user' not in session or not session['user'].get('is_support'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    try:
+        data = request.get_json()
+        seller_email = data.get('seller_email')
+
+        if not seller_email:
+            return jsonify({'success': False, 'message': 'Seller email required'}), 400
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Update verification status
+            cursor.execute('''
+                   UPDATE seller_verifications 
+                   SET verification_status = 'approved', 
+                       reviewed_at = CURRENT_TIMESTAMP,
+                       reviewed_by = ?
+                   WHERE seller_email = ?
+               ''', (session['user']['email'], seller_email))
+
+            # Update user verification status
+            cursor.execute('''
+                   UPDATE users 
+                   SET verification_status = 'approved'
+                   WHERE email = ?
+               ''', (seller_email,))
+
+            conn.commit()
+
+            logger.info(f"Seller verification approved: {seller_email} by {session['user']['email']}")
+
+            return jsonify({
+                'success': True,
+                'message': 'Seller verification approved successfully'
+            })
+
+    except Exception as e:
+        logger.error(f"Error approving verification: {e}")
+        return jsonify({'success': False, 'message': 'Error approving verification'}), 500
+
+
+@app.route('/agent/verifications/reject', methods=['POST'])
+def reject_seller_verification():
+    """Reject a seller verification"""
+    if 'user' not in session or not session['user'].get('is_support'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    try:
+        data = request.get_json()
+        seller_email = data.get('seller_email')
+        reason = data.get('reason')
+
+        if not seller_email or not reason:
+            return jsonify({'success': False, 'message': 'Seller email and reason required'}), 400
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Update verification status
+            cursor.execute('''
+                   UPDATE seller_verifications 
+                   SET verification_status = 'rejected',
+                       reviewed_at = CURRENT_TIMESTAMP,
+                       reviewed_by = ?,
+                       rejection_reason = ?
+                   WHERE seller_email = ?
+               ''', (session['user']['email'], reason, seller_email))
+
+            # Update user verification status
+            cursor.execute('''
+                   UPDATE users 
+                   SET verification_status = 'rejected'
+                   WHERE email = ?
+               ''', (seller_email,))
+
+            conn.commit()
+
+            logger.info(f"Seller verification rejected: {seller_email} by {session['user']['email']}")
+
+            return jsonify({
+                'success': True,
+                'message': 'Seller verification rejected'
+            })
+
+    except Exception as e:
+        logger.error(f"Error rejecting verification: {e}")
+        return jsonify({'success': False, 'message': 'Error rejecting verification'}), 500
 
 @app.route('/seller/edit_product/<product_key>', methods=['GET', 'POST'])
 def edit_product(product_key):
@@ -6339,5 +6815,6 @@ def reset_database_fresh():
 if __name__ == '__main__':
     # Run this once to fix the database
     fix_messaging_tables()
+    migrate_products()
+    ensure_support_user()  # ADD THIS LINE
     socketio.run(app, debug=True, allow_unsafe_werkzeug=True)
-
