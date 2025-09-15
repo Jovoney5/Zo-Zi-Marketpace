@@ -226,6 +226,52 @@ def init_db():
         )
     ''')
 
+    # Add these to your init_db() function after your existing tables
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS seller_payment_methods (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            seller_email TEXT NOT NULL,
+            payment_type TEXT NOT NULL, -- 'bank', 'card', 'mobile'
+            is_primary BOOLEAN DEFAULT FALSE,
+            account_name TEXT,
+            account_number TEXT, -- Will be encrypted in production
+            bank_name TEXT,
+            routing_number TEXT,
+            card_last_four TEXT,
+            card_brand TEXT,
+            mobile_number TEXT,
+            mobile_provider TEXT,
+            payment_provider TEXT, -- 'stripe', 'paypal', 'local_bank'
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            is_verified BOOLEAN DEFAULT FALSE,
+            FOREIGN KEY (seller_email) REFERENCES users(email)
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS payment_transactions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            transaction_id TEXT UNIQUE NOT NULL,
+            order_id TEXT,
+            seller_email TEXT,
+            buyer_email TEXT,
+            amount DECIMAL(10,2) NOT NULL,
+            fee DECIMAL(10,2) DEFAULT 0,
+            net_amount DECIMAL(10,2) NOT NULL,
+            transaction_type TEXT, -- 'sale', 'withdrawal', 'refund'
+            payment_method_id INTEGER,
+            status TEXT DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
+            processor_reference TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            completed_at DATETIME,
+            FOREIGN KEY (order_id) REFERENCES orders(order_id),
+            FOREIGN KEY (seller_email) REFERENCES users(email),
+            FOREIGN KEY (payment_method_id) REFERENCES seller_payment_methods(id)
+        )
+    ''')
+
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS platform_financials (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -432,28 +478,94 @@ def init_db():
         )
     ''')
 
-    # Insert default super admin
+    # Insert default super admin - FIXED VERSION
     cursor.execute('''
-        INSERT OR IGNORE INTO admin_users (email, password, admin_level, permissions)
-        VALUES (?, ?, ?, ?)
-    ''', ('admin@zozi.com', generate_password_hash('SuperAdmin2024!'), 'super_admin',
-          '{"users":true,"products":true,"orders":true,"analytics":true,"financials":true,"admin_management":true}'))
+           INSERT OR IGNORE INTO admin_users (email, password, admin_level, permissions, is_active, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)
+       ''', ('admin@zozi.com', generate_password_hash('SuperAdmin2024!'), 'super_admin',
+             '{"users":true,"products":true,"orders":true,"analytics":true,"financials":true,"admin_management":true}',
+             1, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
 
     # Insert default support agent
     cursor.execute('''
-        INSERT OR IGNORE INTO users (email, password, is_support, first_name, last_name, is_seller)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ''', ('support@yaad.com', 'supportpassword', True, 'Support', 'Agent', False))
+           INSERT OR IGNORE INTO users (email, password, is_support, first_name, last_name, is_seller)
+           VALUES (?, ?, ?, ?, ?, ?)
+       ''', ('support@yaad.com', 'supportpassword', True, 'Support', 'Agent', False))
 
     conn.commit()
     conn.close()
+
+
+def migrate_payment_tables():
+    """Create payment-related tables if they don't exist"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Check if seller_payment_methods table exists
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='seller_payment_methods'")
+            if not cursor.fetchone():
+                # Create the tables
+                cursor.execute('''
+                    CREATE TABLE seller_payment_methods (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        seller_email TEXT NOT NULL,
+                        payment_type TEXT NOT NULL,
+                        is_primary BOOLEAN DEFAULT FALSE,
+                        account_name TEXT,
+                        account_number TEXT,
+                        bank_name TEXT,
+                        routing_number TEXT,
+                        card_last_four TEXT,
+                        card_brand TEXT,
+                        mobile_number TEXT,
+                        mobile_provider TEXT,
+                        payment_provider TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        is_verified BOOLEAN DEFAULT FALSE,
+                        FOREIGN KEY (seller_email) REFERENCES users(email)
+                    )
+                ''')
+
+                cursor.execute('''
+                    CREATE TABLE payment_transactions (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        transaction_id TEXT UNIQUE NOT NULL,
+                        order_id TEXT,
+                        seller_email TEXT,
+                        buyer_email TEXT,
+                        amount DECIMAL(10,2) NOT NULL,
+                        fee DECIMAL(10,2) DEFAULT 0,
+                        net_amount DECIMAL(10,2) NOT NULL,
+                        transaction_type TEXT,
+                        payment_method_id INTEGER,
+                        status TEXT DEFAULT 'pending',
+                        processor_reference TEXT,
+                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        completed_at DATETIME,
+                        FOREIGN KEY (order_id) REFERENCES orders(order_id),
+                        FOREIGN KEY (seller_email) REFERENCES users(email),
+                        FOREIGN KEY (payment_method_id) REFERENCES seller_payment_methods(id)
+                    )
+                ''')
+
+                conn.commit()
+                logger.info("Created payment-related tables")
+            else:
+                logger.info("Payment tables already exist")
+
+    except Exception as e:
+        logger.error(f"Error creating payment tables: {e}")
 
 def is_admin():
     """Check if current user is admin"""
     return 'admin_user' in session and session['admin_user'].get('is_active', False)
 
+
 def admin_required(level='admin'):
     """Decorator to require admin authentication"""
+
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
@@ -465,8 +577,11 @@ def admin_required(level='admin'):
                 return render_template('login.html', error="Super admin access required")
 
             return f(*args, **kwargs)
+
         return decorated_function
+
     return decorator
+
 
 def log_admin_activity(admin_email, action_type, target_type=None, target_id=None, description=None):
     """Log admin activities"""
@@ -474,12 +589,13 @@ def log_admin_activity(admin_email, action_type, target_type=None, target_id=Non
         with get_db() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                INSERT INTO admin_activity_log (admin_email, action_type, target_type, target_id, description, ip_address)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (admin_email, action_type, target_type, target_id, description, request.remote_addr))
+                   INSERT INTO admin_activity_log (admin_email, action_type, target_type, target_id, description, ip_address)
+                   VALUES (?, ?, ?, ?, ?, ?)
+               ''', (admin_email, action_type, target_type, target_id, description, request.remote_addr))
             conn.commit()
     except Exception as e:
         logger.error(f"Error logging admin activity: {e}")
+
 
 def reset_db():
     db_path = 'zo-zi.db'
@@ -487,11 +603,11 @@ def reset_db():
         os.remove(db_path)
     init_db()
 
+
 def get_db():
     conn = sqlite3.connect('zo-zi.db')
     conn.row_factory = sqlite3.Row
     return conn
-
 
 INITIAL_PRODUCTS = {
     'Men Plaid Pants - 2400 JMD': {'name': 'Men Plaid Pants', 'price': 2400, 'description': 'Men Stylish Pants',
@@ -861,6 +977,58 @@ def save_cart_to_db(user_email, cart_data):
         logger.error(f"Error saving cart to DB: {e}")
 
 
+def add_purchase_count_column():
+    """Add purchase_count column to users table"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute('ALTER TABLE users ADD COLUMN purchase_count INTEGER DEFAULT 0')
+            conn.commit()
+            logger.info("✅ Added purchase_count column to users table")
+        except sqlite3.OperationalError as e:
+            if "duplicate column name" in str(e):
+                logger.info("✅ purchase_count column already exists")
+            else:
+                logger.error(f"❌ Error adding column: {e}")
+
+
+# STEP 2: Add this function to calculate purchase count from existing orders
+
+def update_purchase_counts_from_orders():
+    """Update purchase counts based on existing orders"""
+    with get_db() as conn:
+        cursor = conn.cursor()
+
+        # Get all users who have placed orders
+        cursor.execute('''
+            SELECT user_email, COUNT(*) as order_count 
+            FROM orders 
+            WHERE status NOT IN ('cancelled', 'refunded')
+            GROUP BY user_email
+        ''')
+
+        for row in cursor.fetchall():
+            user_email = row['user_email']
+            order_count = row['order_count']
+
+            # Update user's purchase count
+            cursor.execute('''
+                UPDATE users 
+                SET purchase_count = ? 
+                WHERE email = ?
+            ''', (order_count, user_email))
+
+            # If they have 5+ orders, mark them as eligible for free gift
+            if order_count >= 5 and order_count % 5 == 0:
+                cursor.execute('''
+                    UPDATE users 
+                    SET discount_applied = 1, discount_used = 0 
+                    WHERE email = ?
+                ''', (user_email,))
+
+        conn.commit()
+        logger.info("✅ Updated purchase counts from existing orders")
+
 def restore_cart_from_db(user_email):
     """Restore user's cart from database after login"""
     try:
@@ -990,13 +1158,41 @@ def free():
 
     cart_data = get_cart_items()
     error = None
+    user_email = session['user']['email']
 
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT discount_applied, discount_used FROM users WHERE email = ?', (session['user']['email'],))
-        user = cursor.fetchone()
 
-        # ALWAYS show the gifts so users can see what's available
+        # Calculate purchase count from actual orders
+        cursor.execute('''
+            SELECT COUNT(*) as order_count 
+            FROM orders 
+            WHERE user_email = ? AND status NOT IN ('cancelled', 'refunded')
+        ''', (user_email,))
+
+        order_result = cursor.fetchone()
+        purchase_count = order_result['order_count'] if order_result else 0
+
+        # Update user's purchase count in database
+        cursor.execute('''
+            UPDATE users SET purchase_count = ? WHERE email = ?
+        ''', (purchase_count, user_email))
+
+        # Get user's gift eligibility
+        cursor.execute('''
+            SELECT discount_applied, discount_used 
+            FROM users WHERE email = ?
+        ''', (user_email,))
+        user_data = cursor.fetchone()
+
+        discount_applied = user_data['discount_applied'] if user_data else False
+        discount_used = user_data['discount_used'] if user_data else False
+
+        # Update session
+        session['user']['purchase_count'] = purchase_count
+        session.modified = True
+
+        # Get available free gifts
         cursor.execute('SELECT * FROM products WHERE price = 0')
         gifts = [
             dict(row,
@@ -1006,11 +1202,43 @@ def free():
             for row in cursor.fetchall()
         ]
 
-        # Check eligibility AFTER getting gifts
-        if user['discount_used'] or not user['discount_applied']:
-            error = "Yuh nuh eligible fi a free gift right now, mi fren. Shop more to qualify!"
-        elif not gifts:
+        # Check eligibility based on actual order count
+        if purchase_count < 5:
+            error = f"Yuh nuh reach 5 purchases yet, mi fren. Yuh have {purchase_count} order{'s' if purchase_count != 1 else ''}. Shop more to qualify!"
+        elif purchase_count >= 5:
+            # Check if they've earned a gift they haven't claimed
+            gifts_earned = purchase_count // 5
+
+            if not discount_applied and gifts_earned > 0:
+                # They earned a gift but it's not marked - fix this
+                cursor.execute('''
+                    UPDATE users 
+                    SET discount_applied = 1, discount_used = 0 
+                    WHERE email = ?
+                ''', (user_email,))
+                session['user']['discount_applied'] = True
+                session['user']['discount_used'] = False
+                conn.commit()
+            elif discount_used:
+                # They used their last gift, check if they earned a new one
+                next_milestone = ((purchase_count // 5)) * 5
+                if purchase_count > next_milestone:
+                    cursor.execute('''
+                        UPDATE users 
+                        SET discount_applied = 1, discount_used = 0 
+                        WHERE email = ?
+                    ''', (user_email,))
+                    session['user']['discount_applied'] = True
+                    session['user']['discount_used'] = False
+                    conn.commit()
+                else:
+                    remaining = (gifts_earned + 1) * 5 - purchase_count
+                    error = f"Yuh already claim yuh gift! Make {remaining} more purchase{'s' if remaining > 1 else ''} fi yuh next free gift!"
+
+        if not error and not gifts:
             error = "No free gifts deh yah right now, mi fren. Check back later, yuh hear!"
+
+        conn.commit()
 
     return render_template(
         'free.html',
@@ -1020,7 +1248,8 @@ def free():
         cart_total=cart_data['total'],
         discount=cart_data['discount'],
         user=session['user'],
-        cart_item_count=cart_data['cart_item_count']
+        cart_item_count=cart_data['cart_item_count'],
+        purchase_count=purchase_count
     )
 
 
@@ -1619,7 +1848,7 @@ def agent_get_order_details(order_id):
                 SELECT 
                     oi.product_key, oi.quantity, oi.price,
                     COALESCE(p.name, oi.product_key) as product_name,
-                    COALESCE(p.image_url, 'jam all.jpg') as image_url,
+                    COALESCE(p.image_url, 'placeholder.jpg') as image_url,
                     COALESCE(p.category, 'Unknown') as category
                 FROM order_items oi
                 LEFT JOIN products p ON oi.product_key = p.product_key
@@ -1635,6 +1864,58 @@ def agent_get_order_details(order_id):
 
             order['items'] = items
 
+            # ADD SELLER INFO - This was missing!
+            cursor.execute('''
+                SELECT DISTINCT p.seller_email, u.business_name, u.first_name, u.last_name
+                FROM order_items oi
+                JOIN products p ON oi.product_key = p.product_key
+                LEFT JOIN users u ON p.seller_email = u.email
+                WHERE oi.order_id = ?
+            ''', (order_id,))
+
+            sellers = cursor.fetchall()
+
+            if sellers:
+                if len(sellers) == 1:
+                    seller = sellers[0]
+                    # Handle null values and prioritize business name
+                    business_name = seller['business_name'] if seller['business_name'] else ''
+                    first_name = seller['first_name'] if seller['first_name'] else ''
+                    last_name = seller['last_name'] if seller['last_name'] else ''
+                    full_name = f"{first_name} {last_name}".strip()
+
+                    # Priority: business_name > full_name > email > default
+                    if business_name:
+                        display_name = business_name
+                    elif full_name:
+                        display_name = full_name
+                    elif seller['seller_email']:
+                        display_name = seller['seller_email']
+                    else:
+                        display_name = 'Unknown Seller'
+
+                    order['seller_info'] = {
+                        'email': seller['seller_email'] or 'Unknown',
+                        'business_name': business_name or 'No Business Name',
+                        'name': display_name,
+                        'first_name': first_name,
+                        'last_name': last_name
+                    }
+                    order['multiple_sellers'] = False
+                else:
+                    # Multiple sellers
+                    order['seller_info'] = None
+                    order['multiple_sellers'] = True
+            else:
+                order['seller_info'] = {
+                    'email': 'No Seller Found',
+                    'business_name': 'No Business',
+                    'name': 'Unknown Seller',
+                    'first_name': '',
+                    'last_name': ''
+                }
+                order['multiple_sellers'] = False
+
             return jsonify({
                 'success': True,
                 'order': order
@@ -1642,7 +1923,7 @@ def agent_get_order_details(order_id):
 
     except Exception as e:
         logger.error(f"Error getting order details for agent: {e}")
-        return jsonify({'success': False, 'message': 'Error loading order details'}), 500
+        return jsonify({'success': False, 'message': f'Error loading order details: {str(e)}'}), 500
 
 
 @app.route('/agent/orders/update-status', methods=['POST'])
@@ -2728,8 +3009,6 @@ def start_chat(seller_email):
                            cart_item_count=cart_data['cart_item_count'])
 
 
-
-
 @app.route('/seller/update_description', methods=['POST'])
 def update_seller_description():
     if 'user' not in session or not session['user'].get('is_seller'):
@@ -2739,28 +3018,33 @@ def update_seller_description():
         data = request.get_json()
         description = data.get('description', '')
 
+        seller_email = session['user']['email']
+
         with get_db() as conn:
             cursor = conn.cursor()
 
-            # Check if column exists, if not add it
+            # Check if business_description column exists, if not add it
             try:
                 cursor.execute('ALTER TABLE users ADD COLUMN business_description TEXT')
-            except:
+                conn.commit()
+            except sqlite3.OperationalError:
                 pass  # Column already exists
 
             # Update description
             cursor.execute('''
                 UPDATE users SET business_description = ? WHERE email = ?
-            ''', (description, session['user']['email']))
+            ''', (description, seller_email))
 
             conn.commit()
 
-        return jsonify({'success': True})
+            # Log for debugging
+            logger.info(f"Updated description for {seller_email}: {description}")
+
+        return jsonify({'success': True, 'message': 'Description updated successfully'})
 
     except Exception as e:
         logger.error(f"Error updating description: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
-
 
 
 @app.route('/get_seller_info/<email>')
@@ -4860,24 +5144,233 @@ def seller_dashboard():
     )
 
 
-# Enhanced seller_withdraw route with real financial tracking
+# Helper functions for encryption (basic version - use proper encryption in production)
+def encrypt_data(data):
+    """Basic encryption - replace with proper encryption in production"""
+    import base64
+    return base64.b64encode(data.encode()).decode()
+
+
+def decrypt_data(data):
+    """Basic decryption - replace with proper decryption in production"""
+    import base64
+    try:
+        return base64.b64decode(data.encode()).decode()
+    except:
+        return data
+
+
+def detect_card_brand(card_number):
+    """Detect card brand from card number"""
+    card_number = card_number.replace(' ', '').replace('-', '')
+    if card_number.startswith('4'):
+        return 'Visa'
+    elif card_number.startswith(('51', '52', '53', '54', '55')):
+        return 'Mastercard'
+    elif card_number.startswith(('34', '37')):
+        return 'American Express'
+    else:
+        return 'Unknown'
+
+
+@app.route('/seller/payment_methods', methods=['GET', 'POST'])
+def seller_payment_methods():
+    if 'user' not in session or not session['user'].get('is_seller'):
+        return redirect(url_for('login'))
+
+    seller_email = session['user']['email']
+
+    if request.method == 'POST':
+        try:
+            data = request.get_json()
+            payment_type = data.get('payment_type')
+            is_primary = data.get('is_primary') == 'true'
+
+            with get_db() as conn:
+                cursor = conn.cursor()
+
+                # If setting as primary, remove primary flag from others
+                if is_primary:
+                    cursor.execute('''
+                        UPDATE seller_payment_methods 
+                        SET is_primary = FALSE 
+                        WHERE seller_email = ?
+                    ''', (seller_email,))
+
+                if payment_type == 'bank':
+                    cursor.execute('''
+                        INSERT INTO seller_payment_methods 
+                        (seller_email, payment_type, account_name, account_number, 
+                         bank_name, routing_number, is_primary)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        seller_email, payment_type,
+                        data.get('account_name'),
+                        encrypt_data(data.get('account_number')),
+                        data.get('bank_name'),
+                        data.get('routing_number', ''),
+                        is_primary
+                    ))
+
+                elif payment_type == 'card':
+                    card_number = data.get('card_number', '').replace(' ', '')
+                    cursor.execute('''
+                        INSERT INTO seller_payment_methods 
+                        (seller_email, payment_type, account_name, card_last_four, card_brand, 
+                         payment_provider, is_primary)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        seller_email, payment_type,
+                        data.get('cardholder_name'),
+                        card_number[-4:] if len(card_number) >= 4 else card_number,
+                        detect_card_brand(card_number),
+                        'stripe',
+                        is_primary
+                    ))
+
+                elif payment_type == 'mobile':
+                    cursor.execute('''
+                        INSERT INTO seller_payment_methods 
+                        (seller_email, payment_type, account_name, mobile_number, 
+                         mobile_provider, is_primary)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    ''', (
+                        seller_email, payment_type,
+                        data.get('account_name'),
+                        data.get('mobile_number'),
+                        data.get('mobile_provider'),
+                        is_primary
+                    ))
+
+                conn.commit()
+                return jsonify({'success': True, 'message': 'Payment method added successfully'})
+
+        except Exception as e:
+            logger.error(f"Error adding payment method: {e}")
+            return jsonify({'success': False, 'message': 'Error adding payment method'})
+
+    # GET request - return payment methods as JSON
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, payment_type, account_name, account_number, bank_name,
+                       routing_number, card_last_four, card_brand, mobile_number, 
+                       mobile_provider, is_primary, is_verified, created_at
+                FROM seller_payment_methods 
+                WHERE seller_email = ?
+                ORDER BY is_primary DESC, created_at DESC
+            ''', (seller_email,))
+
+            payment_methods = []
+            for row in cursor.fetchall():
+                method = dict(row)
+                # Decrypt sensitive data for display
+                if method['account_number']:
+                    method['account_number'] = decrypt_data(method['account_number'])
+                payment_methods.append(method)
+
+        return jsonify({'success': True, 'payment_methods': payment_methods})
+
+    except Exception as e:
+        logger.error(f"Error getting payment methods: {e}")
+        return jsonify({'success': False, 'message': 'Error loading payment methods'})
+
+
+@app.route('/seller/payment_methods/<int:method_id>/delete', methods=['POST'])
+def delete_payment_method(method_id):
+    if 'user' not in session or not session['user'].get('is_seller'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    seller_email = session['user']['email']
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Check if this method is being used in pending withdrawals
+            cursor.execute('''
+                SELECT COUNT(*) as count FROM withdrawal_requests 
+                WHERE seller_email = ? AND status = 'pending'
+            ''', (seller_email,))
+
+            pending_count = cursor.fetchone()['count']
+            if pending_count > 0:
+                return jsonify({
+                    'success': False,
+                    'message': 'Cannot delete payment method while you have pending withdrawals'
+                })
+
+            cursor.execute('''
+                DELETE FROM seller_payment_methods 
+                WHERE id = ? AND seller_email = ?
+            ''', (method_id, seller_email))
+
+            if cursor.rowcount > 0:
+                conn.commit()
+                return jsonify({'success': True, 'message': 'Payment method deleted'})
+            else:
+                return jsonify({'success': False, 'message': 'Payment method not found'})
+
+    except Exception as e:
+        logger.error(f"Error deleting payment method: {e}")
+        return jsonify({'success': False, 'message': 'Error deleting payment method'})
+
+
+@app.route('/seller/payment_methods/<int:method_id>/set_primary', methods=['POST'])
+def set_primary_payment_method(method_id):
+    if 'user' not in session or not session['user'].get('is_seller'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    seller_email = session['user']['email']
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Remove primary from all methods
+            cursor.execute('''
+                UPDATE seller_payment_methods 
+                SET is_primary = FALSE 
+                WHERE seller_email = ?
+            ''', (seller_email,))
+
+            # Set the selected method as primary
+            cursor.execute('''
+                UPDATE seller_payment_methods 
+                SET is_primary = TRUE 
+                WHERE id = ? AND seller_email = ?
+            ''', (method_id, seller_email))
+
+            if cursor.rowcount > 0:
+                conn.commit()
+                return jsonify({'success': True, 'message': 'Primary payment method updated'})
+            else:
+                return jsonify({'success': False, 'message': 'Payment method not found'})
+
+    except Exception as e:
+        logger.error(f"Error setting primary payment method: {e}")
+        return jsonify({'success': False, 'message': 'Error updating payment method'})
+
+
 @app.route('/seller_withdraw', methods=['POST'])
 def seller_withdraw():
-    """Handle withdrawal requests with real financial tracking"""
+    """Enhanced withdrawal with payment method selection"""
     if 'user' not in session or not session['user'].get('email'):
         return jsonify({'success': False, 'message': 'Not logged in'})
 
     user_email = session['user']['email']
 
-
-
     try:
         data = request.get_json()
         amount = float(data.get('amount', 0))
-        withdrawal_method = data.get('method', 'standard')
+        payment_method_id = data.get('payment_method_id')
 
         if amount < 500:
             return jsonify({'success': False, 'message': 'Minimum withdrawal is J$500'})
+
+        if not payment_method_id:
+            return jsonify({'success': False, 'message': 'Please select a payment method'})
 
         with get_db() as conn:
             cursor = conn.cursor()
@@ -4887,6 +5380,16 @@ def seller_withdraw():
             user = cursor.fetchone()
             if not user or not user['is_seller']:
                 return jsonify({'success': False, 'message': 'Unauthorized'})
+
+            # Get payment method details
+            cursor.execute('''
+                SELECT * FROM seller_payment_methods 
+                WHERE id = ? AND seller_email = ?
+            ''', (payment_method_id, user_email))
+
+            payment_method = cursor.fetchone()
+            if not payment_method:
+                return jsonify({'success': False, 'message': 'Invalid payment method'})
 
             # Get current available balance
             cursor.execute('''
@@ -4900,34 +5403,47 @@ def seller_withdraw():
             current_balance = float(balance_row['balance'])
 
             if current_balance < amount:
-                return jsonify(
-                    {'success': False, 'message': f'Insufficient balance. Available: J${current_balance:,.2f}'})
+                return jsonify({
+                    'success': False,
+                    'message': f'Insufficient balance. Available: J${current_balance:,.2f}'
+                })
 
-            # Calculate fees
+            # Calculate fees based on payment method type
             fee = 0.0
             processing_time = ''
 
-            if withdrawal_method == 'instant':
-                fee = amount * 0.04  # 4% for instant
+            if payment_method['payment_type'] == 'card':
+                fee = amount * 0.02  # 2% for cards
+                processing_time = 'Instant'
+            elif payment_method['payment_type'] == 'mobile':
+                fee = amount * 0.01  # 1% for mobile money
                 processing_time = 'Within minutes'
-            elif withdrawal_method == 'paypal':
-                fee = amount * 0.02  # 2% for PayPal
-                processing_time = '1-2 business days'
-            else:  # standard
-                fee = 0.0  # Free standard
-                processing_time = '3 business days'
+            else:  # bank
+                fee = 0.0  # Free for bank transfers
+                processing_time = '1-3 business days'
 
             net_amount = amount - fee
+
+            # Create transaction record
+            transaction_id = f"TXN-{uuid.uuid4().hex[:12].upper()}"
+
+            cursor.execute('''
+                INSERT INTO payment_transactions 
+                (transaction_id, seller_email, amount, fee, net_amount, transaction_type, 
+                 payment_method_id, status)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ''', (transaction_id, user_email, amount, fee, net_amount, 'withdrawal',
+                  payment_method_id, 'processing'))
 
             # Create withdrawal request
             cursor.execute('''
                 INSERT INTO withdrawal_requests 
                 (seller_email, amount, fee, net_amount, method, status, request_date, processing_time)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (user_email, amount, fee, net_amount, withdrawal_method, 'pending',
+            ''', (user_email, amount, fee, net_amount, payment_method['payment_type'], 'pending',
                   datetime.now().strftime('%Y-%m-%d %H:%M:%S'), processing_time))
 
-            # Update seller balance (reduce available balance immediately)
+            # Update seller balance
             new_balance = current_balance - amount
             cursor.execute('''
                 UPDATE seller_finances 
@@ -4935,26 +5451,16 @@ def seller_withdraw():
                 WHERE seller_email = ?
             ''', (new_balance, amount, user_email))
 
-            # Add transaction record
-            cursor.execute('''
-                INSERT OR IGNORE INTO seller_transactions 
-                (seller_email, transaction_type, amount, description, transaction_date)
-                VALUES (?, ?, ?, ?, ?)
-            ''', (user_email, 'withdrawal_request', -amount,
-                  f'{withdrawal_method.title()} Withdrawal Request', datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-
             conn.commit()
 
-            # Simulate processing completion after 5 seconds (for demo)
-            # In production, this would be handled by a separate payment processor
+            # Simulate processing completion after 5 seconds
             def complete_withdrawal():
                 import time
-                time.sleep(5)  # Simulate processing time
+                time.sleep(5)
 
                 try:
                     with get_db() as conn:
                         cursor = conn.cursor()
-                        # Update withdrawal status to completed
                         cursor.execute('''
                             UPDATE withdrawal_requests 
                             SET status = 'completed' 
@@ -4962,7 +5468,12 @@ def seller_withdraw():
                             ORDER BY request_date DESC LIMIT 1
                         ''', (user_email, amount))
 
-                        # Update pending withdrawals
+                        cursor.execute('''
+                            UPDATE payment_transactions 
+                            SET status = 'completed', completed_at = ?
+                            WHERE transaction_id = ?
+                        ''', (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), transaction_id))
+
                         cursor.execute('''
                             UPDATE seller_finances 
                             SET pending_withdrawals = pending_withdrawals - ?
@@ -4974,18 +5485,19 @@ def seller_withdraw():
                 except Exception as e:
                     logger.error(f"Error completing withdrawal: {e}")
 
-            # Start background task to complete withdrawal
+            # Start background task
             import threading
             threading.Thread(target=complete_withdrawal, daemon=True).start()
 
             return jsonify({
                 'success': True,
-                'message': f'Withdrawal request submitted! You will receive J${net_amount:,.2f} via {withdrawal_method} in {processing_time}.',
+                'message': f'Withdrawal of J${net_amount:,.2f} initiated successfully! Processing time: {processing_time}',
+                'transaction_id': transaction_id,
                 'withdrawal_info': {
                     'amount': amount,
                     'fee': fee,
                     'net_amount': net_amount,
-                    'method': withdrawal_method,
+                    'method': payment_method['payment_type'],
                     'processing_time': processing_time
                 }
             })
@@ -5228,7 +5740,6 @@ def seller_dashboard_data():
         logger.error(f"Error in seller_dashboard_data for {seller_email}: {e}\n{traceback.format_exc()}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
-
 @app.route('/seller/<seller_email>')
 def seller_store(seller_email):
     """Individual seller's store page"""
@@ -5236,10 +5747,10 @@ def seller_store(seller_email):
         with get_db() as conn:
             cursor = conn.cursor()
 
-            # Get seller info
+            # Get seller info - UPDATED to include business_description
             cursor.execute('''
                 SELECT u.email, u.first_name, u.last_name, u.business_name, u.business_address,
-                       u.profile_picture, u.phone_number, u.parish,
+                       u.profile_picture, u.phone_number, u.parish, u.business_description,
                        AVG(sr.rating) as avg_rating, COUNT(sr.rating) as rating_count,
                        COUNT(DISTINCT p.product_key) as product_count,
                        SUM(p.sold) as total_sales
@@ -5260,7 +5771,7 @@ def seller_store(seller_email):
             seller_data['product_count'] = seller_data['product_count'] or 0
             seller_data['total_sales'] = seller_data['total_sales'] or 0
             seller_data['join_date'] = '2024'
-            seller_data['business_description'] = None
+            # business_description is now included from the query
 
             # Get seller's products
             cursor.execute('''
@@ -5288,7 +5799,6 @@ def seller_store(seller_email):
 
         cart_data = get_cart_items()
 
-        # FIXED: Now renders the seller store template instead of redirecting
         return render_template(
             'seller_store_page.html',
             seller=seller_data,
@@ -5302,7 +5812,6 @@ def seller_store(seller_email):
         )
     except Exception as e:
         logger.error(f"Error in seller_store: {e}")
-        # FIXED: Show error instead of redirecting
         return render_template('404.html', error=f"Error loading store: {str(e)}"), 500
 
 @app.route('/product_listing')
@@ -5988,7 +6497,6 @@ def update_cart():
 
 # Replace your existing checkout route with this fixed version
 
-# Add this to your app.py - Replace your existing checkout route with this complete version
 @app.route('/checkout', methods=['GET', 'POST'])
 def checkout():
     import re
@@ -6116,6 +6624,7 @@ def checkout():
                         lynk_reference if payment_method == 'lynk' else None,
                         False  # Will be verified manually or via API later
                     ))
+
 
                     # Add order items and update inventory
                     for item in cart_data['items']:
@@ -6293,9 +6802,71 @@ def checkout():
                             session['user']['email']
                         ))
 
+                    # 🔥 NEW: Increment purchase count for logged-in users
+                    cursor.execute('''
+                        UPDATE users 
+                        SET purchase_count = COALESCE(purchase_count, 0) + 1 
+                        WHERE email = ?
+                    ''', (session['user']['email'],))
+
+                    # Get updated purchase count
+                    cursor.execute('SELECT purchase_count FROM users WHERE email = ?', (session['user']['email'],))
+                    user_data = cursor.fetchone()
+                    updated_purchase_count = user_data['purchase_count'] if user_data else 1
+
+                    # Update session with new purchase count
+                    session['user']['purchase_count'] = updated_purchase_count
+
+                    # Check if user qualifies for free gift (every 5 purchases)
+                    if updated_purchase_count > 0 and updated_purchase_count % 5 == 0:
+                        # Mark as eligible for free gift
+                        cursor.execute('''
+                            UPDATE users 
+                            SET discount_applied = 1, discount_used = 0 
+                            WHERE email = ?
+                        ''', (session['user']['email'],))
+                        session['user']['discount_applied'] = True
+                        session['user']['discount_used'] = False
+
+                        logger.info(
+                            f"User {session['user']['email']} earned free gift after {updated_purchase_count} purchases")
+
                     # Mark discount as used
                     cursor.execute('UPDATE users SET discount_used = ? WHERE email = ?',
                                    (True, session['user']['email']))
+                    conn.commit()
+
+                    # 🔥 UPDATE PURCHASE COUNT
+                    cursor.execute('''
+                                            UPDATE users 
+                                            SET purchase_count = (
+                                                SELECT COUNT(*) 
+                                                FROM orders 
+                                                WHERE user_email = ? AND status NOT IN ('cancelled', 'refunded')
+                                            )
+                                            WHERE email = ?
+                                        ''', (session['user']['email'], session['user']['email']))
+
+                    # Get updated purchase count
+                    cursor.execute('SELECT purchase_count FROM users WHERE email = ?', (session['user']['email'],))
+                    user_data = cursor.fetchone()
+                    updated_purchase_count = user_data['purchase_count'] if user_data else 0
+
+                    # Update session
+                    session['user']['purchase_count'] = updated_purchase_count
+
+                    # Check if eligible for free gift (every 5 purchases)
+                    if updated_purchase_count >= 5 and updated_purchase_count % 5 == 0:
+                        cursor.execute('''
+                                                UPDATE users 
+                                                SET discount_applied = 1, discount_used = 0 
+                                                WHERE email = ?
+                                            ''', (session['user']['email'],))
+                        session['user']['discount_applied'] = True
+                        session['user']['discount_used'] = False
+                        logger.info(
+                            f"🎁 User {session['user']['email']} earned free gift after {updated_purchase_count} purchases")
+
                     conn.commit()
 
                     # Store order info for confirmation page
@@ -6484,6 +7055,38 @@ def like_product(product_key):
         logger.error(f"Error in like_product: {e}\n{traceback.format_exc()}")
         return jsonify({'success': False, 'message': 'Error processing like'}), 500
 
+
+@app.route('/make_admin')
+def make_admin():
+    from werkzeug.security import generate_password_hash
+    from datetime import datetime
+
+    try:
+        conn = sqlite3.connect('zo-zi.db')
+        cursor = conn.cursor()
+
+        # Clear any existing admin
+        cursor.execute('DELETE FROM admin_users')
+
+        # Create admin
+        cursor.execute('''
+            INSERT INTO admin_users (email, password, admin_level, is_active, created_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (
+            'admin@test.com',
+            generate_password_hash('admin123'),
+            'super_admin',
+            1,
+            datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        ))
+
+        conn.commit()
+        conn.close()
+
+        return "ADMIN CREATED. Email: admin@test.com Password: admin123"
+
+    except Exception as e:
+        return f"ERROR: {str(e)}"
 
 @app.route('/rate_seller', methods=['POST'])
 def rate_seller():
@@ -6812,9 +7415,15 @@ def reset_database_fresh():
     print("=" * 50)
 
 
+
+
+
+
+
 if __name__ == '__main__':
-    # Run this once to fix the database
+    add_purchase_count_column()              # ADD THIS
+    update_purchase_counts_from_orders()     # ADD THIS
     fix_messaging_tables()
     migrate_products()
-    ensure_support_user()  # ADD THIS LINE
+    ensure_support_user()
     socketio.run(app, debug=True, allow_unsafe_werkzeug=True)

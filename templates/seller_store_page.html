@@ -1297,67 +1297,152 @@
         }
 
         // Edit store description
-        function editDescription() {
-            const descriptionElement = document.getElementById('storeDescription');
-            const currentText = descriptionElement.innerText;
-            const editHTML = `
-                <textarea id="editDescriptionText" style="width: 100%; min-height: 150px; padding: 10px; border: 2px solid #667eea; border-radius: 8px; font-size: 16px; font-family: inherit; resize: vertical;">${currentText}</textarea>
-                <div style="margin-top: 10px;">
-                    <button onclick="saveDescription()" style="background: #2ecc71; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-right: 10px;">Save</button>
-                    <button onclick="cancelEdit()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Cancel</button>
+function editDescription() {
+    const descriptionElement = document.getElementById('storeDescription');
+    const currentText = descriptionElement.innerText;
+    const editHTML = `
+        <textarea id="editDescriptionText" style="width: 100%; min-height: 150px; padding: 10px; border: 2px solid #667eea; border-radius: 8px; font-size: 16px; font-family: inherit; resize: vertical;">${currentText}</textarea>
+        <div style="margin-top: 10px;">
+            <button onclick="saveDescription()" style="background: #2ecc71; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-right: 10px;">Save</button>
+            <button onclick="cancelEdit()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Cancel</button>
+        </div>
+    `;
+    descriptionElement.parentElement.innerHTML = editHTML;
+}
+
+async function saveDescription() {
+    const newDescription = document.getElementById('editDescriptionText').value;
+
+    if (!newDescription.trim()) {
+        showToast('Error', 'Description cannot be empty', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/seller/update_description', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({ description: newDescription })
+        });
+
+        // Check if the response is ok
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        // Try to parse JSON
+        let data;
+        try {
+            data = await response.json();
+        } catch (jsonError) {
+            console.error('JSON parse error:', jsonError);
+            throw new Error('Invalid response format');
+        }
+
+        if (data.success) {
+            showToast('Success', 'Description updated successfully', 'success');
+            // Restore the interface with updated description
+            restoreDescriptionInterface(newDescription);
+        } else {
+            showToast('Error', data.message || 'Failed to save description', 'error');
+        }
+    } catch (error) {
+        console.error('Save description error:', error);
+        showToast('Error', `Failed to save description: ${error.message}`, 'error');
+    }
+}
+
+function restoreDescriptionInterface(updatedDescription) {
+    const isOwner = '{{ user.email if user else "" | safe }}' === sellerEmail && '{{ user.is_seller if user else false | safe }}' === 'True';
+    const container = document.querySelector('.hero-main');
+
+    if (isOwner) {
+        container.innerHTML = `
+            <h2>Welcome to {{ seller.business_name or (seller.first_name + "'s Store") }}</h2>
+            <div style="position: relative;">
+                <button onclick="editDescription()" style="position: absolute; right: 0; top: 0; background: #667eea; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 14px;">
+                    ✏️ Edit Description
+                </button>
+                <p class="hero-description" id="storeDescription" style="padding-right: 150px;">
+                    ${updatedDescription}
+                </p>
+            </div>
+            <div class="store-stats">
+                <div class="stat-card">
+                    <div class="stat-number">{{ seller.product_count or 0 }}</div>
+                    <div class="stat-label">Products</div>
                 </div>
-            `;
-            descriptionElement.parentElement.innerHTML = editHTML;
-        }
+                <div class="stat-card">
+                    <div class="stat-number">{{ seller.total_sales or 0 }}</div>
+                    <div class="stat-label">Sales</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ seller.rating_count or 0 }}</div>
+                    <div class="stat-label">Reviews</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ "%.1f"|format(seller.avg_rating or 0) }}</div>
+                    <div class="stat-label">Rating</div>
+                </div>
+            </div>
+        `;
+    } else {
+        container.innerHTML = `
+            <h2>Welcome to {{ seller.business_name or (seller.first_name + "'s Store") }}</h2>
+            <p class="hero-description" id="storeDescription">
+                ${updatedDescription}
+            </p>
+            <div class="store-stats">
+                <div class="stat-card">
+                    <div class="stat-number">{{ seller.product_count or 0 }}</div>
+                    <div class="stat-label">Products</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ seller.total_sales or 0 }}</div>
+                    <div class="stat-label">Sales</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ seller.rating_count or 0 }}</div>
+                    <div class="stat-label">Reviews</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">{{ "%.1f"|format(seller.avg_rating or 0) }}</div>
+                    <div class="stat-label">Rating</div>
+                </div>
+            </div>
+        `;
+    }
+}
 
-        async function saveDescription() {
-            const newDescription = document.getElementById('editDescriptionText').value;
-            try {
-                const response = await fetch('/seller/update_description', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken()
-                    },
-                    body: JSON.stringify({ description: newDescription })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    location.reload();
-                } else {
-                    showToast('Error', 'Failed to save description', 'error');
-                }
-            } catch (error) {
-                console.error('Error:', error);
-                showToast('Error', 'Failed to save description', 'error');
-            }
-        }
+function cancelEdit() {
+    const originalDescription = '{{ seller.business_description or "Discover amazing products carefully curated just for you. We\'re committed to providing the highest quality items with exceptional customer service. Browse our collection and find exactly what you\'re looking for!" | safe }}';
+    restoreDescriptionInterface(originalDescription);
+}
 
-        function cancelEdit() {
-            location.reload();
-        }
-
-        // Chat functions
-        function toggleChat() {
-            if (buyerEmail === 'anonymous') {
-                showToast('⚠️ Login Required', 'Please login to message the seller', 'error');
-                setTimeout(() => window.location.href = '/login?next=' + encodeURIComponent(window.location.href), 2000);
-                return;
-            }
-            const chatWindow = document.getElementById('chatWindow');
-            const chatButton = document.getElementById('chatButton');
-            chatOpen = !chatOpen;
-            if (chatOpen) {
-                chatWindow.classList.add('show');
-                chatButton.innerHTML = '✕';
-                document.getElementById('chatInput').focus();
-                loadChatMessages();
-                hideNotification();
-            } else {
-                chatWindow.classList.remove('show');
-                chatButton.innerHTML = '💬';
-            }
-        }
+// Chat functions
+function toggleChat() {
+    if (buyerEmail === 'anonymous') {
+        showToast('⚠️ Login Required', 'Please login to message the seller', 'error');
+        setTimeout(() => window.location.href = '/login?next=' + encodeURIComponent(window.location.href), 2000);
+        return;
+    }
+    const chatWindow = document.getElementById('chatWindow');
+    const chatButton = document.getElementById('chatButton');
+    chatOpen = !chatOpen;
+    if (chatOpen) {
+        chatWindow.classList.add('show');
+        chatButton.innerHTML = '✕';
+        document.getElementById('chatInput').focus();
+        loadChatMessages();
+        hideNotification();
+    } else {
+        chatWindow.classList.remove('show');
+        chatButton.innerHTML = '💬';
+    }
+}
 
         function closeChat() {
             chatOpen = false;

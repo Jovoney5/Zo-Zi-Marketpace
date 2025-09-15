@@ -6,10 +6,10 @@
     <meta name="csrf-token" content="{{ csrf_token() if csrf_token else '' }}">
     <title>ZoZi - Seller Dashboard</title>
     <style>
-        body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f4; padding-top: 80px; }
+        body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f4; }
         video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
 
-        .navbar { display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, 0.8); padding: 10px 20px; position: fixed; top: 0; width: 100%; z-index: 10; }
+        .navbar { display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, 0.9); padding: 10px 20px; position: relative; width: 100%; z-index: 10; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         .navbar-top { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1200px; }
         .brand-container { display: flex; align-items: center; }
         .brand a { font-size: 24px; font-weight: bold; color: black; text-decoration: none; }
@@ -163,6 +163,51 @@
             opacity: 0.3;
         }
 
+        /* Enhanced Tabs */
+        .dashboard-tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 30px;
+            background: #f8f9fa;
+            padding: 5px;
+            border-radius: 10px;
+            flex-wrap: wrap;
+        }
+        .tab-button {
+            background: transparent;
+            border: none;
+            padding: 15px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 16px;
+            color: #6c757d;
+            transition: all 0.3s ease;
+            flex: 1;
+            text-align: center;
+            min-width: 140px;
+        }
+        .tab-button.active {
+            background: #006400;
+            color: white;
+            box-shadow: 0 4px 15px rgba(0,100,0,0.3);
+        }
+        .tab-button:hover:not(.active) {
+            background: #e9ecef;
+            color: #495057;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
         /* Enhanced Withdrawal Section */
         .withdrawal-section {
             background: white;
@@ -187,57 +232,97 @@
             font-size: 24px;
             font-weight: bold;
         }
-        .withdrawal-options {
+
+        /* Payment Methods Section */
+        .payment-methods-section {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.1);
+        }
+        .payment-methods-section h2 {
+            color: #006400;
+            margin-bottom: 25px;
+            font-size: 28px;
+            text-align: center;
+        }
+        .current-method-display {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        .current-method-display h3 {
+            margin: 0 0 15px 0;
+            font-size: 20px;
+        }
+        .current-method-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        .method-details {
+            flex: 1;
+        }
+        .method-icon {
+            font-size: 48px;
+            opacity: 0.8;
+        }
+        .no-method-message {
+            text-align: center;
+            color: #rgba(255,255,255,0.9);
+            font-size: 18px;
+            padding: 20px;
+        }
+
+        .payment-type-selector {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
             gap: 20px;
             margin-bottom: 30px;
         }
-        .withdrawal-option {
-            border: 3px solid #e9ecef;
-            padding: 25px;
+        .method-btn {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border: 3px solid #dee2e6;
+            padding: 20px;
             border-radius: 15px;
             cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            color: #495057;
             transition: all 0.3s ease;
             text-align: center;
-            background: #f8f9fa;
         }
-        .withdrawal-option:hover {
+        .method-btn:hover {
             border-color: #006400;
-            background: #f0fff0;
+            background: linear-gradient(135deg, #e8f5e8 0%, #d4edda 100%);
+            color: #006400;
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(0,100,0,0.1);
         }
-        .withdrawal-option.selected {
+        .method-btn.active {
             border-color: #006400;
-            background: #e8f5e8;
-            box-shadow: 0 0 20px rgba(0,100,0,0.2);
+            background: linear-gradient(135deg, #006400 0%, #228B22 100%);
+            color: white;
+            box-shadow: 0 8px 25px rgba(0,100,0,0.3);
         }
-        .withdrawal-option h3 {
-            margin: 0 0 10px 0;
-            color: #006400;
-            font-size: 20px;
+
+        .payment-form {
+            background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            border: 2px solid #dee2e6;
         }
-        .withdrawal-option .fee {
-            font-size: 18px;
-            font-weight: bold;
-            color: #28a745;
-            margin: 5px 0;
-        }
-        .withdrawal-option .time {
-            color: #6c757d;
-            font-size: 16px;
-            margin: 5px 0;
-        }
-        .withdrawal-option small {
-            color: #6c757d;
-            font-size: 14px;
-        }
-        .withdrawal-form {
+        .form-row {
             display: grid;
-            grid-template-columns: 1fr auto;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
             gap: 20px;
-            align-items: end;
+            margin-bottom: 20px;
         }
         .form-group {
             display: flex;
@@ -247,19 +332,23 @@
             margin-bottom: 8px;
             font-weight: bold;
             color: #006400;
+            font-size: 14px;
         }
-        .form-group input {
+        .form-group input, .form-group select {
             padding: 15px;
             border: 2px solid #ddd;
             border-radius: 8px;
-            font-size: 18px;
+            font-size: 16px;
             transition: border-color 0.3s ease;
+            background: white;
         }
-        .form-group input:focus {
+        .form-group input:focus, .form-group select:focus {
             outline: none;
             border-color: #006400;
+            box-shadow: 0 0 10px rgba(0,100,0,0.1);
         }
-        .withdraw-btn {
+
+        .save-method-btn {
             background: linear-gradient(135deg, #006400 0%, #228B22 100%);
             color: white;
             padding: 15px 35px;
@@ -270,96 +359,167 @@
             font-weight: bold;
             transition: all 0.3s ease;
             box-shadow: 0 4px 15px rgba(0,100,0,0.3);
+            width: 100%;
         }
-        .withdraw-btn:hover:not(:disabled) {
+        .save-method-btn:hover:not(:disabled) {
             background: linear-gradient(135deg, #228B22 0%, #32CD32 100%);
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(0,100,0,0.4);
         }
-        .withdraw-btn:disabled {
-            background: #ccc !important;
-            cursor: not-allowed !important;
-            transform: none !important;
-            box-shadow: none !important;
+
+        .saved-methods {
+            margin-top: 30px;
+        }
+        .saved-methods h3 {
+            color: #006400;
+            margin-bottom: 20px;
+            font-size: 22px;
+        }
+        .method-card {
+            background: white;
+            border: 2px solid #dee2e6;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .method-card:hover {
+            border-color: #006400;
+            box-shadow: 0 5px 15px rgba(0,100,0,0.1);
+            transform: translateY(-2px);
+        }
+        .method-card.primary {
+            border-color: #006400;
+            background: linear-gradient(135deg, #e8f5e8 0%, #f0fff0 100%);
+        }
+        .method-card.primary::before {
+            content: "PRIMARY";
+            position: absolute;
+            top: -10px;
+            right: 20px;
+            background: #006400;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .method-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .method-type {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            color: #006400;
+        }
+        .method-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .method-actions button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .set-primary-btn {
+            background: #28a745;
+            color: white;
+        }
+        .set-primary-btn:hover {
+            background: #218838;
+        }
+        .delete-btn {
+            background: #dc3545;
+            color: white;
+        }
+        .delete-btn:hover {
+            background: #c82333;
+        }
+        .method-details-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .detail-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #006400;
+        }
+        .detail-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .detail-value {
+            font-size: 16px;
+            color: #495057;
+            font-weight: bold;
         }
 
-        /* Fee calculation display */
-        .fee-calculation {
+        /* Enhanced withdrawal form with payment method selection */
+        .withdrawal-form-enhanced {
             background: #f8f9fa;
+            padding: 30px;
+            border-radius: 15px;
+            border: 2px solid #dee2e6;
+        }
+        .payment-method-selector {
+            margin-bottom: 25px;
+        }
+        .payment-method-selector h4 {
+            color: #006400;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        .method-option {
             border: 2px solid #dee2e6;
             border-radius: 10px;
             padding: 20px;
-            margin: 20px 0;
-            display: none;
-        }
-        .fee-calculation.show {
-            display: block;
-            animation: slideIn 0.3s ease;
-        }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateY(-10px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .fee-calculation h4 {
-            color: #006400;
-            margin: 0 0 15px 0;
-        }
-        .fee-row {
-            display: flex;
-            justify-content: space-between;
-            margin: 8px 0;
-            padding: 5px 0;
-        }
-        .fee-row.total {
-            border-top: 2px solid #006400;
-            font-weight: bold;
-            font-size: 18px;
-            color: #006400;
-            margin-top: 15px;
-            padding-top: 15px;
-        }
-
-        /* Enhanced Tabs */
-        .dashboard-tabs {
-            display: flex;
-            gap: 5px;
-            margin-bottom: 30px;
-            background: #f8f9fa;
-            padding: 5px;
-            border-radius: 10px;
-        }
-        .tab-button {
-            background: transparent;
-            border: none;
-            padding: 15px 25px;
-            border-radius: 8px;
+            margin-bottom: 15px;
             cursor: pointer;
-            font-weight: bold;
-            font-size: 16px;
-            color: #6c757d;
             transition: all 0.3s ease;
-            flex: 1;
-            text-align: center;
+            background: white;
         }
-        .tab-button.active {
-            background: #006400;
-            color: white;
-            box-shadow: 0 4px 15px rgba(0,100,0,0.3);
+        .method-option:hover {
+            border-color: #006400;
+            background: #f0fff0;
         }
-        .tab-button:hover:not(.active) {
-            background: #e9ecef;
-            color: #495057;
+        .method-option.selected {
+            border-color: #006400;
+            background: #e8f5e8;
+            box-shadow: 0 0 15px rgba(0,100,0,0.1);
         }
-        .tab-content {
-            display: none;
+        .method-option-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 10px;
         }
-        .tab-content.active {
-            display: block;
-            animation: fadeIn 0.3s ease;
+        .method-option-type {
+            font-weight: bold;
+            color: #006400;
+            font-size: 16px;
         }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+        .method-option-details {
+            color: #6c757d;
+            font-size: 14px;
         }
 
         .dashboard-actions {
@@ -514,21 +674,6 @@
             border: 1px solid #f5c6cb;
         }
 
-        /* Responsive Design */
-        @media (max-width: 768px) {
-            body { padding-top: 120px; }
-            .navbar { padding: 10px; }
-            .navbar-top { flex-wrap: wrap; }
-            .nav-links { gap: 10px; }
-            .search-container { margin: 10px 10px; }
-            .financial-overview { grid-template-columns: 1fr; }
-            .withdrawal-form { grid-template-columns: 1fr; }
-            .withdrawal-options { grid-template-columns: 1fr; }
-            .dashboard-actions button { margin: 5px; font-size: 14px; padding: 12px 20px; }
-            .stats-table { font-size: 14px; }
-            .stats-table th, .stats-table td { padding: 15px 10px; }
-        }
-
         /* Loading and feedback styles */
         .feedback-message {
             padding: 15px 20px;
@@ -555,6 +700,36 @@
         @keyframes slideDown {
             from { opacity: 0; transform: translateY(-20px); }
             to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            body { padding-top: 120px; }
+            .navbar { padding: 10px; }
+            .navbar-top { flex-wrap: wrap; }
+            .nav-links { gap: 10px; }
+            .search-container { margin: 10px 10px; }
+            .financial-overview { grid-template-columns: 1fr; }
+            .payment-type-selector { grid-template-columns: 1fr; }
+            .form-row { grid-template-columns: 1fr; }
+            .dashboard-actions button { margin: 5px; font-size: 14px; padding: 12px 20px; }
+            .stats-table { font-size: 14px; }
+            .stats-table th, .stats-table td { padding: 15px 10px; }
+            .dashboard-tabs {
+                flex-direction: column;
+            }
+            .tab-button {
+                min-width: auto;
+                margin-bottom: 5px;
+            }
+            .method-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            .method-actions {
+                width: 100%;
+                justify-content: flex-start;
+            }
         }
     </style>
 </head>
@@ -634,7 +809,6 @@
                 🔗 Share Store Link
             </a>
         </div>
-        <!-- End Store Link Section -->
 
         {% if not seller_products %}
         <!-- Welcome Section for New Sellers -->
@@ -673,6 +847,7 @@
         <!-- Enhanced Tabs -->
         <div class="dashboard-tabs">
             <button class="tab-button active" onclick="showTab('overview')">📊 Overview</button>
+            <button class="tab-button" onclick="showTab('payment-methods')">💳 Payment Methods</button>
             <button class="tab-button" onclick="showTab('withdraw')">💸 Withdraw</button>
             <button class="tab-button" onclick="showTab('transactions')">📋 Transactions</button>
             <button class="tab-button" onclick="showTab('products')">📦 Products</button>
@@ -709,6 +884,159 @@
             {% endif %}
         </div>
 
+        <!-- Payment Methods Tab -->
+        <div id="payment-methods" class="tab-content">
+            <div class="payment-methods-section">
+                <h2>💳 Payment Methods</h2>
+                <p style="text-align: center; color: #6c757d; margin-bottom: 30px;">Manage how you receive payments from your sales</p>
+
+                <!-- Current Payment Method Display -->
+                <div class="current-method-display" id="currentMethodDisplay">
+                    <h3>💰 Current Payout Method</h3>
+                    <div id="currentMethodContent">
+                        <div class="no-method-message">
+                            <div class="method-icon">💳</div>
+                            <p>No payment method set up yet. Add one below to start receiving payments.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add New Payment Method -->
+                <div class="add-payment-method">
+                    <h3>Add New Payment Method</h3>
+
+                    <div class="payment-type-selector">
+                        <button type="button" class="method-btn" data-type="bank">🏦 Bank Account</button>
+                        <button type="button" class="method-btn" data-type="card">💳 Debit Card</button>
+                        <button type="button" class="method-btn" data-type="mobile">📱 Mobile Money</button>
+                    </div>
+
+                    <!-- Bank Account Form -->
+                    <form id="bankForm" class="payment-form" style="display: none;">
+                        <h4 style="color: #006400; margin-bottom: 20px; text-align: center;">🏦 Add Bank Account</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Account Holder Name</label>
+                                <input type="text" name="account_name" required placeholder="John Doe">
+                            </div>
+                            <div class="form-group">
+                                <label>Bank Name</label>
+                                <select name="bank_name" required>
+                                    <option value="">Select Bank</option>
+                                    <option value="National Commercial Bank">National Commercial Bank (NCB)</option>
+                                    <option value="Scotiabank">Scotiabank Jamaica</option>
+                                    <option value="First Caribbean">First Caribbean International Bank</option>
+                                    <option value="CIBC">CIBC FirstCaribbean</option>
+                                    <option value="JN Bank">JN Bank</option>
+                                    <option value="Development Bank">Development Bank of Jamaica</option>
+                                    <option value="Capital & Credit">Capital & Credit Merchant Bank</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Account Number</label>
+                                <input type="text" name="account_number" required placeholder="1234567890">
+                            </div>
+                            <div class="form-group">
+                                <label>Branch Code (if applicable)</label>
+                                <input type="text" name="routing_number" placeholder="001">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" name="is_primary" value="true">
+                                Set as primary payment method
+                            </label>
+                        </div>
+                        <button type="submit" class="save-method-btn">💾 Save Bank Account</button>
+                    </form>
+
+                    <!-- Card Form -->
+                    <form id="cardForm" class="payment-form" style="display: none;">
+                        <h4 style="color: #006400; margin-bottom: 20px; text-align: center;">💳 Add Debit Card</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Cardholder Name</label>
+                                <input type="text" name="cardholder_name" required placeholder="John Doe">
+                            </div>
+                            <div class="form-group">
+                                <label>Card Number</label>
+                                <input type="text" name="card_number" placeholder="1234 5678 9012 3456" required maxlength="19">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Expiry Date</label>
+                                <input type="text" name="expiry" placeholder="MM/YY" required maxlength="5">
+                            </div>
+                            <div class="form-group">
+                                <label>CVC</label>
+                                <input type="text" name="cvc" placeholder="123" required maxlength="4">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" name="is_primary" value="true">
+                                Set as primary payment method
+                            </label>
+                        </div>
+                        <button type="submit" class="save-method-btn">💾 Save Card</button>
+                    </form>
+
+                    <!-- Mobile Money Form -->
+                    <form id="mobileForm" class="payment-form" style="display: none;">
+                        <h4 style="color: #006400; margin-bottom: 20px; text-align: center;">📱 Add Mobile Money</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Mobile Provider</label>
+                                <select name="mobile_provider" required>
+                                    <option value="">Select Provider</option>
+                                    <option value="Digicel">Digicel Mobile Money</option>
+                                    <option value="Flow">Flow Mobile Money</option>
+                                    <option value="Lynk">Lynk Digital Wallet</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Mobile Number</label>
+                                <input type="tel" name="mobile_number" placeholder="876-555-1234" required>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Account Name</label>
+                                <input type="text" name="account_name" required placeholder="John Doe">
+                            </div>
+                            <div class="form-group">
+                                <label>PIN (for verification)</label>
+                                <input type="password" name="mobile_pin" placeholder="****" maxlength="4">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <label style="display: flex; align-items: center; gap: 10px;">
+                                <input type="checkbox" name="is_primary" value="true">
+                                Set as primary payment method
+                            </label>
+                        </div>
+                        <button type="submit" class="save-method-btn">💾 Save Mobile Money</button>
+                    </form>
+                </div>
+
+                <!-- Saved Payment Methods -->
+                <div class="saved-methods" id="savedMethods">
+                    <h3>💾 Saved Payment Methods</h3>
+                    <div id="savedMethodsList">
+                        <!-- This will be populated by JavaScript -->
+                        <div class="empty-state">
+                            <div class="empty-icon">💳</div>
+                            <h3>No Payment Methods</h3>
+                            <p>Add your first payment method above to start receiving payments from your sales.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Enhanced Withdraw Tab -->
         <div id="withdraw" class="tab-content">
             <div class="withdrawal-section">
@@ -728,79 +1056,76 @@
                 </div>
                 {% endif %}
 
-                <div class="withdrawal-options">
-                    <div class="withdrawal-option" data-method="standard">
-                        <h3>🏦 Standard Transfer</h3>
-                        <div class="fee">FREE</div>
-                        <div class="time">3 business days</div>
-                        <small>Bank transfer to your account</small>
-                    </div>
-                    <div class="withdrawal-option" data-method="instant">
-                        <h3>⚡ Instant Transfer</h3>
-                        <div class="fee">4% fee</div>
-                        <div class="time">Within minutes</div>
-                        <small>Instant to mobile money</small>
-                    </div>
-                    <div class="withdrawal-option" data-method="paypal">
-                        <h3>💳 PayPal</h3>
-                        <div class="fee">2% fee</div>
-                        <div class="time">1-2 business days</div>
-                        <small>International payments</small>
-                    </div>
-                </div>
-
-                <div class="withdrawal-form">
-                    <div class="form-group">
-                        <label for="withdrawAmount">Amount (JMD)</label>
-                        <input type="number" id="withdrawAmount" min="500" max="{{ financial_data.available_balance }}" placeholder="Minimum J$500" step="0.01">
-                    </div>
-                    <button class="withdraw-btn" id="withdrawButton" onclick="processWithdrawal()" disabled>Withdraw</button>
-                </div>
-
-                <div id="feeCalculation" class="fee-calculation">
-                    <h4>💰 Fee Calculation</h4>
-                    <div class="fee-row">
-                        <span>Withdrawal Amount:</span>
-                        <span>J$<span id="calcAmount">0.00</span></span>
-                    </div>
-                    <div class="fee-row">
-                        <span>Processing Fee:</span>
-                        <span>J$<span id="calcFee">0.00</span></span>
-                    </div>
-                    <div class="fee-row total">
-                        <span>You'll Receive:</span>
-                        <span>J$<span id="calcNet">0.00</span></span>
-                    </div>
-                </div>
-
-                <div id="withdrawalFeedback" class="feedback-message"></div>
-            </div>
-
-            <div class="transaction-history">
-                <h3>💸 Withdrawal History</h3>
-                {% if not financial_data.withdrawal_history %}
-                <div class="empty-state">
-                    <div class="empty-icon">💸</div>
-                    <h3>No Withdrawals Yet</h3>
-                    <p>Your withdrawal requests will appear here once you start making withdrawals.</p>
-                </div>
-                {% else %}
-                <div id="withdrawalHistoryContent">
-                    {% for w in financial_data.withdrawal_history %}
-                        <div class="transaction-item">
-                            <div class="transaction-details">
-                                <strong>{{ w.method }} Withdrawal</strong>
-                                <div class="transaction-date">{{ w.request_date }}</div>
-                                <small>
-                                    <span class="status-badge {{ w.status }}">{{ w.status }}</span>
-                                    | Processing: {{ w.processing_time }}
-                                </small>
+                <div class="withdrawal-form-enhanced">
+                    <div class="payment-method-selector">
+                        <h4>💳 Select Payment Method</h4>
+                        <div id="withdrawMethodsList">
+                            <div class="method-option" style="text-align: center; color: #6c757d; padding: 40px;">
+                                <p>⚠️ No payment methods available. Please add a payment method first.</p>
+                                <button onclick="showTab('payment-methods')" style="background: #006400; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; margin-top: 15px;">Add Payment Method</button>
                             </div>
-                            <div class="transaction-amount negative">-J${{ "{:,.2f}".format(w.amount) }}</div>
                         </div>
-                    {% endfor %}
+                    </div>
+
+                    <div class="withdrawal-amount-section" style="margin-top: 30px;">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="withdrawAmount">Amount (JMD)</label>
+                                <input type="number" id="withdrawAmount" min="500" max="{{ financial_data.available_balance }}" placeholder="Minimum J$500" step="0.01">
+                            </div>
+                            <div style="display: flex; align-items: end;">
+                                <button class="save-method-btn" id="withdrawButton" onclick="processWithdrawal()" disabled style="width: auto; padding: 15px 35px;">
+                                    💸 Withdraw Funds
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="feeCalculation" class="fee-calculation" style="display: none; background: #f8f9fa; border: 2px solid #dee2e6; border-radius: 10px; padding: 20px; margin: 20px 0;">
+                        <h4 style="color: #006400; margin: 0 0 15px 0;">💰 Fee Calculation</h4>
+                        <div class="fee-row" style="display: flex; justify-content: space-between; margin: 8px 0; padding: 5px 0;">
+                            <span>Withdrawal Amount:</span>
+                            <span>J$<span id="calcAmount">0.00</span></span>
+                        </div>
+                        <div class="fee-row" style="display: flex; justify-content: space-between; margin: 8px 0; padding: 5px 0;">
+                            <span>Processing Fee:</span>
+                            <span>J$<span id="calcFee">0.00</span></span>
+                        </div>
+                        <div class="fee-row total" style="display: flex; justify-content: space-between; border-top: 2px solid #006400; font-weight: bold; font-size: 18px; color: #006400; margin-top: 15px; padding-top: 15px;">
+                            <span>You'll Receive:</span>
+                            <span>J$<span id="calcNet">0.00</span></span>
+                        </div>
+                    </div>
+
+                    <div id="withdrawalFeedback" class="feedback-message"></div>
                 </div>
-                {% endif %}
+
+                <div class="transaction-history">
+                    <h3>💸 Withdrawal History</h3>
+                    {% if not financial_data.withdrawal_history %}
+                    <div class="empty-state">
+                        <div class="empty-icon">💸</div>
+                        <h3>No Withdrawals Yet</h3>
+                        <p>Your withdrawal requests will appear here once you start making withdrawals.</p>
+                    </div>
+                    {% else %}
+                    <div id="withdrawalHistoryContent">
+                        {% for w in financial_data.withdrawal_history %}
+                            <div class="transaction-item">
+                                <div class="transaction-details">
+                                    <strong>{{ w.method }} Withdrawal</strong>
+                                    <div class="transaction-date">{{ w.request_date }}</div>
+                                    <small>
+                                        <span class="status-badge {{ w.status }}">{{ w.status }}</span>
+                                        | Processing: {{ w.processing_time }}
+                                    </small>
+                                </div>
+                                <div class="transaction-amount negative">-J${{ "{:,.2f}".format(w.amount) }}</div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
 
@@ -892,7 +1217,7 @@
     </div>
 
     <script>
-        // Initialize with backend data - FIXED FINANCIAL DATA HANDLING
+        // Initialize with backend data
         const sellerProducts = {{ seller_products | tojson }};
         let financialData = {
             total_earnings: {{ financial_data.total_earnings }},
@@ -905,6 +1230,8 @@
         // Global variables
         let selectedWithdrawalMethod = null;
         let selectedProductKey = null;
+        let paymentMethods = [];
+        let selectedPaymentMethodId = null;
 
         // Tab functionality
         function showTab(tabName) {
@@ -912,6 +1239,16 @@
             document.querySelectorAll('.tab-button').forEach(button => button.classList.remove('active'));
             document.getElementById(tabName).classList.add('active');
             document.querySelector(`button[onclick="showTab('${tabName}')"]`).classList.add('active');
+
+            // Load payment methods when payment methods tab is opened
+            if (tabName === 'payment-methods') {
+                loadPaymentMethods();
+            }
+
+            // Load withdrawal methods when withdraw tab is opened
+            if (tabName === 'withdraw') {
+                loadWithdrawalMethods();
+            }
         }
 
         // Initialize product table click handlers
@@ -941,90 +1278,415 @@
             document.getElementById('selected-product-name').textContent = `Selected: ${productData.name}`;
         }
 
-        // FIXED: Enhanced withdrawal functionality with proper validation
-        function initializeWithdrawalSystem() {
-            console.log('Initializing withdrawal system...');
+        // Payment Method Management
+        function initializePaymentMethods() {
+            // Payment type selector
+            document.querySelectorAll('.method-btn').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const methodType = this.dataset.type;
 
-            // Add click handlers to withdrawal options
-            document.querySelectorAll('.withdrawal-option').forEach(option => {
-                option.addEventListener('click', function() {
-                    console.log('Withdrawal option clicked:', this.dataset.method);
+                    // Remove active class from all buttons
+                    document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
 
-                    // Remove selected class from all options
-                    document.querySelectorAll('.withdrawal-option').forEach(opt => {
-                        opt.classList.remove('selected');
-                    });
+                    // Hide all forms
+                    document.querySelectorAll('.payment-form').forEach(form => form.style.display = 'none');
 
-                    // Add selected class to clicked option
-                    this.classList.add('selected');
-                    selectedWithdrawalMethod = this.dataset.method;
-
-                    console.log('Selected withdrawal method:', selectedWithdrawalMethod);
-                    updateWithdrawButton();
-                    calculateFees();
+                    // Show selected form
+                    document.getElementById(`${methodType}Form`).style.display = 'block';
                 });
             });
 
-            // Add input handler to amount field
-            const amountInput = document.getElementById('withdrawAmount');
-            if (amountInput) {
-                amountInput.addEventListener('input', function() {
-                    console.log('Amount input changed:', this.value);
-                    updateWithdrawButton();
-                    calculateFees();
+            // Form submissions
+            document.getElementById('bankForm').addEventListener('submit', handlePaymentMethodSubmit);
+            document.getElementById('cardForm').addEventListener('submit', handlePaymentMethodSubmit);
+            document.getElementById('mobileForm').addEventListener('submit', handlePaymentMethodSubmit);
+
+            // Card number formatting
+            const cardNumberInput = document.querySelector('input[name="card_number"]');
+            if (cardNumberInput) {
+                cardNumberInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/\s/g, '').replace(/[^0-9]/gi, '');
+                    let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
+                    e.target.value = formattedValue;
+                });
+            }
+
+            // Expiry date formatting
+            const expiryInput = document.querySelector('input[name="expiry"]');
+            if (expiryInput) {
+                expiryInput.addEventListener('input', function(e) {
+                    let value = e.target.value.replace(/\D/g, '');
+                    if (value.length >= 2) {
+                        value = value.substring(0, 2) + '/' + value.substring(2, 4);
+                    }
+                    e.target.value = value;
                 });
             }
         }
 
-        // FIXED: Proper button update logic with clear validation
+        async function handlePaymentMethodSubmit(e) {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+
+            // Determine payment type
+            let paymentType = 'bank';
+            if (e.target.id === 'cardForm') paymentType = 'card';
+            else if (e.target.id === 'mobileForm') paymentType = 'mobile';
+
+            data.payment_type = paymentType;
+
+            try {
+                const response = await fetch('/seller/payment_methods', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showFeedback(result.message, 'success');
+                    e.target.reset();
+                    document.querySelectorAll('.method-btn').forEach(b => b.classList.remove('active'));
+                    document.querySelectorAll('.payment-form').forEach(form => form.style.display = 'none');
+                    loadPaymentMethods(); // Refresh the list
+                } else {
+                    showFeedback(result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error adding payment method:', error);
+                showFeedback('Error adding payment method. Please try again.', 'error');
+            }
+        }
+
+        async function loadPaymentMethods() {
+            try {
+                const response = await fetch('/seller/payment_methods');
+                if (!response.ok) {
+                    throw new Error('Failed to load payment methods');
+                }
+
+                const data = await response.json();
+                paymentMethods = data.payment_methods || [];
+
+                updateCurrentMethodDisplay();
+                updateSavedMethodsList();
+
+            } catch (error) {
+                console.error('Error loading payment methods:', error);
+                showFeedback('Error loading payment methods', 'error');
+            }
+        }
+
+        function updateCurrentMethodDisplay() {
+            const currentMethodContent = document.getElementById('currentMethodContent');
+            const primaryMethod = paymentMethods.find(method => method.is_primary);
+
+            if (primaryMethod) {
+                let methodIcon = '💳';
+                let methodTypeText = 'Payment Method';
+                let methodDetails = '';
+
+                if (primaryMethod.payment_type === 'bank') {
+                    methodIcon = '🏦';
+                    methodTypeText = 'Bank Account';
+                    methodDetails = `
+                        <div class="method-details">
+                            <strong>${primaryMethod.account_name}</strong><br>
+                            <span style="color: rgba(255,255,255,0.8);">${primaryMethod.bank_name}</span><br>
+                            <span style="color: rgba(255,255,255,0.7);">****${primaryMethod.account_number.slice(-4)}</span>
+                        </div>
+                    `;
+                } else if (primaryMethod.payment_type === 'card') {
+                    methodIcon = '💳';
+                    methodTypeText = 'Debit Card';
+                    methodDetails = `
+                        <div class="method-details">
+                            <strong>${primaryMethod.card_brand || 'Card'} ending in ${primaryMethod.card_last_four}</strong><br>
+                            <span style="color: rgba(255,255,255,0.8);">Debit Card</span>
+                        </div>
+                    `;
+                } else if (primaryMethod.payment_type === 'mobile') {
+                    methodIcon = '📱';
+                    methodTypeText = 'Mobile Money';
+                    methodDetails = `
+                        <div class="method-details">
+                            <strong>${primaryMethod.account_name}</strong><br>
+                            <span style="color: rgba(255,255,255,0.8);">${primaryMethod.mobile_number}</span>
+                        </div>
+                    `;
+                }
+
+                currentMethodContent.innerHTML = `
+                    <div class="current-method-info">
+                        ${methodDetails}
+                        <div class="method-icon">${methodIcon}</div>
+                    </div>
+                `;
+            } else {
+                currentMethodContent.innerHTML = `
+                    <div class="no-method-message">
+                        <div class="method-icon">💳</div>
+                        <p>No payment method set up yet. Add one below to start receiving payments.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function updateSavedMethodsList() {
+            const savedMethodsList = document.getElementById('savedMethodsList');
+
+            if (paymentMethods.length === 0) {
+                savedMethodsList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-icon">💳</div>
+                        <h3>No Payment Methods</h3>
+                        <p>Add your first payment method above to start receiving payments from your sales.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            savedMethodsList.innerHTML = paymentMethods.map(method => {
+                let methodIcon = '💳';
+                let methodType = 'Payment Method';
+                let methodInfo = '';
+
+                if (method.payment_type === 'bank') {
+                    methodIcon = '🏦';
+                    methodType = 'Bank Account';
+                    methodInfo = `
+                        <div class="detail-item">
+                            <div class="detail-label">Account Holder</div>
+                            <div class="detail-value">${method.account_name}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Bank</div>
+                            <div class="detail-value">${method.bank_name}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Account Number</div>
+                            <div class="detail-value">****${method.account_number.slice(-4)}</div>
+                        </div>
+                    `;
+                } else if (method.payment_type === 'card') {
+                    methodIcon = '💳';
+                    methodType = 'Debit Card';
+                    methodInfo = `
+                        <div class="detail-item">
+                            <div class="detail-label">Card</div>
+                            <div class="detail-value">${method.card_brand || 'Card'} ****${method.card_last_four}</div>
+                        </div>
+                    `;
+                } else if (method.payment_type === 'mobile') {
+                    methodIcon = '📱';
+                    methodType = 'Mobile Money';
+                    methodInfo = `
+                        <div class="detail-item">
+                            <div class="detail-label">Account Name</div>
+                            <div class="detail-value">${method.account_name}</div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Mobile Number</div>
+                            <div class="detail-value">${method.mobile_number}</div>
+                        </div>
+                    `;
+                }
+
+                return `
+                    <div class="method-card ${method.is_primary ? 'primary' : ''}" data-method-id="${method.id}">
+                        <div class="method-header">
+                            <div class="method-type">
+                                ${methodIcon} ${methodType}
+                            </div>
+                            <div class="method-actions">
+                                ${!method.is_primary ? `<button class="set-primary-btn" onclick="setPrimaryMethod(${method.id})">Set Primary</button>` : ''}
+                                <button class="delete-btn" onclick="deletePaymentMethod(${method.id})">Delete</button>
+                            </div>
+                        </div>
+                        <div class="method-details-grid">
+                            ${methodInfo}
+                            <div class="detail-item">
+                                <div class="detail-label">Added</div>
+                                <div class="detail-value">${new Date(method.created_at).toLocaleDateString()}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function setPrimaryMethod(methodId) {
+            try {
+                const response = await fetch(`/seller/payment_methods/${methodId}/set_primary`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showFeedback(result.message, 'success');
+                    loadPaymentMethods();
+                } else {
+                    showFeedback(result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error setting primary method:', error);
+                showFeedback('Error setting primary method', 'error');
+            }
+        }
+
+        async function deletePaymentMethod(methodId) {
+            if (!confirm('Are you sure you want to delete this payment method?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/seller/payment_methods/${methodId}/delete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                    }
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showFeedback(result.message, 'success');
+                    loadPaymentMethods();
+                } else {
+                    showFeedback(result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error deleting payment method:', error);
+                showFeedback('Error deleting payment method', 'error');
+            }
+        }
+
+        // Load withdrawal methods for withdraw tab
+        function loadWithdrawalMethods() {
+            const withdrawMethodsList = document.getElementById('withdrawMethodsList');
+
+            if (paymentMethods.length === 0) {
+                withdrawMethodsList.innerHTML = `
+                    <div class="method-option" style="text-align: center; color: #6c757d; padding: 40px;">
+                        <p>⚠️ No payment methods available. Please add a payment method first.</p>
+                        <button onclick="showTab('payment-methods')" style="background: #006400; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; margin-top: 15px;">Add Payment Method</button>
+                    </div>
+                `;
+                return;
+            }
+
+            withdrawMethodsList.innerHTML = paymentMethods.map(method => {
+                let methodIcon = '💳';
+                let methodType = 'Payment Method';
+                let methodDetails = '';
+                let feeInfo = '';
+
+                if (method.payment_type === 'bank') {
+                    methodIcon = '🏦';
+                    methodType = 'Bank Transfer';
+                    methodDetails = `${method.bank_name} - ****${method.account_number.slice(-4)}`;
+                    feeInfo = 'Free • 1-3 business days';
+                } else if (method.payment_type === 'card') {
+                    methodIcon = '💳';
+                    methodType = 'Card Transfer';
+                    methodDetails = `${method.card_brand || 'Card'} ****${method.card_last_four}`;
+                    feeInfo = '2% fee • Instant';
+                } else if (method.payment_type === 'mobile') {
+                    methodIcon = '📱';
+                    methodType = 'Mobile Money';
+                    methodDetails = method.mobile_number;
+                    feeInfo = '1% fee • Within minutes';
+                }
+
+                return `
+                    <div class="method-option ${method.is_primary ? 'selected' : ''}" data-method-id="${method.id}" onclick="selectWithdrawalMethod(${method.id}, '${method.payment_type}')">
+                        <div class="method-option-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                            <div class="method-option-type" style="font-weight: bold; color: #006400; font-size: 16px;">
+                                ${methodIcon} ${methodType} ${method.is_primary ? '(Primary)' : ''}
+                            </div>
+                        </div>
+                        <div class="method-option-details" style="color: #6c757d; font-size: 14px;">
+                            ${methodDetails}<br>
+                            <strong style="color: #28a745;">${feeInfo}</strong>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Auto-select primary method
+            const primaryMethod = paymentMethods.find(method => method.is_primary);
+            if (primaryMethod) {
+                selectWithdrawalMethod(primaryMethod.id, primaryMethod.payment_type);
+            }
+        }
+
+        function selectWithdrawalMethod(methodId, methodType) {
+            // Remove selected class from all options
+            document.querySelectorAll('#withdrawMethodsList .method-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+
+            // Add selected class to clicked option
+            document.querySelector(`[data-method-id="${methodId}"]`).classList.add('selected');
+
+            selectedPaymentMethodId = methodId;
+            selectedWithdrawalMethod = methodType;
+
+            updateWithdrawButton();
+            calculateFees();
+        }
+
+        // Enhanced withdrawal functionality
         function updateWithdrawButton() {
             const amount = parseFloat(document.getElementById('withdrawAmount').value) || 0;
             const withdrawBtn = document.getElementById('withdrawButton');
 
-            console.log('Updating withdraw button...');
-            console.log('Amount:', amount);
-            console.log('Selected method:', selectedWithdrawalMethod);
-            console.log('Available balance:', financialData.available_balance);
-
             const isAmountValid = amount >= 500 && amount <= financialData.available_balance;
-            const isMethodSelected = selectedWithdrawalMethod !== null;
+            const isMethodSelected = selectedPaymentMethodId !== null;
             const shouldEnable = isAmountValid && isMethodSelected;
-
-            console.log('Amount valid:', isAmountValid);
-            console.log('Method selected:', isMethodSelected);
-            console.log('Should enable button:', shouldEnable);
 
             withdrawBtn.disabled = !shouldEnable;
 
-            // Update button text based on state
             if (!isMethodSelected) {
-                withdrawBtn.textContent = 'Select Method First';
+                withdrawBtn.textContent = '💳 Select Payment Method First';
             } else if (!isAmountValid) {
                 if (amount < 500) {
-                    withdrawBtn.textContent = 'Min J$500 Required';
+                    withdrawBtn.textContent = '💸 Min J$500 Required';
                 } else if (amount > financialData.available_balance) {
-                    withdrawBtn.textContent = 'Insufficient Balance';
+                    withdrawBtn.textContent = '⚠️ Insufficient Balance';
                 } else {
-                    withdrawBtn.textContent = 'Enter Amount';
+                    withdrawBtn.textContent = '💸 Enter Amount';
                 }
             } else {
-                withdrawBtn.textContent = 'Withdraw';
+                withdrawBtn.textContent = '💸 Withdraw Funds';
             }
         }
 
-        // FIXED: Accurate fee calculation
         function calculateFees() {
             const amount = parseFloat(document.getElementById('withdrawAmount').value) || 0;
             const feeCalc = document.getElementById('feeCalculation');
 
             if (amount >= 500 && selectedWithdrawalMethod) {
                 let fee = 0;
-                if (selectedWithdrawalMethod === 'instant') {
-                    fee = amount * 0.04; // 4% for instant
-                } else if (selectedWithdrawalMethod === 'paypal') {
-                    fee = amount * 0.02; // 2% for PayPal
+                if (selectedWithdrawalMethod === 'card') {
+                    fee = amount * 0.02; // 2% for cards
+                } else if (selectedWithdrawalMethod === 'mobile') {
+                    fee = amount * 0.01; // 1% for mobile money
                 }
-                // Standard is free (fee = 0)
+                // Bank transfers are free (fee = 0)
 
                 const netAmount = amount - fee;
 
@@ -1032,24 +1694,17 @@
                 document.getElementById('calcFee').textContent = fee.toFixed(2);
                 document.getElementById('calcNet').textContent = netAmount.toFixed(2);
 
-                feeCalc.classList.add('show');
+                feeCalc.style.display = 'block';
             } else {
-                feeCalc.classList.remove('show');
+                feeCalc.style.display = 'none';
             }
         }
 
-        // FIXED: Enhanced withdrawal processing with real financial updates
         async function processWithdrawal() {
             const amount = parseFloat(document.getElementById('withdrawAmount').value);
-            const feedback = document.getElementById('withdrawalFeedback');
 
-            console.log('Processing withdrawal...');
-            console.log('Amount:', amount);
-            console.log('Method:', selectedWithdrawalMethod);
-
-            // Validation checks
-            if (!selectedWithdrawalMethod) {
-                showFeedback('Please select a withdrawal method', 'error');
+            if (!selectedPaymentMethodId) {
+                showFeedback('Please select a payment method', 'error');
                 return;
             }
 
@@ -1063,12 +1718,10 @@
                 return;
             }
 
-            // Show processing message
             showFeedback('Processing withdrawal request...', 'success');
             document.getElementById('withdrawButton').disabled = true;
 
             try {
-                // FIXED: Proper API call with error handling
                 const response = await fetch('/seller_withdraw', {
                     method: 'POST',
                     headers: {
@@ -1077,7 +1730,7 @@
                     },
                     body: JSON.stringify({
                         amount: amount,
-                        method: selectedWithdrawalMethod
+                        payment_method_id: selectedPaymentMethodId
                     })
                 });
 
@@ -1086,35 +1739,22 @@
                 if (result.success) {
                     showFeedback(result.message, 'success');
 
-                    // FIXED: Update financial data immediately with accurate calculations
-                    const oldBalance = financialData.available_balance;
-                    financialData.available_balance = Math.max(0, oldBalance - amount);
+                    // Update financial data
+                    financialData.available_balance = Math.max(0, financialData.available_balance - amount);
                     financialData.pending_withdrawals += amount;
 
-                    console.log('Balance updated from', oldBalance, 'to', financialData.available_balance);
-
-                    // Update UI display
                     updateFinancialDisplay();
 
                     // Reset form
                     document.getElementById('withdrawAmount').value = '';
-                    document.getElementById('feeCalculation').classList.remove('show');
-                    document.querySelectorAll('.withdrawal-option').forEach(opt => opt.classList.remove('selected'));
-                    selectedWithdrawalMethod = null;
+                    document.getElementById('feeCalculation').style.display = 'none';
 
                     updateWithdrawButton();
 
-                    // Simulate withdrawal completion (in production this would be handled by payment processor)
+                    // Refresh page after 3 seconds to show updated withdrawal history
                     setTimeout(() => {
-                        financialData.pending_withdrawals = Math.max(0, financialData.pending_withdrawals - amount);
-                        updateFinancialDisplay();
-                        showFeedback(`Withdrawal of J${amount.toFixed(2)} completed successfully!`, 'success');
-
-                        // Refresh page to show updated withdrawal history
-                        setTimeout(() => {
-                            window.location.reload();
-                        }, 2000);
-                    }, 5000);
+                        window.location.reload();
+                    }, 3000);
 
                 } else {
                     showFeedback(result.message || 'Error processing withdrawal', 'error');
@@ -1123,7 +1763,6 @@
                 console.error('Withdrawal error:', error);
                 showFeedback('Error connecting to server. Please try again.', 'error');
             } finally {
-                // Re-enable button after processing
                 setTimeout(() => {
                     updateWithdrawButton();
                 }, 2000);
@@ -1131,7 +1770,21 @@
         }
 
         function showFeedback(message, type) {
-            const feedback = document.getElementById('withdrawalFeedback');
+            // Try to find feedback element in current tab
+            let feedback = document.querySelector('.tab-content.active .feedback-message');
+
+            // If not found, try the withdrawal feedback specifically
+            if (!feedback) {
+                feedback = document.getElementById('withdrawalFeedback');
+            }
+
+            // If still not found, create a temporary one
+            if (!feedback) {
+                feedback = document.createElement('div');
+                feedback.className = 'feedback-message';
+                document.querySelector('.tab-content.active').appendChild(feedback);
+            }
+
             feedback.textContent = message;
             feedback.className = `feedback-message ${type} show`;
 
@@ -1140,9 +1793,7 @@
             }, 5000);
         }
 
-        // FIXED: Accurate financial display updates
         function updateFinancialDisplay() {
-            // Format currency properly
             const formatCurrency = (amount) => {
                 return Number(amount).toLocaleString('en-US', {
                     minimumFractionDigits: 2,
@@ -1155,14 +1806,12 @@
             document.getElementById('pendingWithdrawals').textContent = `J${formatCurrency(financialData.pending_withdrawals)}`;
             document.getElementById('withdrawBalanceDisplay').textContent = formatCurrency(financialData.available_balance);
 
-            // Update withdrawal amount max attribute
             const withdrawAmountInput = document.getElementById('withdrawAmount');
             if (withdrawAmountInput) {
                 withdrawAmountInput.max = financialData.available_balance;
             }
         }
 
-        // FIXED: Enhanced data refresh with proper error handling
         async function refreshFinancialData() {
             try {
                 showFeedback('Refreshing financial data...', 'success');
@@ -1180,7 +1829,6 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    // Update financial data with proper validation
                     financialData.total_earnings = Number(data.financial_data.total_earnings) || 0;
                     financialData.available_balance = Number(data.financial_data.available_balance) || 0;
                     financialData.pending_withdrawals = Number(data.financial_data.pending_withdrawals) || 0;
@@ -1196,31 +1844,18 @@
             }
         }
 
-        // Auto-refresh financial data every 30 seconds with error handling
-        setInterval(async function() {
-            try {
-                const response = await fetch('/seller_financials');
-                if (response.ok) {
-                    const data = await response.json();
-                    if (data.success) {
-                        const oldBalance = financialData.available_balance;
-
-                        financialData.total_earnings = Number(data.financial_data.total_earnings) || 0;
-                        financialData.available_balance = Number(data.financial_data.available_balance) || 0;
-                        financialData.pending_withdrawals = Number(data.financial_data.pending_withdrawals) || 0;
-
-                        // Only update display if there's a significant change
-                        if (Math.abs(oldBalance - financialData.available_balance) > 0.01) {
-                            updateFinancialDisplay();
-                        }
-                    }
-                }
-            } catch (error) {
-                console.log('Auto-refresh failed:', error);
+        // Initialize withdrawal input handlers
+        function initializeWithdrawalInputs() {
+            const amountInput = document.getElementById('withdrawAmount');
+            if (amountInput) {
+                amountInput.addEventListener('input', function() {
+                    updateWithdrawButton();
+                    calculateFees();
+                });
             }
-        }, 30000);
+        }
 
-        // Video loop functionality
+        // Video functionality
         const video = document.getElementById("bgVideo");
         if (video) {
             video.addEventListener('timeupdate', () => {
@@ -1239,13 +1874,39 @@
             });
         });
 
-        // FIXED: Initialize on page load with proper error handling
+        // Auto-refresh financial data every 30 seconds
+        setInterval(async function() {
+            try {
+                const response = await fetch('/seller_financials');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        const oldBalance = financialData.available_balance;
+
+                        financialData.total_earnings = Number(data.financial_data.total_earnings) || 0;
+                        financialData.available_balance = Number(data.financial_data.available_balance) || 0;
+                        financialData.pending_withdrawals = Number(data.financial_data.pending_withdrawals) || 0;
+
+                        if (Math.abs(oldBalance - financialData.available_balance) > 0.01) {
+                            updateFinancialDisplay();
+                        }
+                    }
+                }
+            } catch (error) {
+                console.log('Auto-refresh failed:', error);
+            }
+        }, 30000);
+
+        // Initialize on page load
         window.addEventListener('DOMContentLoaded', () => {
             console.log('DOM loaded, initializing seller dashboard...');
 
             try {
-                // Initialize withdrawal system
-                initializeWithdrawalSystem();
+                // Initialize payment methods
+                initializePaymentMethods();
+
+                // Initialize withdrawal inputs
+                initializeWithdrawalInputs();
 
                 // Update financial display
                 updateFinancialDisplay();
@@ -1276,20 +1937,20 @@
             }
         });
 
-        // Add keyboard shortcuts for better UX
+        // Keyboard shortcuts
         document.addEventListener('keydown', function(e) {
-            // Alt + 1-4 for tab switching
             if (e.altKey) {
                 switch(e.key) {
                     case '1': showTab('overview'); break;
-                    case '2': showTab('withdraw'); break;
-                    case '3': showTab('transactions'); break;
-                    case '4': showTab('products'); break;
+                    case '2': showTab('payment-methods'); break;
+                    case '3': showTab('withdraw'); break;
+                    case '4': showTab('transactions'); break;
+                    case '5': showTab('products'); break;
                 }
             }
         });
 
-        // Add better error handling for network issues
+        // Network status handling
         window.addEventListener('online', function() {
             showFeedback('Connection restored', 'success');
             refreshFinancialData();
