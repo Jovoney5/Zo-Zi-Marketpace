@@ -50,7 +50,7 @@
             <button class="auth-buttons" onclick="window.location.href='{{ url_for('index') }}#buyer-signup'">Sign Up</button>
             <div class="profile" onclick="window.location.href='{{ url_for('profile') }}'" title="{% if user.profile_picture %}Change Profile Picture{% else %}Add Profile Picture{% endif %}">
                 {% if user.profile_picture %}
-                    <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile" onerror="this.src='{{ url_for('static', filename='images/placeholder.jpg') }}'">
+                    <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile" onerror="this.src='{{ url_for('static', filename='images/product-placeholder.svg') }}'">
                 {% else %}
                     <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%;">+</span>
                 {% endif %}
@@ -75,7 +75,7 @@
         {% endif %}
         <h1>Upload Profile Picture</h1>
         {% if user.profile_picture %}
-            <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile Picture" onerror="this.src='{{ url_for('static', filename='images/placeholder.jpg') }}'">
+            <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile Picture" onerror="this.src='{{ url_for('static', filename='images/product-placeholder.svg') }}'">
         {% else %}
             <p>No profile picture set.</p>
         {% endif %}

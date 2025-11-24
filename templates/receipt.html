@@ -508,10 +508,10 @@
                                 {% for item in order.get('items', []) %}
                                 <tr>
                                     <td>
-                                        <img src="{{ url_for('static', filename=item.get('image_url', 'placeholder.jpg')) }}"
+                                        <img src="{{ url_for('static', filename=item.get('image_url', 'product-placeholder.svg')) }}"
                                              alt="{{ item.get('product_name', 'Product') }}"
                                              class="item-image"
-                                             onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}';">
+                                             onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}';">
                                     </td>
                                     <td>
                                         <div class="item-name">{{ item.get('product_name') or item.get('product_key', 'Unknown Product') }}</div>

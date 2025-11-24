@@ -77,6 +77,27 @@
             font-size: 28px;
             font-weight: bold;
             margin-bottom: 5px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .verified-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 13px;
+            font-weight: 600;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+        }
+
+        .verified-badge svg {
+            width: 16px;
+            height: 16px;
         }
 
         .store-tagline {
@@ -961,8 +982,8 @@
     <header class="store-header">
         <nav class="store-nav">
             <div class="store-brand">
-                {% if seller.profile_picture %}
-                    <img src="{{ url_for('static', filename=seller.profile_picture) }}"
+                {% if seller.store_logo %}
+                    <img src="{{ url_for('static', filename=seller.store_logo) }}"
                          alt="{{ seller.business_name or seller.first_name }}"
                          class="store-logo"
                          onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
@@ -976,7 +997,17 @@
                 {% endif %}
 
                 <div class="store-info">
-                    <h1>{{ seller.business_name or (seller.first_name + "'s Store") }}</h1>
+                    <h1>
+                        <span>{{ seller.business_name or (seller.first_name + "'s Store") }}</span>
+                        {% if seller.is_verified %}
+                        <span class="verified-badge">
+                            <svg fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            </svg>
+                            Verified
+                        </span>
+                        {% endif %}
+                    </h1>
                     <div class="store-tagline">Premium Quality • Fast Shipping • Great Service</div>
                 </div>
             </div>
@@ -986,8 +1017,9 @@
         <span>📤</span> Share Store
     </button>
     {% if user and not user.is_seller %}
-    <button class="action-btn contact-btn" onclick="openChat()">
-        💬 Message Seller
+    <button class="action-btn contact-btn" onclick="openSellerChat()">
+        <span>💬</span> Message Seller
+        <span class="message-badge" id="buyerMessageBadge" style="background: red; color: white; border-radius: 50%; padding: 2px 6px; font-size: 10px; margin-left: 5px; display: none;">0</span>
     </button>
     {% endif %}
     {% if user and user.is_seller and user.email == seller.email %}
@@ -1116,7 +1148,7 @@
                              alt="{{ product.name }}"
                              class="product-image"
                              onclick="window.location.href='{{ url_for('product', product_key=product.product_key|replace(' ', '+')) }}'"
-                             onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                             onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
 
                         <div class="product-info">
                             <div class="product-name"
@@ -1180,87 +1212,25 @@
         </div>
     </div>
 
-    <!-- Chat Widget -->
-    {% if user and not user.is_seller %}
-    <div class="chat-widget">
-        <button class="chat-button" onclick="toggleChat()" id="chatButton">
-            💬
-            <div class="chat-notification" id="chatNotification">0</div>
-        </button>
-
-        <div class="chat-window" id="chatWindow">
-            <div class="chat-header">
-                {% if seller.profile_picture %}
-                    <img src="{{ url_for('static', filename=seller.profile_picture) }}"
-                         alt="{{ seller.first_name }}"
-                         class="seller-avatar"
-                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'">
-                    <div class="default-avatar" style="display: none;">
-                        {{ (seller.first_name or 'S')[0].upper() }}
-                    </div>
-                {% else %}
-                    <div class="default-avatar">
-                        {{ (seller.first_name or 'S')[0].upper() }}
-                    </div>
-                {% endif %}
-                <div class="chat-info">
-                    <h3>{{ seller.business_name or seller.first_name }}</h3>
-                    <p id="chatStatus">Usually responds quickly</p>
-                </div>
-                <button class="chat-close" onclick="closeChat()">×</button>
-            </div>
-            <div class="chat-messages" id="chatMessages">
-                <div class="chat-empty">Start a conversation with {{ seller.first_name }}!</div>
-            </div>
-            <div class="typing-indicator" id="typingIndicator">
-                {{ seller.first_name }} is typing...
-            </div>
-            <div class="chat-input-area">
-                <textarea id="chatInput" class="chat-input" placeholder="Type your message..." rows="2"></textarea>
-                <button class="chat-send-btn" id="chatSendBtn" onclick="sendChatMessage()">➤</button>
-            </div>
-        </div>
-    </div>
+    <!-- Include message widget -->
+    <style>
+        /* Hide the message icon only for buyers (they have the button), show it for sellers */
+        {% if user and not user.is_seller %}
+        .message-icon-wrapper {
+            display: none !important;
+        }
+        {% endif %}
+    </style>
+    {% if user %}
+    {% include 'message_widget.html' %}
     {% endif %}
 
     <script>
         // Store URL for sharing
         const storeUrl = window.location.href;
-        const storeName = "{{ seller.business_name or (seller.first_name + "'s Store") | safe }}";
-        const buyerEmail = '{{ user.email if user else "anonymous" | safe }}';
-        const sellerEmail = '{{ seller.email | safe }}';
-
-        // Chat functionality
-        let chatOpen = false;
-        let socket;
-
-        // Initialize Socket.IO connection
-        function initializeSocket() {
-            socket = io();
-            socket.on('connect', () => {
-                console.log('Connected to Socket.IO');
-                if (buyerEmail !== 'anonymous') {
-                    socket.emit('join_conversation', {
-                        buyer_email: buyerEmail,
-                        seller_email: sellerEmail
-                    });
-                }
-            });
-
-            socket.on('receive_message', (data) => {
-                displayChatMessage(data.message, data.sender_email === buyerEmail, data.sender_name, data.sender_email, data.timestamp);
-                if (!chatOpen) {
-                    showChatNotification();
-                }
-                scrollChatToBottom();
-            });
-
-            socket.on('user_typing', (data) => {
-                if (data.sender_email !== buyerEmail) {
-                    showTypingIndicator(data.is_typing);
-                }
-            });
-        }
+        const storeName = {{ (seller.business_name or (seller.first_name + "'s Store")) | tojson }};
+        const buyerEmail = {{ (user.email if user else "anonymous") | tojson }};
+        const sellerEmail = {{ seller.email | tojson }};
 
         // Initialize share modal
         function initializeShareModal() {
@@ -1303,11 +1273,16 @@ function editDescription() {
     const editHTML = `
         <textarea id="editDescriptionText" style="width: 100%; min-height: 150px; padding: 10px; border: 2px solid #667eea; border-radius: 8px; font-size: 16px; font-family: inherit; resize: vertical;">${currentText}</textarea>
         <div style="margin-top: 10px;">
-            <button onclick="saveDescription()" style="background: #2ecc71; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-right: 10px;">Save</button>
-            <button onclick="cancelEdit()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">Cancel</button>
+            <button onclick="saveDescription()" style="background: #2ecc71; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; margin-right: 10px;">💾 Save</button>
+            <button onclick="cancelEdit()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;">✖ Cancel</button>
         </div>
     `;
-    descriptionElement.parentElement.innerHTML = editHTML;
+    // Replace the parent div (position: relative) with the edit form
+    const parentDiv = descriptionElement.parentElement;
+    parentDiv.innerHTML = editHTML;
+
+    // Focus on textarea
+    document.getElementById('editDescriptionText').focus();
 }
 
 async function saveDescription() {
@@ -1356,166 +1331,78 @@ async function saveDescription() {
 }
 
 function restoreDescriptionInterface(updatedDescription) {
-    const isOwner = '{{ user.email if user else "" | safe }}' === sellerEmail && '{{ user.is_seller if user else false | safe }}' === 'True';
-    const container = document.querySelector('.hero-main');
+    const isOwner = {{ (user.email if user else "") | tojson }} === sellerEmail && {{ (user.is_seller if user else false) | tojson }} === true;
+
+    // Find the description's parent element and update only the description part
+    const descContainer = document.querySelector('#storeDescription')?.parentElement ||
+                          document.querySelector('.hero-description')?.parentElement;
+
+    if (!descContainer) {
+        console.error('Could not find description container');
+        location.reload(); // Fallback: reload page to show updated description
+        return;
+    }
 
     if (isOwner) {
-        container.innerHTML = `
-            <h2>Welcome to {{ seller.business_name or (seller.first_name + "'s Store") }}</h2>
-            <div style="position: relative;">
-                <button onclick="editDescription()" style="position: absolute; right: 0; top: 0; background: #667eea; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 14px;">
-                    ✏️ Edit Description
-                </button>
-                <p class="hero-description" id="storeDescription" style="padding-right: 150px;">
-                    ${updatedDescription}
-                </p>
-            </div>
-            <div class="store-stats">
-                <div class="stat-card">
-                    <div class="stat-number">{{ seller.product_count or 0 }}</div>
-                    <div class="stat-label">Products</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">{{ seller.total_sales or 0 }}</div>
-                    <div class="stat-label">Sales</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">{{ seller.rating_count or 0 }}</div>
-                    <div class="stat-label">Reviews</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">{{ "%.1f"|format(seller.avg_rating or 0) }}</div>
-                    <div class="stat-label">Rating</div>
-                </div>
-            </div>
+        descContainer.innerHTML = `
+            <button onclick="editDescription()" style="position: absolute; right: 0; top: 0; background: #667eea; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; font-size: 14px;">
+                ✏️ Edit Description
+            </button>
+            <p class="hero-description" id="storeDescription" style="padding-right: 150px;">
+                ${updatedDescription}
+            </p>
         `;
     } else {
-        container.innerHTML = `
-            <h2>Welcome to {{ seller.business_name or (seller.first_name + "'s Store") }}</h2>
+        descContainer.innerHTML = `
             <p class="hero-description" id="storeDescription">
                 ${updatedDescription}
             </p>
-            <div class="store-stats">
-                <div class="stat-card">
-                    <div class="stat-number">{{ seller.product_count or 0 }}</div>
-                    <div class="stat-label">Products</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">{{ seller.total_sales or 0 }}</div>
-                    <div class="stat-label">Sales</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">{{ seller.rating_count or 0 }}</div>
-                    <div class="stat-label">Reviews</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number">{{ "%.1f"|format(seller.avg_rating or 0) }}</div>
-                    <div class="stat-label">Rating</div>
-                </div>
-            </div>
         `;
     }
 }
 
 function cancelEdit() {
-    const originalDescription = '{{ seller.business_description or "Discover amazing products carefully curated just for you. We\'re committed to providing the highest quality items with exceptional customer service. Browse our collection and find exactly what you\'re looking for!" | safe }}';
+    const originalDescription = {{ (seller.business_description or "Discover amazing products carefully curated just for you. We're committed to providing the highest quality items with exceptional customer service. Browse our collection and find exactly what you're looking for!") | tojson }};
     restoreDescriptionInterface(originalDescription);
 }
 
-// Chat functions
-function toggleChat() {
-    if (buyerEmail === 'anonymous') {
-        showToast('⚠️ Login Required', 'Please login to message the seller', 'error');
-        setTimeout(() => window.location.href = '/login?next=' + encodeURIComponent(window.location.href), 2000);
-        return;
-    }
-    const chatWindow = document.getElementById('chatWindow');
-    const chatButton = document.getElementById('chatButton');
-    chatOpen = !chatOpen;
-    if (chatOpen) {
-        chatWindow.classList.add('show');
-        chatButton.innerHTML = '✕';
-        document.getElementById('chatInput').focus();
-        loadChatMessages();
-        hideNotification();
-    } else {
-        chatWindow.classList.remove('show');
-        chatButton.innerHTML = '💬';
-    }
-}
-
-        function closeChat() {
-            chatOpen = false;
-            document.getElementById('chatWindow').classList.remove('show');
-            document.getElementById('chatButton').innerHTML = '💬';
-        }
-
-        async function sendChatMessage() {
-            const input = document.getElementById('chatInput');
-            const sendButton = document.getElementById('chatSendBtn');
-            const message = input.value.trim();
-            if (!message) return;
-            sendButton.disabled = true;
-            displayChatMessage(message, true, 'You', buyerEmail, new Date().toLocaleString());
-            input.value = '';
-            scrollChatToBottom();
-            try {
-                const response = await fetch('/send_message', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken()
-                    },
-                    body: JSON.stringify({
-                        receiver_email: sellerEmail,
-                        message: message
-                    })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    socket.emit('send_message', {
-                        conversation_id: data.conversation_id,
-                        sender_email: buyerEmail,
-                        sender_name: '{{ user.first_name or "Buyer" | safe }}',
-                        receiver_email: sellerEmail,
-                        message: message,
-                        timestamp: new Date().toLocaleString()
-                    });
-                } else {
-                    showToast('Error', data.message || 'Failed to send message', 'error');
-                }
-            } catch (error) {
-                console.error('Send message error:', error);
-                showToast('Error', 'Network error while sending message', 'error');
-            } finally {
-                sendButton.disabled = false;
-            }
-        }
-
-        function displayChatMessage(text, isSent, senderName, senderEmail, timestamp) {
-            const messagesContainer = document.getElementById('chatMessages');
-            const emptyState = messagesContainer.querySelector('.chat-empty');
-            if (emptyState) emptyState.remove();
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `chat-message ${isSent ? 'sent' : 'received'}`;
-            messageDiv.innerHTML = `
-                <div class="message-sender">${senderName} (${senderEmail})</div>
-                <div class="message-bubble">${text}</div>
-                <div class="message-time">${timestamp}</div>
-            `;
-            messagesContainer.appendChild(messageDiv);
-            scrollChatToBottom();
-        }
-
-        // Seller messaging functions
+// Seller messaging functions
 function openSellerMessages() {
     window.location.href = '/seller/messages';
+}
+
+// Open chat with seller from store page
+function openSellerChat() {
+    console.log('openSellerChat called');
+
+    const sellerEmail = {{ seller.email | tojson }};
+    const sellerName = {{ (seller.business_name or seller.first_name) | tojson }};
+
+    console.log('Seller info:', sellerEmail, sellerName);
+
+    // Check if user is logged in
+    const buyerEmail = {{ (user.email if user else "anonymous") | tojson }};
+    if (buyerEmail === 'anonymous') {
+        alert('Please login to message the seller');
+        window.location.href = {{ url_for("login") | tojson }};
+        return;
+    }
+
+    // Use the global startChatWith function from message_widget
+    if (window.startChatWith && typeof window.startChatWith === 'function') {
+        console.log('Calling startChatWith...');
+        window.startChatWith(sellerEmail, sellerName);
+    } else {
+        console.error('startChatWith function not available');
+        console.log('window.startChatWith:', window.startChatWith);
+        alert('Messaging system not loaded. Please refresh the page and try again.');
+    }
 }
 
 // Check for new messages for sellers
 async function checkSellerMessages() {
     // Only check if the current user owns this store
-    if ('{{ user.email if user else "" | safe }}' === sellerEmail && '{{ user.is_seller if user else false | safe }}' === 'True') {
+    if ({{ (user.email if user else "") | tojson }} === sellerEmail && {{ (user.is_seller if user else false) | tojson }} === true) {
         try {
             const response = await fetch('/api/unread_messages_count');
             const data = await response.json();
@@ -1534,49 +1421,7 @@ async function checkSellerMessages() {
     }
 }
 
-        async function loadChatMessages() {
-            try {
-                const response = await fetch(`/get_messages/${sellerEmail}`);
-                const data = await response.json();
-                if (data.success && data.messages && data.messages.length > 0) {
-                    const messagesContainer = document.getElementById('chatMessages');
-                    messagesContainer.innerHTML = '';
-                    data.messages.forEach(msg => {
-                        const senderName = msg.sender_email === buyerEmail ? 'You' : '{{ seller.first_name | safe }}';
-                        displayChatMessage(msg.message, msg.sender_email === buyerEmail, senderName, msg.sender_email, msg.timestamp);
-                    });
-                    scrollChatToBottom();
-                }
-            } catch (error) {
-                console.error('Error loading messages:', error);
-                showToast('Error', 'Failed to load chat history', 'error');
-            }
-        }
-
-        function showTypingIndicator(isTyping) {
-            document.getElementById('typingIndicator').style.display = isTyping ? 'block' : 'none';
-            scrollChatToBottom();
-        }
-
-        function scrollChatToBottom() {
-            const messagesContainer = document.getElementById('chatMessages');
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        }
-
-        function showChatNotification() {
-            const notification = document.getElementById('chatNotification');
-            let count = parseInt(notification.textContent) || 0;
-            notification.textContent = count + 1;
-            notification.style.display = 'flex';
-        }
-
-        function hideNotification() {
-            const notification = document.getElementById('chatNotification');
-            notification.textContent = '0';
-            notification.style.display = 'none';
-        }
-
-        function showToast(title, message, type = 'success') {
+function showToast(title, message, type = 'success') {
             const existingToast = document.querySelector('.toast');
             if (existingToast) existingToast.remove();
             const toast = document.createElement('div');
@@ -1657,29 +1502,12 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeSocket();
 
     // Check for seller messages only if current user owns this store
-    if ('{{ user.email if user else "" | safe }}' === sellerEmail && '{{ user.is_seller if user else false | safe }}' === 'True') {
+    const currentUserEmail = {{ (user.email if user else "") | tojson }};
+    const isCurrentUserSeller = {{ (user.is_seller if user else false) | tojson }} === true;
+
+    if (currentUserEmail === sellerEmail && isCurrentUserSeller) {
         checkSellerMessages();
         setInterval(checkSellerMessages, 30000); // Check every 30 seconds
-    }
-
-    const chatInput = document.getElementById('chatInput');
-    if (chatInput) {
-        let typingTimer;
-        chatInput.addEventListener('input', () => {
-            if (socket && buyerEmail !== 'anonymous') {
-                socket.emit('typing', { is_typing: true, sender_email: buyerEmail, receiver_email: sellerEmail });
-                clearTimeout(typingTimer);
-                typingTimer = setTimeout(() => {
-                    socket.emit('typing', { is_typing: false, sender_email: buyerEmail, receiver_email: sellerEmail });
-                }, 1000);
-            }
-        });
-        chatInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                sendChatMessage();
-            }
-        });
     }
 
     document.body.style.opacity = '0';
@@ -1690,11 +1518,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 document.addEventListener('click', (e) => {
-    const chatWidget = document.querySelector('.chat-widget');
     const shareModal = document.getElementById('shareModal');
-    if (chatOpen && !chatWidget.contains(e.target) && !e.target.closest('.contact-btn')) {
-        closeChat();
-    }
     if (e.target === shareModal) {
         closeShareModal();
     }
@@ -1703,12 +1527,7 @@ document.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
         closeShareModal();
-        if (chatOpen) closeChat();
     }
-});
-
-document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && chatOpen) hideNotification();
 });
     </script>
 </body>

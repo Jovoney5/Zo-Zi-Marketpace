@@ -10,7 +10,7 @@ import logging  # Added logging import to fix NameError
 import traceback
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
-from flask import Flask, render_template, request, session, redirect, url_for, jsonify
+from flask import Flask, render_template, request, session, redirect, url_for, jsonify, send_from_directory
 from werkzeug.utils import secure_filename
 from urllib.parse import unquote
 # Simple admin protection decorator (use this for admin routes)
@@ -20,14 +20,36 @@ from flask_socketio import SocketIO, emit, join_room, leave_room
 import psycopg2
 import psycopg2.extras
 
+# PRODUCTION SECURITY FIX #1: Load environment variables securely
+from dotenv import load_dotenv
+load_dotenv()
+
+# PRODUCTION SECURITY FIX #3: Rate Limiting
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
+
+# PAYMENT SYSTEM: Import payment calculation helpers
+from payment_calculations import calculate_order_totals, calculate_seller_payouts
+
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'yaad2025')
-app.config['SESSION_COOKIE_SECURE'] = True
+
+# PRODUCTION SECURITY FIX #1: Strong Secret Key (NO DEFAULT FALLBACK)
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    raise RuntimeError("🚨 CRITICAL: SECRET_KEY not set in environment! Check your .env file")
+app.secret_key = SECRET_KEY
+# Only use secure cookies in production (HTTPS)
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('FLASK_ENV') == 'production'
 app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['WTF_CSRF_TIME_LIMIT'] = None  # Disable CSRF token expiration
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600
 UPLOAD_FOLDER = 'static/uploads'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp'}
+ALLOWED_VIDEO_EXTENSIONS = {'mp4', 'webm', 'mov'}
+
+# WhatsApp Business Configuration
+app.config['WHATSAPP_BUSINESS_NUMBER'] = os.getenv('WHATSAPP_BUSINESS_NUMBER', '18767962601')
 
 csrf = CSRFProtect(app)
 
@@ -73,6 +95,36 @@ PARISH_POST_OFFICES = {
 }
 
 csrf = CSRFProtect(app)  # Initialize CSRF protection
+
+# PRODUCTION SECURITY FIX #3: Initialize Rate Limiter (protects against spam/attacks)
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["2000 per day", "500 per hour"],  # General limits for all routes (higher for development/testing)
+    storage_uri="memory://",  # In-memory storage (good enough for single server)
+    strategy="fixed-window"
+)
+print("✅ Rate limiting enabled - protecting against spam and attacks")
+
+# PRODUCTION SECURITY FIX #2: Force PostgreSQL, block SQLite in production
+DATABASE_TYPE = os.getenv('DATABASE_TYPE', 'sqlite')
+print(f"🔧 Database Type: {DATABASE_TYPE}")
+
+if DATABASE_TYPE == 'postgresql':
+    # Use PostgreSQL database
+    from database_postgres import (
+        get_db,
+        track_product_view,
+        get_last_viewed_product,
+        get_personalized_products
+    )
+    print("✅ Using PostgreSQL database (PRODUCTION READY)")
+else:
+    # Use SQLite for development ONLY
+    if os.getenv('FLASK_ENV') == 'production':
+        raise RuntimeError("🚨 CRITICAL: Cannot use SQLite in production! Set DATABASE_TYPE=postgresql")
+    print("⚠️  Using SQLite database (DEVELOPMENT ONLY)")
+
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
@@ -80,6 +132,38 @@ logger = logging.getLogger(__name__)
 @app.context_processor
 def inject_csrf_token():
     return dict(csrf_token=generate_csrf)
+
+# Database connection helper
+from contextlib import contextmanager
+
+# Detect database type
+DATABASE_TYPE = os.getenv('DATABASE_TYPE', 'postgresql' if os.getenv('DATABASE_URL') else 'sqlite')
+
+@contextmanager
+def get_db():
+    """Database connection context manager - works with both PostgreSQL and SQLite"""
+    conn = None
+    try:
+        if DATABASE_TYPE == 'postgresql':
+            # PostgreSQL connection
+            conn = psycopg2.connect(os.getenv('DATABASE_URL'))
+            yield conn
+            conn.commit()
+        else:
+            # SQLite connection
+            import sqlite3
+            conn = sqlite3.connect('zo-zi.db')
+            conn.row_factory = sqlite3.Row
+            yield conn
+            conn.commit()
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        logging.error(f"Database error: {e}")
+        raise
+    finally:
+        if conn:
+            conn.close()
 
 def init_db():
     conn = sqlite3.connect('zo-zi.db')
@@ -336,7 +420,8 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             seller_email TEXT,
             buyer_email TEXT,
-            rating INTEGER,
+            rating INTEGER CHECK(rating >= 1 AND rating <= 5),
+            review_text TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (seller_email) REFERENCES users(email),
             FOREIGN KEY (buyer_email) REFERENCES users(email)
@@ -351,6 +436,24 @@ def init_db():
             PRIMARY KEY (user_email, product_key),
             FOREIGN KEY (user_email) REFERENCES users(email),
             FOREIGN KEY (product_key) REFERENCES products(product_key)
+        )
+    ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS product_reviews (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_key TEXT NOT NULL,
+            buyer_email TEXT NOT NULL,
+            seller_email TEXT NOT NULL,
+            rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+            review_text TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            is_verified_purchase BOOLEAN DEFAULT FALSE,
+            FOREIGN KEY (product_key) REFERENCES products(product_key),
+            FOREIGN KEY (buyer_email) REFERENCES users(email),
+            FOREIGN KEY (seller_email) REFERENCES users(email),
+            UNIQUE(product_key, buyer_email)
         )
     ''')
 
@@ -458,9 +561,9 @@ def init_db():
         )
     ''')
 
-    # Create seller_verifications table (only once)
+    # Create seller_verification table (only once)
     cursor.execute('''
-        CREATE TABLE IF NOT EXISTS seller_verifications (
+        CREATE TABLE IF NOT EXISTS seller_verification (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             seller_email TEXT NOT NULL UNIQUE,
             verification_status TEXT DEFAULT 'pending_documents',
@@ -478,19 +581,41 @@ def init_db():
         )
     ''')
 
+    # Create seller_notifications table for sale notifications
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS seller_notifications (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            seller_email TEXT NOT NULL,
+            notification_type TEXT NOT NULL,
+            product_key TEXT,
+            product_name TEXT,
+            buyer_email TEXT,
+            quantity INTEGER,
+            price REAL,
+            sale_date DATETIME,
+            order_id TEXT,
+            is_read BOOLEAN DEFAULT FALSE,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (seller_email) REFERENCES users(email),
+            FOREIGN KEY (product_key) REFERENCES products(product_key),
+            FOREIGN KEY (buyer_email) REFERENCES users(email)
+        )
+    ''')
+
     # Insert default super admin - FIXED VERSION
     cursor.execute('''
            INSERT OR IGNORE INTO admin_users (email, password, admin_level, permissions, is_active, created_at)
-           VALUES (?, ?, ?, ?, ?, ?)
-       ''', ('admin@zozi.com', generate_password_hash('SuperAdmin2024!'), 'super_admin',
+           VALUES (%s, %s, %s, %s, %s,%s)
+       ''', ('admin@zozi.com', generate_password_hash('adminpassword'), 'super_admin',
+
              '{"users":true,"products":true,"orders":true,"analytics":true,"financials":true,"admin_management":true}',
              1, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
 
-    # Insert default support agent
+    # Insert default support agent with hashed password
     cursor.execute('''
            INSERT OR IGNORE INTO users (email, password, is_support, first_name, last_name, is_seller)
-           VALUES (?, ?, ?, ?, ?, ?)
-       ''', ('support@yaad.com', 'supportpassword', True, 'Support', 'Agent', False))
+           VALUES (%s, %s, %s, %s, %s,%s)
+       ''', ('support@yaad.com', generate_password_hash('supportpassword'), True, 'Support', 'Agent', False))
 
     conn.commit()
     conn.close()
@@ -500,7 +625,7 @@ def migrate_payment_tables():
     """Create payment-related tables if they don't exist"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Check if seller_payment_methods table exists
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='seller_payment_methods'")
@@ -587,10 +712,10 @@ def log_admin_activity(admin_email, action_type, target_type=None, target_id=Non
     """Log admin activities"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
             cursor.execute('''
                    INSERT INTO admin_activity_log (admin_email, action_type, target_type, target_id, description, ip_address)
-                   VALUES (?, ?, ?, ?, ?, ?)
+                   VALUES (%s, %s, %s, %s, %s,%s)
                ''', (admin_email, action_type, target_type, target_id, description, request.remote_addr))
             conn.commit()
     except Exception as e:
@@ -604,10 +729,8 @@ def reset_db():
     init_db()
 
 
-def get_db():
-    conn = sqlite3.connect('zo-zi.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+# REMOVED: Old SQLite get_db() - now using PostgreSQL from database_postgres.py
+# This function is imported at the top based on DATABASE_TYPE environment variable
 
 INITIAL_PRODUCTS = {
     'Men Plaid Pants - 2400 JMD': {'name': 'Men Plaid Pants', 'price': 2400, 'description': 'Men Stylish Pants',
@@ -784,13 +907,13 @@ def migrate_products():
     with get_db() as conn:
         cursor = conn.cursor()
         for product_key, product in INITIAL_PRODUCTS.items():
-            cursor.execute('SELECT product_key FROM products WHERE product_key = ?', (product_key,))
+            cursor.execute('SELECT product_key FROM products WHERE product_key = %s', (product_key,))
             if cursor.fetchone():
                 continue
             cursor.execute('''
                 INSERT INTO products (product_key, name, price, description, image_url, image_urls, shipping, brand, category,
                                     original_cost, roi, sizes, seller_email, sold, clicks, likes, posted_date, amount)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
                 product_key,
                 product['name'],
@@ -812,13 +935,13 @@ def migrate_products():
                 product['amount']
             ))
         for product_key, product in FREE_PRODUCTS.items():
-            cursor.execute('SELECT product_key FROM products WHERE product_key = ?', (product_key,))
+            cursor.execute('SELECT product_key FROM products WHERE product_key = %s', (product_key,))
             if cursor.fetchone():
                 continue
             cursor.execute('''
                 INSERT INTO products (product_key, name, price, description, image_url, image_urls, shipping, brand, category,
                                     original_cost, roi, sizes, seller_email, sold, clicks, likes, posted_date, amount)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             ''', (
                 product_key,
                 product['name'],
@@ -843,20 +966,49 @@ def migrate_products():
         logger.info(f"Migrated {len(INITIAL_PRODUCTS)} initial products and {len(FREE_PRODUCTS)} free products")
 
 
+def ensure_demo_seller():
+    """Create demo seller accounts for initial products"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Create seller@example.com
+            cursor.execute('SELECT email FROM users WHERE email = %s', ('seller@example.com',))
+            if not cursor.fetchone():
+                cursor.execute('''
+                    INSERT INTO users (email, password, first_name, last_name, is_seller, phone_number)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                ''', ('seller@example.com', generate_password_hash('demo123'), 'Demo', 'Seller', True, '876-555-0100'))
+                logger.info("✅ Created seller@example.com")
+
+            # Create seller2@example.com
+            cursor.execute('SELECT email FROM users WHERE email = %s', ('seller2@example.com',))
+            if not cursor.fetchone():
+                cursor.execute('''
+                    INSERT INTO users (email, password, first_name, last_name, is_seller, phone_number)
+                    VALUES (%s, %s, %s, %s, %s, %s)
+                ''', ('seller2@example.com', generate_password_hash('demo123'), 'Demo', 'Seller 2', True, '876-555-0101'))
+                logger.info("✅ Created seller2@example.com")
+
+            conn.commit()
+            logger.info("✅ All demo seller accounts ready")
+    except Exception as e:
+        logger.error(f"Error creating demo sellers: {e}")
+
 def ensure_support_user():  # ✅ Now it's OUTSIDE migrate_products
     """Ensure the support user exists in the database"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Check if support user exists
-            cursor.execute('SELECT email FROM users WHERE email = ?', ('support@yaad.com',))
+            cursor.execute('SELECT email FROM users WHERE email = %s', ('support@yaad.com',))
             if not cursor.fetchone():
                 # Create the support user
                 cursor.execute('''
                     INSERT INTO users (email, password, is_support, first_name, last_name, is_seller,
                                      phone_number, address, parish, post_office, discount_applied, discount_used)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ''', ('support@yaad.com', 'supportpassword', True, 'Support', 'Agent', False,
                       '876-555-0000', 'Kingston Office', 'Kingston', 'Half Way Tree Post Office', False, False))
                 conn.commit()
@@ -868,13 +1020,29 @@ def ensure_support_user():  # ✅ Now it's OUTSIDE migrate_products
         logger.error(f"Error ensuring support user: {e}")
 
 
-def get_db():
-    conn = sqlite3.connect('zo-zi.db')
-    conn.row_factory = sqlite3.Row
-    return conn
+# REMOVED: Duplicate SQLite get_db() - using PostgreSQL version from import above
+
+def is_user_flagged(user_email):
+    """Check if a user has active flags"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+            cursor.execute('''
+                SELECT COUNT(*) as flag_count FROM user_flags
+                WHERE user_email = %s AND is_active = true
+                AND (expires_at IS NULL OR expires_at > NOW())
+            ''', (user_email,))
+            result = cursor.fetchone()
+            return result['flag_count'] > 0
+    except Exception as e:
+        logger.error(f"Error checking if user flagged: {e}")
+        return False
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def allowed_video(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_VIDEO_EXTENSIONS
 
 def get_cart_items():
     try:
@@ -891,12 +1059,12 @@ def get_cart_items():
         items = []
         raw_total = 0.0
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
             for product_key, details in cart.items():
                 base_product_key = re.sub(r'\s*\([^)]+\)$', '', product_key).strip()
                 cursor.execute('''
-                    SELECT name, price, image_url, amount
-                    FROM products WHERE product_key = ?
+                    SELECT name, price, image_url, amount, shipping_method, seller_email
+                    FROM products WHERE product_key = %s
                 ''', (base_product_key,))
                 product = cursor.fetchone()
                 if product:
@@ -906,7 +1074,10 @@ def get_cart_items():
                         'name': product['name'],
                         'price': product['price'],
                         'quantity': quantity,
-                        'image_url': product['image_url']
+                        'stock': product['amount'],
+                        'image_url': product['image_url'],
+                        'shipping_method': product.get('shipping_method', 'jamaica_post'),
+                        'seller_email': product.get('seller_email')
                     })
                     raw_total += product['price'] * quantity
 
@@ -914,12 +1085,12 @@ def get_cart_items():
         if 'user' in session:
             email = session['user'].get('email')
             with get_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute('SELECT discount_applied, discount_used FROM users WHERE email = ?', (email,))
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+                cursor.execute('SELECT discount_applied, discount_used FROM users WHERE email = %s', (email,))
                 user = cursor.fetchone()
                 if user and not user['discount_used'] and items and not user['discount_applied']:
                     discount = min(500, raw_total)
-                    cursor.execute('UPDATE users SET discount_applied = ? WHERE email = ?', (True, email))
+                    cursor.execute('UPDATE users SET discount_applied = %s WHERE email = %s', (True, email))
                     conn.commit()
                     session['user']['discount_applied'] = True
                 elif user and user['discount_applied'] and not user['discount_used']:
@@ -958,17 +1129,17 @@ def save_cart_to_db(user_email, cart_data):
     """Save user's cart to database before logout"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Clear existing cart data for this user
-            cursor.execute('DELETE FROM cart_log WHERE user_email = ?', (user_email,))
+            cursor.execute('DELETE FROM cart_log WHERE user_email = %s', (user_email,))
 
             # Save current cart items
             for product_key, details in cart_data.items():
                 base_product_key = re.sub(r'\s*\([^)]+\)$', '', product_key).strip()
                 cursor.execute('''
                     INSERT INTO cart_log (user_email, product_key, quantity, cart_date)
-                    VALUES (?, ?, ?, ?)
+                    VALUES (%s, %s, %s,%s)
                 ''', (user_email, base_product_key, details['quantity'], datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
 
             conn.commit()
@@ -982,11 +1153,11 @@ def add_purchase_count_column():
     with get_db() as conn:
         cursor = conn.cursor()
         try:
-            cursor.execute('ALTER TABLE users ADD COLUMN purchase_count INTEGER DEFAULT 0')
+            cursor.execute('ALTER TABLE users ADD COLUMN IF NOT EXISTS purchase_count INTEGER DEFAULT 0')
             conn.commit()
             logger.info("✅ Added purchase_count column to users table")
-        except sqlite3.OperationalError as e:
-            if "duplicate column name" in str(e):
+        except Exception as e:
+            if "already exists" in str(e) or "duplicate column" in str(e).lower():
                 logger.info("✅ purchase_count column already exists")
             else:
                 logger.error(f"❌ Error adding column: {e}")
@@ -997,7 +1168,7 @@ def add_purchase_count_column():
 def update_purchase_counts_from_orders():
     """Update purchase counts based on existing orders"""
     with get_db() as conn:
-        cursor = conn.cursor()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
         # Get all users who have placed orders
         cursor.execute('''
@@ -1014,16 +1185,16 @@ def update_purchase_counts_from_orders():
             # Update user's purchase count
             cursor.execute('''
                 UPDATE users 
-                SET purchase_count = ? 
-                WHERE email = ?
+                SET purchase_count = %s 
+                WHERE email = %s
             ''', (order_count, user_email))
 
             # If they have 5+ orders, mark them as eligible for free gift
             if order_count >= 5 and order_count % 5 == 0:
                 cursor.execute('''
                     UPDATE users 
-                    SET discount_applied = 1, discount_used = 0 
-                    WHERE email = ?
+                    SET discount_applied = true, discount_used = 0 
+                    WHERE email = %s
                 ''', (user_email,))
 
         conn.commit()
@@ -1033,14 +1204,14 @@ def restore_cart_from_db(user_email):
     """Restore user's cart from database after login"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Get saved cart items
             cursor.execute('''
                 SELECT cl.product_key, cl.quantity, p.name, p.price, p.image_url
                 FROM cart_log cl
                 JOIN products p ON cl.product_key = p.product_key
-                WHERE cl.user_email = ?
+                WHERE cl.user_email = %s
                 ORDER BY cl.cart_date DESC
             ''', (user_email,))
 
@@ -1069,11 +1240,11 @@ def send_notification(identifier, message, method):
     with get_db() as conn:
         cursor = conn.cursor()
         if method == 'email':
-            cursor.execute('SELECT email FROM users WHERE email = ?', (identifier,))
+            cursor.execute('SELECT email FROM users WHERE email = %s', (identifier,))
         elif method == 'phone':
-            cursor.execute('SELECT phone_number FROM users WHERE phone_number = ?', (identifier,))
+            cursor.execute('SELECT phone_number FROM users WHERE phone_number = %s', (identifier,))
         elif method == 'whatsapp':
-            cursor.execute('SELECT whatsapp_number FROM users WHERE whatsapp_number = ?', (identifier,))
+            cursor.execute('SELECT whatsapp_number FROM users WHERE whatsapp_number = %s', (identifier,))
         user = cursor.fetchone()
         if user:
             logger.info(f"Sending {method} notification to {identifier}: {message}")
@@ -1151,6 +1322,21 @@ def internal_error(e):
     return render_template('404.html', error="Internal server error"), 500
 
 
+@app.route('/uploads/<path:filename>')
+def serve_uploaded_file(filename):
+    """Serve uploaded files (verification documents, etc.)"""
+    # Only allow admin and support agents to access verification documents
+    if '/verifications/' in filename:
+        is_admin = 'admin' in session or 'admin_user' in session
+        is_support = 'user' in session and session['user'].get('is_support')
+
+        if not (is_admin or is_support):
+            return "Unauthorized", 403
+
+    # Serve from static/uploads directory
+    return send_from_directory(os.path.join(app.root_path, 'static', 'uploads'), filename)
+
+
 @app.route('/free')
 def free():
     if 'user' not in session:
@@ -1161,13 +1347,13 @@ def free():
     user_email = session['user']['email']
 
     with get_db() as conn:
-        cursor = conn.cursor()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
         # Calculate purchase count from actual orders
         cursor.execute('''
             SELECT COUNT(*) as order_count 
             FROM orders 
-            WHERE user_email = ? AND status NOT IN ('cancelled', 'refunded')
+            WHERE user_email = %s AND status NOT IN ('cancelled', 'refunded')
         ''', (user_email,))
 
         order_result = cursor.fetchone()
@@ -1175,13 +1361,13 @@ def free():
 
         # Update user's purchase count in database
         cursor.execute('''
-            UPDATE users SET purchase_count = ? WHERE email = ?
+            UPDATE users SET purchase_count = %s WHERE email = %s
         ''', (purchase_count, user_email))
 
         # Get user's gift eligibility
         cursor.execute('''
             SELECT discount_applied, discount_used 
-            FROM users WHERE email = ?
+            FROM users WHERE email = %s
         ''', (user_email,))
         user_data = cursor.fetchone()
 
@@ -1213,8 +1399,8 @@ def free():
                 # They earned a gift but it's not marked - fix this
                 cursor.execute('''
                     UPDATE users 
-                    SET discount_applied = 1, discount_used = 0 
-                    WHERE email = ?
+                    SET discount_applied = true, discount_used = 0 
+                    WHERE email = %s
                 ''', (user_email,))
                 session['user']['discount_applied'] = True
                 session['user']['discount_used'] = False
@@ -1225,8 +1411,8 @@ def free():
                 if purchase_count > next_milestone:
                     cursor.execute('''
                         UPDATE users 
-                        SET discount_applied = 1, discount_used = 0 
-                        WHERE email = ?
+                        SET discount_applied = true, discount_used = 0 
+                        WHERE email = %s
                     ''', (user_email,))
                     session['user']['discount_applied'] = True
                     session['user']['discount_used'] = False
@@ -1278,14 +1464,25 @@ def autocomplete():
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute('''
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+            # Split query into keywords for partial matching
+            keywords = query.lower().split()
+            conditions = []
+            params = []
+
+            for keyword in keywords:
+                conditions.append("LOWER(name) LIKE %s")
+                params.append(f'%{keyword}%')
+
+            where_clause = " AND ".join(conditions) if conditions else "1=1"
+
+            cursor.execute(f'''
                 SELECT product_key, name, image_url
-                FROM products 
-                WHERE name LIKE ? OR product_key LIKE ?
+                FROM products
+                WHERE {where_clause}
                 ORDER BY clicks DESC, likes DESC
                 LIMIT 5
-            ''', (f'%{query}%', f'%{query}%'))
+            ''', params)
 
             suggestions = []
             for row in cursor.fetchall():
@@ -1311,7 +1508,7 @@ def select_gift():
 
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM products WHERE product_key = ?', (gift_key,))
+        cursor.execute('SELECT * FROM products WHERE product_key = %s', (gift_key,))
         gift = cursor.fetchone()
         if not gift or gift['price'] != 0:
             return redirect(url_for('free', error="Invalid gift selected, mi fren!"))
@@ -1337,7 +1534,7 @@ def select_gift():
         session.modified = True
         logger.info(f"User {session['user']['email']} added free gift {gift_key} to cart")
 
-    return redirect(url_for('cart'))
+    return redirect(url_for('checkout'))
 
 
 @app.route('/')
@@ -1357,13 +1554,77 @@ def index():
         ]
     }
     try:
+        # Get list of flagged sellers to exclude
+        flagged_sellers = []
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT * FROM products')
-            products = {
-                row['product_key']: dict(row, image_urls=json.loads(row['image_urls']), sizes=json.loads(row['sizes']))
-                for row in cursor.fetchall()}
-            context['products'] = products
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+            # Get all flagged sellers
+            if DATABASE_TYPE == 'postgresql':
+                cursor.execute('''
+                    SELECT DISTINCT user_email FROM user_flags
+                    WHERE is_active = true
+                    AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+                ''')
+            else:
+                cursor.execute('''
+                    SELECT DISTINCT user_email FROM user_flags
+                    WHERE is_active = 1
+                    AND (expires_at IS NULL OR expires_at > datetime('now'))
+                ''')
+            flagged_sellers = [row['user_email'] if isinstance(row, dict) else row[0] for row in cursor.fetchall()]
+
+        # Use personalized products if user is logged in and PostgreSQL is enabled
+        if DATABASE_TYPE == 'postgresql' and user and user.get('email'):
+            try:
+                # Get personalized products based on viewing history
+                products = get_personalized_products(user['email'], excluded_seller_emails=flagged_sellers)
+                context['products'] = products
+            except Exception as e:
+                logger.error(f"Error getting personalized products, falling back to default: {e}")
+                # Fallback to default product loading
+                with get_db() as conn:
+                    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                    cursor.execute('SELECT * FROM products ORDER BY RANDOM()')
+                    products = {}
+                    for row in cursor.fetchall():
+                        product = dict(row, image_urls=json.loads(row['image_urls']), sizes=json.loads(row['sizes']))
+                        if is_user_flagged(product['seller_email']) is None:
+                            products[product['product_key']] = product
+                    context['products'] = products
+        else:
+            # User not logged in or SQLite - show products ordered by popularity
+            with get_db() as conn:
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+                if DATABASE_TYPE == 'postgresql':
+                    cursor.execute('SELECT * FROM products ORDER BY (clicks + likes * 2) DESC, RANDOM()')
+                else:
+                    cursor.execute('SELECT * FROM products ORDER BY (clicks + likes * 2) DESC')
+                products = {}
+                for row in cursor.fetchall():
+                    product = dict(row, image_urls=json.loads(row['image_urls']), sizes=json.loads(row['sizes']))
+                    # Check if seller is flagged - completely hide product from homepage
+                    if is_user_flagged(product['seller_email']) is None:
+                        products[product['product_key']] = product
+                context['products'] = products
+
+        # Get review averages for all products
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+            cursor.execute('''
+                SELECT product_key, AVG(rating) as avg_rating, COUNT(*) as review_count
+                FROM product_reviews
+                GROUP BY product_key
+            ''')
+            review_stats = {row['product_key']: {'avg_rating': row['avg_rating'], 'review_count': row['review_count']} for row in cursor.fetchall()}
+
+        # Attach review averages to products
+        for product_key, product in context['products'].items():
+            if product_key in review_stats:
+                product['avg_rating'] = round(review_stats[product_key]['avg_rating'], 1)
+                product['review_count'] = review_stats[product_key]['review_count']
+            else:
+                product['avg_rating'] = product.get('rating', 5.0)
+                product['review_count'] = 0
 
         # Check if user is support agent and redirect to enhanced dashboard
         is_support = user and user.get('is_support', False)
@@ -1396,7 +1657,7 @@ def orders():
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Get orders for the user with optional status filter
             base_query = '''
@@ -1404,12 +1665,12 @@ def orders():
                        total, discount, payment_method, order_date, status, shipping_option, 
                        shipping_fee, tax
                 FROM orders 
-                WHERE user_email = ?
+                WHERE user_email = %s
             '''
             params = [user_email]
 
             if status_filter:
-                base_query += ' AND status = ?'
+                base_query += ' AND status = %s'
                 params.append(status_filter)
 
             base_query += ' ORDER BY order_date DESC'
@@ -1420,7 +1681,7 @@ def orders():
             # Get unique statuses for filter dropdown
             cursor.execute('''
                 SELECT DISTINCT status FROM orders 
-                WHERE user_email = ? AND status IS NOT NULL
+                WHERE user_email = %s AND status IS NOT NULL
                 ORDER BY status
             ''', (user_email,))
             available_statuses = [row['status'] for row in cursor.fetchall()]
@@ -1438,7 +1699,7 @@ def orders():
                            COALESCE(p.category, 'Unknown') as category
                     FROM order_items oi
                     LEFT JOIN products p ON oi.product_key = p.product_key
-                    WHERE oi.order_id = ?
+                    WHERE oi.order_id = %s
                 ''', (order_dict['order_id'],))
 
                 order_items = cursor.fetchall()
@@ -1549,7 +1810,7 @@ def orders():
     except Exception as e:
         logger.error(f"Error in orders route: {e}\n{traceback.format_exc()}")
         orders_paginated = []
-        total_pages = 1
+        total_pages = true
         available_statuses = []
 
     cart_data = get_cart_items()
@@ -1590,7 +1851,7 @@ def debug_orders():
             FROM order_items oi
             LEFT JOIN products p ON oi.product_key = p.product_key
             WHERE oi.order_id IN (
-                SELECT order_id FROM orders WHERE user_email = ?
+                SELECT order_id FROM orders WHERE user_email = %s
             )
             ORDER BY oi.order_id DESC
         ''', (user_email,))
@@ -1612,10 +1873,10 @@ def receipt(order_id):
         return redirect(url_for('login'))
     user_email = session['user']['email']
     with get_db() as conn:
-        cursor = conn.cursor()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
         cursor.execute(
             "SELECT order_id, user_email, full_name, address, parish, post_office, total, discount, payment_method, order_date, status "
-            "FROM orders WHERE order_id = ? AND user_email = ?",
+            "FROM orders WHERE order_id = %s AND user_email = %s",
             (order_id, user_email)
         )
         order_data = cursor.fetchone()
@@ -1631,7 +1892,7 @@ def receipt(order_id):
             )
         cursor.execute(
             "SELECT oi.product_key, oi.quantity, oi.price, p.name, p.image_url "
-            "FROM order_items oi JOIN products p ON oi.product_key = p.product_key WHERE oi.order_id = ?",
+            "FROM order_items oi JOIN products p ON oi.product_key = p.product_key WHERE oi.order_id = %s",
             (order_id,)
         )
         items = [{
@@ -1676,7 +1937,7 @@ def agent_get_all_orders():
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Get all orders with customer info and items
             cursor.execute('''
@@ -1703,7 +1964,7 @@ def agent_get_all_orders():
                     FROM order_items oi
                     JOIN products p ON oi.product_key = p.product_key
                     LEFT JOIN users u ON p.seller_email = u.email
-                    WHERE oi.order_id = ?
+                    WHERE oi.order_id = %s
                 ''', (order['order_id'],))
 
                 sellers = cursor.fetchall()
@@ -1748,7 +2009,7 @@ def agent_search_orders():
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Search orders
             cursor.execute('''
@@ -1780,7 +2041,7 @@ def agent_search_orders():
                     FROM order_items oi
                     JOIN products p ON oi.product_key = p.product_key
                     LEFT JOIN users u ON p.seller_email = u.email
-                    WHERE oi.order_id = ?
+                    WHERE oi.order_id = %s
                 ''', (order['order_id'],))
 
                 sellers = cursor.fetchall()
@@ -1821,7 +2082,7 @@ def agent_get_order_details(order_id):
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Get order details
             cursor.execute('''
@@ -1830,7 +2091,7 @@ def agent_get_order_details(order_id):
                     parish, post_office, total, discount, payment_method, 
                     order_date, status, shipping_option, shipping_fee, tax
                 FROM orders 
-                WHERE order_id = ?
+                WHERE order_id = %s
             ''', (order_id,))
 
             order_data = cursor.fetchone()
@@ -1852,7 +2113,7 @@ def agent_get_order_details(order_id):
                     COALESCE(p.category, 'Unknown') as category
                 FROM order_items oi
                 LEFT JOIN products p ON oi.product_key = p.product_key
-                WHERE oi.order_id = ?
+                WHERE oi.order_id = %s
             ''', (order_id,))
 
             items = []
@@ -1870,7 +2131,7 @@ def agent_get_order_details(order_id):
                 FROM order_items oi
                 JOIN products p ON oi.product_key = p.product_key
                 LEFT JOIN users u ON p.seller_email = u.email
-                WHERE oi.order_id = ?
+                WHERE oi.order_id = %s
             ''', (order_id,))
 
             sellers = cursor.fetchall()
@@ -1946,10 +2207,10 @@ def agent_update_order_status():
             return jsonify({'success': False, 'message': 'Invalid status'}), 400
 
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Check if order exists
-            cursor.execute('SELECT order_id, status FROM orders WHERE order_id = ?', (order_id,))
+            cursor.execute('SELECT order_id, status FROM orders WHERE order_id = %s', (order_id,))
             order = cursor.fetchone()
             if not order:
                 return jsonify({'success': False, 'message': 'Order not found'}), 404
@@ -1957,7 +2218,7 @@ def agent_update_order_status():
             old_status = order['status']
 
             # Update order status
-            cursor.execute('UPDATE orders SET status = ? WHERE order_id = ?', (new_status, order_id))
+            cursor.execute('UPDATE orders SET status = %s WHERE order_id = %s', (new_status, order_id))
 
             if cursor.rowcount == 0:
                 return jsonify({'success': False, 'message': 'Failed to update order'}), 500
@@ -1992,7 +2253,7 @@ def subscriptions():
 
 @app.route('/subscribe/<plan>')
 def subscribe(plan):
-    if plan not in ['basic', 'pro']:
+    if plan not in ['basic', 'pro', 'growth']:
         return render_template('404.html', error="Invalid subscription plan"), 404
     if 'user' not in session:
         return redirect(url_for('login'))
@@ -2093,7 +2354,7 @@ def find_sellers():
     """Enhanced sellers directory with store links"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Get user's parish (default to Kingston if not logged in)
             user_parish = 'Kingston'
@@ -2109,7 +2370,7 @@ def find_sellers():
                 FROM users u
                 LEFT JOIN products p ON u.email = p.seller_email
                 LEFT JOIN seller_ratings sr ON u.email = sr.seller_email
-                WHERE u.is_seller = 1 AND u.business_address = ?
+                WHERE u.is_seller = true AND u.business_address = %s
                 GROUP BY u.email
                 ORDER BY total_sales DESC, product_count DESC
             ''', (user_parish,))
@@ -2132,7 +2393,7 @@ def find_sellers():
                 FROM users u
                 LEFT JOIN products p ON u.email = p.seller_email
                 LEFT JOIN seller_ratings sr ON u.email = sr.seller_email
-                WHERE u.is_seller = 1 AND u.business_address != ?
+                WHERE u.is_seller = true AND u.business_address != ?
                 GROUP BY u.email
                 ORDER BY total_sales DESC, product_count DESC
             ''', (user_parish,))
@@ -2180,12 +2441,28 @@ def customer_service_login():
         username = request.form['username']
         password = request.form['password']
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT * FROM users WHERE email = ? AND is_support = ?', (username, True))
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+            cursor.execute('SELECT * FROM users WHERE email = %s AND is_support = %s', (username, True))
             user = cursor.fetchone()
-            if user and user['password'] == password:
-                session['support_user'] = {'email': username, 'is_support': True}
-                return redirect(url_for('customer_service'))
+
+            if user:
+                # Check if password is hashed
+                password_valid = False
+                if user['password'] and ('pbkdf2:' in user['password'] or 'scrypt:' in user['password'] or '$' in user['password']):
+                    password_valid = check_password_hash(user['password'], password)
+                else:
+                    # Plain text password - check and update
+                    password_valid = (user['password'] == password)
+                    if password_valid:
+                        # Update to hashed password
+                        hashed_password = generate_password_hash(password)
+                        cursor.execute('UPDATE users SET password = %s WHERE email = %s', (hashed_password, user['email']))
+                        conn.commit()
+
+                if password_valid:
+                    session['support_user'] = {'email': username, 'is_support': True}
+                    return redirect(url_for('customer_service'))
+
             return render_template('customer_service_login.html', error="Invalid credentials")
     return render_template('customer_service_login.html')
 
@@ -2214,7 +2491,7 @@ def customer_service():
             cursor.execute('''
                 SELECT COUNT(*) as unread_count
                 FROM contact_messages
-                WHERE user_email = ? AND session_id = ? AND unread = 1
+                WHERE user_email = %s AND session_id = %s AND unread = true
             ''', (user_email, session_id))
             unread_result = cursor.fetchone()
             unread_count = unread_result['unread_count'] if unread_result else 0
@@ -2239,7 +2516,7 @@ def customer_service():
             cursor.execute('''
                 SELECT sender, message, timestamp
                 FROM contact_messages
-                WHERE user_email = ? AND session_id = ?
+                WHERE user_email = %s AND session_id = %s
                 ORDER BY timestamp
             ''', (selected_user, selected_session))
             contact_history = [
@@ -2251,11 +2528,11 @@ def customer_service():
             ]
             cursor.execute('''
                 SELECT COUNT(*) FROM contact_messages
-                WHERE user_email = ? AND session_id = ? AND sender = 'user'
+                WHERE user_email = %s AND session_id = %s AND sender = 'user'
             ''', (selected_user, selected_session))
             can_respond = cursor.fetchone()[0] > 0
 
-        cursor.execute('SELECT COUNT(*) as unread_count FROM contact_messages WHERE unread = 1')
+        cursor.execute('SELECT COUNT(*) as unread_count FROM contact_messages WHERE unread = true')
         unread_result = cursor.fetchone()
         total_unread_count = unread_result['unread_count'] if unread_result else 0
 
@@ -2283,10 +2560,10 @@ def respond():
     response = request.form.get('response', '').strip()
     if response:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
             cursor.execute('''
                 INSERT INTO contact_messages (user_id, user_email, session_id, sender, message, timestamp, unread)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s,%s)
             ''', ('support', 'support@yaad.com', session_id, 'support', response, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 1))
             conn.commit()
     return redirect(url_for('contact'))
@@ -2297,7 +2574,7 @@ def check_new_messages():
         return jsonify({'error': 'Unauthorized'}), 401
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT user_email, session_id, sender, message, timestamp FROM contact_messages WHERE sender = ? AND unread = 1 ORDER BY timestamp DESC',
+        cursor.execute('SELECT user_email, session_id, sender, message, timestamp FROM contact_messages WHERE sender = %s AND unread = true ORDER BY timestamp DESC',
                        ('user',))
         new_messages = [{'user_id': row['user_email'], 'session_id': row['session_id'], 'sender': row['sender'], 'text': row['message'], 'timestamp': row['timestamp']} for row in cursor.fetchall()]
     return jsonify({'new_messages': new_messages})
@@ -2316,10 +2593,10 @@ def agent_respond():
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
             cursor.execute('''
                 INSERT INTO contact_messages (user_id, user_email, session_id, sender, message, timestamp, unread)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s,%s)
             ''', ('support', user_email, session_id, 'support', response, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 1))
             conn.commit()
         return jsonify({'success': True, 'user_email': user_email, 'session_id': session_id})
@@ -2351,17 +2628,17 @@ def signup():
             return render_template('signup.html', error="Form type missing!")
 
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
             if form_type == 'buyer':
                 email = request.form['email']
                 phone_number = request.form['phone_number']
                 if not phone_number:
                     return render_template('signup.html', error="Phone number is required!")
-                cursor.execute('SELECT phone_number FROM users WHERE phone_number = ?', (phone_number,))
+                cursor.execute('SELECT phone_number FROM users WHERE phone_number = %s', (phone_number,))
                 if cursor.fetchone():
                     return render_template('signup.html', error="Phone number already registered!")
                 if email:
-                    cursor.execute('SELECT email FROM users WHERE email = ?', (email,))
+                    cursor.execute('SELECT email FROM users WHERE email = %s', (email,))
                     if cursor.fetchone():
                         return render_template('signup.html', error="Email already registered!")
 
@@ -2389,7 +2666,7 @@ def signup():
                     INSERT INTO users (email, first_name, last_name, phone_number, notification_preference, password, address,
                                     security_question, security_answer, is_seller, discount_applied, discount_used, gender,
                                     delivery_address, billing_address)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,%s)
                 ''', (
                     email, user_data['first_name'], user_data['last_name'], phone_number, notification_preference,
                     user_data['password'], user_data['address'], user_data['security_question'],
@@ -2410,11 +2687,11 @@ def signup():
                 phone_number = request.form['business_phone']
                 if not phone_number:
                     return render_template('signup.html', error="Business phone number is required!")
-                cursor.execute('SELECT phone_number FROM users WHERE phone_number = ?', (phone_number,))
+                cursor.execute('SELECT phone_number FROM users WHERE phone_number = %s', (phone_number,))
                 if cursor.fetchone():
                     return render_template('signup.html', error="Phone number already registered!")
                 if email:
-                    cursor.execute('SELECT email FROM users WHERE email = ?', (email,))
+                    cursor.execute('SELECT email FROM users WHERE email = %s', (email,))
                     if cursor.fetchone():
                         return render_template('signup.html', error="Email already registered!")
 
@@ -2440,7 +2717,7 @@ def signup():
                     INSERT INTO users (email, first_name, phone_number, notification_preference, password, business_name,
                                     business_address, is_seller, discount_applied, discount_used, gender, delivery_address,
                                     billing_address)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ''', (
                     email, user_data['first_name'], phone_number, notification_preference, user_data['password'],
                     user_data['business_name'], user_data['business_address'], user_data['is_seller'],
@@ -2450,15 +2727,17 @@ def signup():
 
                 # Create seller_finances record
                 cursor.execute('''
-                    INSERT OR IGNORE INTO seller_finances 
+                    INSERT INTO seller_finances
                     (seller_email, balance, total_earnings, pending_withdrawals)
-                    VALUES (?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s)
+                    ON CONFLICT (seller_email) DO NOTHING
                 ''', (email, 0, 0, 0))
 
                 # Create initial verification record for new seller
                 cursor.execute('''
-                    INSERT INTO seller_verifications (seller_email, verification_status)
-                    VALUES (?, 'pending_documents')
+                    INSERT INTO seller_verification (seller_email, verification_status)
+                    VALUES (%s, 'pending_documents')
+                    ON CONFLICT (seller_email) DO NOTHING
                 ''', (email,))
 
                 conn.commit()
@@ -2495,17 +2774,18 @@ def contact():
         if 'contact_session_id' not in session:
             session['contact_session_id'] = str(uuid.uuid4())
             with get_db() as conn:
-                cursor = conn.cursor()
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
                 cursor.execute('''
-                    INSERT OR IGNORE INTO user_sessions (user_email, session_id)
-                    VALUES (?, ?)
+                    INSERT INTO user_sessions (user_email, session_id)
+                    VALUES (%s, %s)
+                    ON CONFLICT (user_email, session_id) DO NOTHING
                 ''', (user_email, session['contact_session_id']))
                 conn.commit()
         session_id = session.get('contact_session_id')
 
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT session_id FROM user_sessions WHERE user_email = ?', (user_email,))
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+            cursor.execute('SELECT session_id FROM user_sessions WHERE user_email = %s', (user_email,))
             session_ids = [row['session_id'] for row in cursor.fetchall()]
             if not session_ids:
                 session_ids = [session_id]
@@ -2515,21 +2795,21 @@ def contact():
             if not message:
                 return render_template('contact.html', error="Message cannot be empty", **context)
             with get_db() as conn:
-                cursor = conn.cursor()
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
                 cursor.execute('''
                     INSERT INTO contact_messages (user_id, user_email, session_id, sender, message, timestamp, unread)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
                 ''', (user_id, user_email, session_id, 'user', message, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 1))
                 conn.commit()
             return redirect(url_for('contact', session_id=session_id, success="Message sent successfully"))
 
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
             selected_session = request.args.get('session_id', session_id)
             cursor.execute('''
                 SELECT sender, message, timestamp
                 FROM contact_messages
-                WHERE user_email = ? AND session_id = ?
+                WHERE user_email = %s AND session_id = %s
                 ORDER BY timestamp
             ''', (user_email, selected_session))
             context['contact_history'] = [
@@ -2540,12 +2820,12 @@ def contact():
                 } for row in cursor.fetchall()
             ]
             cursor.execute('''
-                SELECT DISTINCT session_id, MAX(timestamp) as last_message, SUM(CASE WHEN unread = 1 THEN 1 ELSE 0 END) as unread_count
+                SELECT DISTINCT session_id, MAX(timestamp) as last_message, SUM(CASE WHEN unread = true THEN 1 ELSE 0 END) as unread_count
                 FROM contact_messages
-                WHERE user_email = ? AND session_id IN ({})
+                WHERE user_email = %s AND session_id IN ({})
                 GROUP BY session_id
                 ORDER BY last_message DESC
-            '''.format(','.join(['?'] * len(session_ids))), [user_email] + session_ids)
+            '''.format(','.join(['%s'] * len(session_ids))), [user_email] + session_ids)
             context['conversations'] = [
                 {
                     'session_id': row['session_id'],
@@ -2567,7 +2847,52 @@ def contact():
         return render_template('contact.html', error=f"An error occurred: {str(e)}", **context)
 
 
+@app.route('/admin_login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")  # SECURITY: Max 5 login attempts per minute
+def admin_login():
+    """Separate admin login route - only checks admin_users table"""
+    if request.method == 'POST':
+        email = request.form.get('email', '').strip()
+        password = request.form.get('password', '')
+
+        try:
+            with get_db() as conn:
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+                # Check admin_users table ONLY
+                cursor.execute('SELECT * FROM admin_users WHERE email = %s', (email,))
+                admin = cursor.fetchone()
+
+                if admin and check_password_hash(admin['password'], password):
+                    # Admin login successful
+                    session['admin_user'] = dict(admin)
+                    session['user'] = dict(admin)
+
+                    # Update last login
+                    cursor.execute('UPDATE admin_users SET last_login = %s WHERE email = %s',
+                                   (datetime.now(), email))
+                    conn.commit()
+
+                    # Log admin activity
+                    log_admin_activity(email, 'login', description='Admin logged in')
+
+                    logger.info(f"✅ Admin login successful: {email}")
+                    return redirect(url_for('admin_dashboard_page'))
+                else:
+                    logger.warning(f"❌ Failed admin login attempt: {email}")
+                    return render_template('admin_login.html',
+                                           error="Invalid admin credentials. Please try again.")
+
+        except Exception as e:
+            logger.error(f"Admin login error: {e}")
+            return render_template('admin_login.html',
+                                   error="An error occurred during login. Please try again.")
+
+    return render_template('admin_login.html')
+
+
 @app.route('/login', methods=['GET', 'POST'])
+@limiter.limit("5 per minute")  # SECURITY: Max 5 login attempts per minute (prevents brute force)
 def login():
     if request.method == 'POST':
         identifier = request.form['identifier']
@@ -2575,25 +2900,27 @@ def login():
 
         try:
             with get_db() as conn:
-                cursor = conn.cursor()
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
                 # FIRST - Check if it's an admin user
-                cursor.execute('SELECT * FROM admin_users WHERE email = ? AND is_active = 1', (identifier,))
+                cursor.execute('SELECT * FROM admin_users WHERE email = %s', (identifier,))
                 admin = cursor.fetchone()
 
                 if admin and check_password_hash(admin['password'], password):
+                    # Admin login successful
                     session['admin_user'] = dict(admin)
                     session['user'] = dict(admin)
 
-                    cursor.execute('UPDATE admin_users SET last_login = ? WHERE email = ?',
+                    cursor.execute('UPDATE admin_users SET last_login = %s WHERE email = %s',
                                    (datetime.now(), identifier))
                     conn.commit()
 
                     log_admin_activity(identifier, 'login', description='Admin logged in')
+                    logger.info(f"✅ Admin login successful: {identifier}")
                     return redirect(url_for('admin_dashboard_page'))
 
-                # Check regular users (including support agents)
-                cursor.execute('SELECT * FROM users WHERE (email = ? OR phone_number = ?)',
+                # SECOND - Check regular users and support agents
+                cursor.execute('SELECT * FROM users WHERE (email = %s OR phone_number = %s)',
                                (identifier, identifier))
                 user = cursor.fetchone()
 
@@ -2606,9 +2933,7 @@ def login():
                         if flag['flag_type'] == 'banned':
                             return render_template('login.html',
                                                    error=f"Your account has been banned. Reason: {flag['reason']}")
-                        elif flag['flag_type'] == 'suspended':
-                            return render_template('login.html',
-                                                   error=f"Your account is suspended. Reason: {flag['reason']}")
+                        # For suspended sellers, allow login but they'll see "Under Review" message
 
                     # Check password - FIXED VERSION
                     password_valid = False
@@ -2632,7 +2957,7 @@ def login():
                         if password_valid:
                             # Update to hashed password
                             hashed_password = generate_password_hash(password)
-                            cursor.execute('UPDATE users SET password = ? WHERE email = ?',
+                            cursor.execute('UPDATE users SET password = %s WHERE email = %s',
                                            (hashed_password, user['email']))
                             conn.commit()
                             logger.info(f"Updated password to hashed for user: {user['email']}")
@@ -2713,7 +3038,7 @@ def debug_login():
 
         # Check if user exists
         cursor.execute(
-            'SELECT email, phone_number, password, is_seller FROM users WHERE (email = ? OR phone_number = ?)',
+            'SELECT email, phone_number, password, is_seller FROM users WHERE (email = %s OR phone_number = %s)',
             (identifier, identifier))
         user = cursor.fetchone()
 
@@ -2747,17 +3072,18 @@ def is_user_flagged(email):
     """Check if a user is currently flagged/banned"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
             cursor.execute('''
-                SELECT flag_type, reason, expires_at FROM user_flags 
-                WHERE user_email = ? AND is_active = 1
-                AND (expires_at IS NULL OR expires_at > datetime('now'))
+                SELECT flag_type, reason, expires_at FROM user_flags
+                WHERE user_email = %s AND is_active = true
+                AND (expires_at IS NULL OR expires_at > NOW())
                 ORDER BY flag_date DESC
                 LIMIT 1
-            ''')
+            ''', (email,))
             flag = cursor.fetchone()
             return dict(flag) if flag else None
-    except:
+    except Exception as e:
+        logger.error(f"Error checking if user flagged: {e}")
         return None
 
 
@@ -2765,10 +3091,10 @@ def log_admin_activity(admin_email, action_type, target_type=None, target_id=Non
     """Log admin activities"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
             cursor.execute('''
                 INSERT INTO admin_activity_log (admin_email, action_type, target_type, target_id, description, ip_address)
-                VALUES (?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s,%s)
             ''', (admin_email, action_type, target_type, target_id, description, request.remote_addr))
             conn.commit()
     except Exception as e:
@@ -2797,7 +3123,7 @@ def profile():
     success = None
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM users WHERE email = ?', (user['email'],))
+        cursor.execute('SELECT * FROM users WHERE email = %s', (user['email'],))
         db_user = cursor.fetchone()
         if not db_user:
             logger.warning(f"Profile: User email {user['email']} not found in database")
@@ -2824,9 +3150,9 @@ def profile():
                         file_path = os.path.join(app.config['UPLOAD_FOLDER'], unique_filename)
                         file.save(file_path)
                         db_path = f"uploads/{unique_filename}"
-                        cursor.execute('UPDATE users SET profile_picture = ? WHERE email = ?', (db_path, user['email']))
+                        cursor.execute('UPDATE users SET profile_picture = %s WHERE email = %s', (db_path, user['email']))
                         conn.commit()
-                        cursor.execute('SELECT * FROM users WHERE email = ?', (user['email'],))
+                        cursor.execute('SELECT * FROM users WHERE email = %s', (user['email'],))
                         session['user'] = dict(cursor.fetchone())
                         session.modified = True
                         logger.info(f"Profile POST: Updated profile picture to {db_path} for user {user['email']}")
@@ -2857,7 +3183,7 @@ def personal_info():
     success = None
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM users WHERE phone_number = ?', (user['phone_number'],))
+        cursor.execute('SELECT * FROM users WHERE phone_number = %s', (user['phone_number'],))
         db_user = cursor.fetchone()
         if not db_user:
             logger.warning(f"Personal Info: User phone_number {user['phone_number']} not found in database")
@@ -2880,34 +3206,34 @@ def personal_info():
                 elif not re.match(r'^[+\d\s-]{7,15}$', new_phone):
                     error = "Phone number must be 7-15 digits."
                     logger.warning(f"Personal Info POST: Invalid phone number {new_phone} for {user['phone_number']}")
-                elif not re.match(r'^[+\d\s-]{7,15}$', whatsapp_number):
-                    error = "WhatsApp number must be 7-15 digits."
+                elif not re.match(r'^[+\d\s-]{7,20}$', whatsapp_number):
+                    error = "WhatsApp number must be 7-20 characters (including country code)."
                     logger.warning(f"Personal Info POST: Invalid WhatsApp number {whatsapp_number} for {user['phone_number']}")
                 elif gender not in ['Male', 'Female', 'Other']:
                     error = "Invalid gender selection."
                     logger.warning(f"Personal Info POST: Invalid gender {gender} for {user['phone_number']}")
                 else:
-                    cursor.execute('SELECT email FROM users WHERE email = ? AND phone_number != ?',
+                    cursor.execute('SELECT email FROM users WHERE email = %s AND phone_number != ?',
                                    (new_email, user['phone_number']))
                     if cursor.fetchone():
                         error = "Email already in use."
                         logger.warning(f"Personal Info POST: Email {new_email} already in use for {user['phone_number']}")
-                    elif cursor.execute('SELECT phone_number FROM users WHERE phone_number = ? AND phone_number != ?',
+                    elif cursor.execute('SELECT phone_number FROM users WHERE phone_number = %s AND phone_number != ?',
                                        (new_phone, user['phone_number'])).fetchone():
                         error = "Phone number already in use."
                         logger.warning(f"Personal Info POST: Phone number {new_phone} already in use for {user['phone_number']}")
-                    elif cursor.execute('SELECT whatsapp_number FROM users WHERE whatsapp_number = ? AND phone_number != ?',
+                    elif cursor.execute('SELECT whatsapp_number FROM users WHERE whatsapp_number = %s AND phone_number != ?',
                                        (whatsapp_number, user['phone_number'])).fetchone():
                         error = "WhatsApp number already in use."
                         logger.warning(f"Personal Info POST: WhatsApp number {whatsapp_number} already in use for {user['phone_number']}")
                     else:
                         cursor.execute('''
-                            UPDATE users SET first_name = ?, last_name = ?, email = ?, phone_number = ?, 
-                                            gender = ?, address = ?, whatsapp_number = ?
-                            WHERE phone_number = ?
+                            UPDATE users SET first_name = %s, last_name = %s, email = %s, phone_number = %s, 
+                                            gender = %s, address = %s, whatsapp_number = %s
+                            WHERE phone_number = %s
                         ''', (first_name, last_name, new_email, new_phone, gender, address, whatsapp_number, user['phone_number']))
                         conn.commit()
-                        cursor.execute('SELECT * FROM users WHERE phone_number = ?', (new_phone,))
+                        cursor.execute('SELECT * FROM users WHERE phone_number = %s', (new_phone,))
                         updated_user = cursor.fetchone()
                         if not updated_user:
                             error = "Failed to update details. Please try again."
@@ -2950,16 +3276,16 @@ def password_reset():
         identifier = request.form['identifier']
         try:
             with get_db() as conn:
-                cursor = conn.cursor()
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
                 user = None
                 if reset_method == 'email':
-                    cursor.execute('SELECT * FROM users WHERE email = ?', (identifier,))
+                    cursor.execute('SELECT * FROM users WHERE email = %s', (identifier,))
                     user = cursor.fetchone()
                 elif reset_method == 'phone':
-                    cursor.execute('SELECT * FROM users WHERE phone_number = ?', (identifier,))
+                    cursor.execute('SELECT * FROM users WHERE phone_number = %s', (identifier,))
                     user = cursor.fetchone()
                 elif reset_method == 'whatsapp':
-                    cursor.execute('SELECT * FROM users WHERE whatsapp_number = ?', (identifier,))
+                    cursor.execute('SELECT * FROM users WHERE whatsapp_number = %s', (identifier,))
                     user = cursor.fetchone()
                 if user:
                     reset_code = generate_reset_code()
@@ -2992,7 +3318,7 @@ def start_chat(seller_email):
     with get_db() as conn:
         cursor = conn.cursor()
         cursor.execute(
-            'SELECT email, first_name, last_name, business_name FROM users WHERE email = ? AND is_seller = ?',
+            'SELECT email, first_name, last_name, business_name FROM users WHERE email = %s AND is_seller = %s',
             (seller_email, True))
         seller = cursor.fetchone()
 
@@ -3021,7 +3347,7 @@ def update_seller_description():
         seller_email = session['user']['email']
 
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Check if business_description column exists, if not add it
             try:
@@ -3032,7 +3358,7 @@ def update_seller_description():
 
             # Update description
             cursor.execute('''
-                UPDATE users SET business_description = ? WHERE email = ?
+                UPDATE users SET business_description = %s WHERE email = %s
             ''', (description, seller_email))
 
             conn.commit()
@@ -3047,15 +3373,78 @@ def update_seller_description():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/seller/upload_store_logo', methods=['POST'])
+def upload_store_logo():
+    """Upload and update seller's store logo"""
+    if 'user' not in session or not session['user'].get('is_seller'):
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+
+    try:
+        if 'store_logo' not in request.files:
+            return jsonify({'success': False, 'message': 'No file uploaded'}), 400
+
+        file = request.files['store_logo']
+
+        if file.filename == '':
+            return jsonify({'success': False, 'message': 'No file selected'}), 400
+
+        # Validate file type
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+        file_ext = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else ''
+
+        if file_ext not in allowed_extensions:
+            return jsonify({'success': False, 'message': 'Invalid file type. Please upload PNG, JPG, or GIF'}), 400
+
+        # Generate unique filename
+        seller_email = session['user']['email']
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        safe_email = seller_email.replace('@', '_').replace('.', '_')
+        filename = f"store_logo_{safe_email}_{timestamp}.{file_ext}"
+
+        # Save file to uploads directory
+        upload_folder = os.path.join(app.static_folder, 'uploads')
+        os.makedirs(upload_folder, exist_ok=True)
+        filepath = os.path.join(upload_folder, filename)
+        file.save(filepath)
+
+        # Update database
+        logo_path = f'uploads/{filename}'
+
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            cursor.execute('''
+                UPDATE users SET store_logo = %s WHERE email = %s
+            ''', (logo_path, seller_email))
+
+            conn.commit()
+
+            # Update session
+            session['user']['store_logo'] = logo_path
+            session.modified = True
+
+        logger.info(f"Store logo uploaded for {seller_email}: {logo_path}")
+
+        return jsonify({
+            'success': True,
+            'message': 'Store logo updated successfully',
+            'logo_path': logo_path
+        })
+
+    except Exception as e:
+        logger.error(f"Error uploading store logo: {e}\n{traceback.format_exc()}")
+        return jsonify({'success': False, 'message': 'Error uploading logo. Please try again.'}), 500
+
+
 @app.route('/get_seller_info/<email>')
 def get_seller_info(email):
     try:
                 with get_db() as conn:
-                    cursor = conn.cursor()
+                    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
                     cursor.execute('''
                         SELECT email, first_name, business_name, profile_picture
                         FROM users
-                        WHERE email = ? AND is_seller = 1
+                        WHERE email = %s AND is_seller = true
                     ''', (email,))
                     seller = cursor.fetchone()
                     if not seller:
@@ -3084,7 +3473,7 @@ def get_seller_info(email):
 
             try:
                 with get_db() as conn:
-                    cursor = conn.cursor()
+                    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
                     # Get all conversations for this buyer
                     cursor.execute('''
@@ -3092,14 +3481,14 @@ def get_seller_info(email):
                                u.first_name, u.last_name, u.business_name,
                                (SELECT COUNT(*) FROM messages m 
                                 WHERE m.conversation_id = c.id 
-                                AND m.receiver_email = ? 
-                                AND m.read_status = 0) as unread_count,
+                                AND m.receiver_email = %s 
+                                AND m.read_status = false) as unread_count,
                                (SELECT message FROM messages m2 
                                 WHERE m2.conversation_id = c.id 
                                 ORDER BY m2.timestamp DESC LIMIT 1) as last_message
                         FROM conversations c
                         JOIN users u ON c.seller_email = u.email
-                        WHERE c.buyer_email = ?
+                        WHERE c.buyer_email = %s
                         ORDER BY c.last_message_at DESC
                     ''', (buyer_email, buyer_email))
 
@@ -3139,11 +3528,11 @@ def unread_messages_count():
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
             cursor.execute('''
                 SELECT COUNT(*) as count
                 FROM messages m
-                WHERE m.receiver_email = ? AND m.read_status = 0
+                WHERE m.receiver_email = %s AND m.read_status = false
             ''', (current_user_email,))
 
             count = cursor.fetchone()['count']
@@ -3165,20 +3554,20 @@ def send_message():
     try:
         data = request.get_json()
         receiver_email = data.get('receiver_email')
-        message = data.get('message')
+        message = data.get('message', '').strip()
 
-        if not receiver_email or not message:
-            return jsonify({'success': False, 'message': 'Missing receiver or message'}), 400
+        if not receiver_email:
+            return jsonify({'success': False, 'message': 'Missing receiver'}), 400
 
         current_user_email = session['user']['email']
 
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Determine who is buyer and who is seller
-            cursor.execute('SELECT is_seller FROM users WHERE email = ?', (current_user_email,))
+            cursor.execute('SELECT is_seller FROM users WHERE email = %s', (current_user_email,))
             sender_user = cursor.fetchone()
-            cursor.execute('SELECT is_seller FROM users WHERE email = ?', (receiver_email,))
+            cursor.execute('SELECT is_seller FROM users WHERE email = %s', (receiver_email,))
             receiver_user = cursor.fetchone()
 
             if not sender_user or not receiver_user:
@@ -3195,8 +3584,8 @@ def send_message():
             # Get or create conversation
             cursor.execute('''
                 SELECT id FROM conversations 
-                WHERE (buyer_email = ? AND seller_email = ?) 
-                OR (buyer_email = ? AND seller_email = ?)
+                WHERE (buyer_email = %s AND seller_email = %s) 
+                OR (buyer_email = %s AND seller_email = %s)
             ''', (buyer_email, seller_email, seller_email, buyer_email))
 
             conversation = cursor.fetchone()
@@ -3205,32 +3594,35 @@ def send_message():
                 # Create new conversation
                 cursor.execute('''
                     INSERT INTO conversations (buyer_email, seller_email, created_at, last_message_at)
-                    VALUES (?, ?, ?, ?)
+                    VALUES (%s, %s, %s,%s)
+                    RETURNING id
                 ''', (buyer_email, seller_email,
                       datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                       datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-                conversation_id = cursor.lastrowid
+                conversation_id = cursor.fetchone()['id']
             else:
                 conversation_id = conversation['id']
-                # Update last message time
-                cursor.execute('''
-                    UPDATE conversations 
-                    SET last_message_at = ? 
-                    WHERE id = ?
-                ''', (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), conversation_id))
+                # Update last message time only if sending a message
+                if message:
+                    cursor.execute('''
+                        UPDATE conversations
+                        SET last_message_at = %s
+                        WHERE id = %s
+                    ''', (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), conversation_id))
 
-            # Insert message
-            cursor.execute('''
-                INSERT INTO messages (conversation_id, sender_email, receiver_email, message, timestamp, read_status)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ''', (conversation_id, current_user_email, receiver_email, message,
-                  datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 0))
+            # Insert message only if not empty
+            if message:
+                cursor.execute('''
+                    INSERT INTO messages (conversation_id, sender_email, receiver_email, message, timestamp, read_status)
+                    VALUES (%s, %s, %s, %s, %s,%s)
+                ''', (conversation_id, current_user_email, receiver_email, message,
+                      datetime.now().strftime('%Y-%m-%d %H:%M:%S'), False))
 
             conn.commit()
 
             return jsonify({
                 'success': True,
-                'message': 'Message sent successfully',
+                'message': 'Message sent successfully' if message else 'Conversation created',
                 'conversation_id': conversation_id
             })
 
@@ -3249,13 +3641,13 @@ def get_messages_fixed(other_email):
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Find conversation between users
             cursor.execute('''
                 SELECT id FROM conversations 
-                WHERE (buyer_email = ? AND seller_email = ?) 
-                OR (buyer_email = ? AND seller_email = ?)
+                WHERE (buyer_email = %s AND seller_email = %s) 
+                OR (buyer_email = %s AND seller_email = %s)
             ''', (current_user_email, other_email, other_email, current_user_email))
 
             conversation = cursor.fetchone()
@@ -3267,7 +3659,7 @@ def get_messages_fixed(other_email):
             cursor.execute('''
                 SELECT sender_email, receiver_email, message, timestamp, read_status
                 FROM messages
-                WHERE conversation_id = ?
+                WHERE conversation_id = %s
                 ORDER BY timestamp ASC
             ''', (conversation['id'],))
 
@@ -3284,8 +3676,8 @@ def get_messages_fixed(other_email):
             # Mark messages as read for current user
             cursor.execute('''
                 UPDATE messages 
-                SET read_status = 1 
-                WHERE conversation_id = ? AND receiver_email = ? AND read_status = 0
+                SET read_status = true 
+                WHERE conversation_id = %s AND receiver_email = %s AND read_status = false
             ''', (conversation['id'], current_user_email))
             conn.commit()
 
@@ -3306,10 +3698,10 @@ def get_conversations_fixed():
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Get user's seller status
-            cursor.execute('SELECT is_seller FROM users WHERE email = ?', (current_user_email,))
+            cursor.execute('SELECT is_seller FROM users WHERE email = %s', (current_user_email,))
             user_info = cursor.fetchone()
             is_seller = user_info['is_seller'] if user_info else False
 
@@ -3324,11 +3716,11 @@ def get_conversations_fixed():
                         u.business_name,
                         (SELECT COUNT(*) FROM messages m 
                          WHERE m.conversation_id = c.id 
-                         AND m.receiver_email = ? 
-                         AND m.read_status = 0) as unread_count
+                         AND m.receiver_email = %s 
+                         AND m.read_status = false) as unread_count
                     FROM conversations c
                     JOIN users u ON c.buyer_email = u.email
-                    WHERE c.seller_email = ?
+                    WHERE c.seller_email = %s
                     ORDER BY c.last_message_at DESC
                 ''', (current_user_email, current_user_email))
             else:
@@ -3342,11 +3734,11 @@ def get_conversations_fixed():
                         u.business_name,
                         (SELECT COUNT(*) FROM messages m 
                          WHERE m.conversation_id = c.id 
-                         AND m.receiver_email = ? 
-                         AND m.read_status = 0) as unread_count
+                         AND m.receiver_email = %s 
+                         AND m.read_status = false) as unread_count
                     FROM conversations c
                     JOIN users u ON c.seller_email = u.email
-                    WHERE c.buyer_email = ?
+                    WHERE c.buyer_email = %s
                     ORDER BY c.last_message_at DESC
                 ''', (current_user_email, current_user_email))
 
@@ -3367,27 +3759,126 @@ def get_conversations_fixed():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/api/conversations')
+def get_all_conversations():
+    """Get all conversations for current user"""
+    if 'user' not in session:
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+
+    current_user_email = session['user']['email']
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Get all conversations where user is either buyer or seller
+            cursor.execute('''
+                SELECT c.id, c.buyer_email, c.seller_email, c.last_message_at,
+                       u1.first_name as buyer_first_name, u1.last_name as buyer_last_name,
+                       u1.business_name as buyer_business_name,
+                       u2.first_name as seller_first_name, u2.last_name as seller_last_name,
+                       u2.business_name as seller_business_name,
+                       (SELECT COUNT(*) FROM messages m
+                        WHERE m.conversation_id = c.id
+                        AND m.receiver_email = %s
+                        AND m.read_status = false) as unread_count,
+                       (SELECT message FROM messages m2
+                        WHERE m2.conversation_id = c.id
+                        ORDER BY m2.timestamp DESC LIMIT 1) as last_message
+                FROM conversations c
+                LEFT JOIN users u1 ON c.buyer_email = u1.email
+                LEFT JOIN users u2 ON c.seller_email = u2.email
+                WHERE c.buyer_email = %s OR c.seller_email = %s
+                ORDER BY c.last_message_at DESC
+            ''', (current_user_email, current_user_email, current_user_email))
+
+            conversations = []
+            for row in cursor.fetchall():
+                # Determine the other person in the conversation
+                if row['buyer_email'] == current_user_email:
+                    other_email = row['seller_email']
+                    other_name = row['seller_business_name'] or f"{row['seller_first_name'] or ''} {row['seller_last_name'] or ''}".strip() or other_email
+                else:
+                    other_email = row['buyer_email']
+                    other_name = row['buyer_business_name'] or f"{row['buyer_first_name'] or ''} {row['buyer_last_name'] or ''}".strip() or other_email
+
+                conversations.append({
+                    'id': row['id'],
+                    'other_email': other_email,
+                    'other_name': other_name,
+                    'last_message': row['last_message'],
+                    'last_message_at': row['last_message_at'],
+                    'unread_count': row['unread_count'] or 0
+                })
+
+            return jsonify({
+                'success': True,
+                'conversations': conversations
+            })
+
+    except Exception as e:
+        logger.error(f"Error getting conversations: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/api/mark_messages_read', methods=['POST'])
+def mark_messages_read():
+    """Mark all messages in a conversation as read"""
+    if 'user' not in session:
+        return jsonify({'success': False, 'message': 'Not logged in'}), 401
+
+    try:
+        data = request.get_json()
+        conversation_id = data.get('conversation_id')
+
+        if not conversation_id:
+            return jsonify({'success': False, 'message': 'Missing conversation_id'}), 400
+
+        current_user_email = session['user']['email']
+
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Mark all messages in this conversation as read for current user
+            cursor.execute('''
+                UPDATE messages
+                SET read_status = true
+                WHERE conversation_id = %s AND receiver_email = %s
+            ''', (conversation_id, current_user_email))
+
+            conn.commit()
+
+            return jsonify({'success': True})
+
+    except Exception as e:
+        logger.error(f"Error marking messages as read: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
 
 # Socket.IO event handlers for real-time chat
 @socketio.on('join_conversation')
 def on_join_conversation(data):
     """Join a conversation room for real-time updates"""
-    buyer_email = data.get('buyer_email')
-    seller_email = data.get('seller_email')
-    if buyer_email and seller_email:
-        room = f"chat_{min(buyer_email, seller_email)}_{max(buyer_email, seller_email)}"
+    # Support both old and new parameter names
+    user1_email = data.get('user1_email') or data.get('buyer_email')
+    user2_email = data.get('user2_email') or data.get('seller_email')
+
+    if user1_email and user2_email:
+        room = f"chat_{min(user1_email, user2_email)}_{max(user1_email, user2_email)}"
         join_room(room)
         logger.info(f"User joined chat room: {room}")
 
 @socketio.on('leave_conversation')
-def on_leave_conversation(data):
+def on_leave_conversation(data=None):
     """Leave a conversation room"""
-    buyer_email = data.get('buyer_email')
-    seller_email = data.get('seller_email')
-    if buyer_email and seller_email:
-        room = f"chat_{min(buyer_email, seller_email)}_{max(buyer_email, seller_email)}"
-        leave_room(room)
-        logger.info(f"User left chat room: {room}")
+    if data:
+        user1_email = data.get('user1_email') or data.get('buyer_email')
+        user2_email = data.get('user2_email') or data.get('seller_email')
+
+        if user1_email and user2_email:
+            room = f"chat_{min(user1_email, user2_email)}_{max(user1_email, user2_email)}"
+            leave_room(room)
+            logger.info(f"User left chat room: {room}")
 
 @socketio.on('send_message')
 def handle_send_message(data):
@@ -3422,7 +3913,7 @@ def buyer_messages():
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Get all conversations for this buyer
             cursor.execute('''
@@ -3430,14 +3921,14 @@ def buyer_messages():
                        u.first_name, u.last_name, u.business_name,
                        (SELECT COUNT(*) FROM messages m 
                         WHERE m.conversation_id = c.id 
-                        AND m.receiver_email = ? 
-                        AND m.read_status = 0) as unread_count,
+                        AND m.receiver_email = %s 
+                        AND m.read_status = false) as unread_count,
                        (SELECT message FROM messages m2 
                         WHERE m2.conversation_id = c.id 
                         ORDER BY m2.timestamp DESC LIMIT 1) as last_message
                 FROM conversations c
                 JOIN users u ON c.seller_email = u.email
-                WHERE c.buyer_email = ?
+                WHERE c.buyer_email = %s
                 ORDER BY c.last_message_at DESC
             ''', (buyer_email, buyer_email))
 
@@ -3481,7 +3972,7 @@ def seller_messages():
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Get all conversations for this seller
             cursor.execute('''
@@ -3489,14 +3980,14 @@ def seller_messages():
                        u.first_name, u.last_name,
                        (SELECT COUNT(*) FROM messages m 
                         WHERE m.conversation_id = c.id 
-                        AND m.receiver_email = ? 
-                        AND m.read_status = 0) as unread_count,
+                        AND m.receiver_email = %s 
+                        AND m.read_status = false) as unread_count,
                        (SELECT message FROM messages m2 
                         WHERE m2.conversation_id = c.id 
                         ORDER BY m2.timestamp DESC LIMIT 1) as last_message
                 FROM conversations c
                 JOIN users u ON c.buyer_email = u.email
-                WHERE c.seller_email = ?
+                WHERE c.seller_email = %s
                 ORDER BY c.last_message_at DESC
             ''', (seller_email, seller_email))
 
@@ -3596,7 +4087,7 @@ def dashboard_stats():
     """Real-time dashboard statistics"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Total users
             cursor.execute('SELECT COUNT(*) as total FROM users')
@@ -3604,7 +4095,7 @@ def dashboard_stats():
             total_users = total_users_result['total'] if total_users_result else 0
 
             # Total sellers
-            cursor.execute('SELECT COUNT(*) as total FROM users WHERE is_seller = 1')
+            cursor.execute('SELECT COUNT(*) as total FROM users WHERE is_seller = true')
             total_sellers_result = cursor.fetchone()
             total_sellers = total_sellers_result['total'] if total_sellers_result else 0
 
@@ -3620,7 +4111,7 @@ def dashboard_stats():
 
             # Total revenue
             cursor.execute(
-                'SELECT COALESCE(SUM(total), 0) as revenue FROM orders WHERE status NOT IN ("cancelled", "refunded")')
+                "SELECT COALESCE(SUM(total), 0) as revenue FROM orders WHERE status NOT IN ('cancelled', 'refunded')")
             total_revenue_result = cursor.fetchone()
             total_revenue = float(total_revenue_result['revenue']) if total_revenue_result and total_revenue_result[
                 'revenue'] else 0.0
@@ -3630,31 +4121,46 @@ def dashboard_stats():
 
             # Growth calculations with safe date handling
             try:
-                cursor.execute('SELECT COUNT(*) as recent_users FROM users WHERE created_at >= date("now", "-30 days")')
+                if DATABASE_TYPE == 'postgresql':
+                    cursor.execute("SELECT COUNT(*) as recent_users FROM users WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'")
+                else:
+                    cursor.execute('SELECT COUNT(*) as recent_users FROM users WHERE created_at >= date("now", "-30 days")')
                 recent_users_result = cursor.fetchone()
                 recent_users_count = recent_users_result['recent_users'] if recent_users_result else 0
             except:
                 recent_users_count = 0
 
             try:
-                cursor.execute(
-                    'SELECT COUNT(*) as recent_sellers FROM users WHERE is_seller = 1 AND created_at >= date("now", "-30 days")')
+                if DATABASE_TYPE == 'postgresql':
+                    cursor.execute(
+                        "SELECT COUNT(*) as recent_sellers FROM users WHERE is_seller = true AND created_at >= CURRENT_DATE - INTERVAL '30 days'")
+                else:
+                    cursor.execute(
+                        'SELECT COUNT(*) as recent_sellers FROM users WHERE is_seller = true AND created_at >= date("now", "-30 days")')
                 recent_sellers_result = cursor.fetchone()
                 recent_sellers_count = recent_sellers_result['recent_sellers'] if recent_sellers_result else 0
             except:
                 recent_sellers_count = 0
 
             try:
-                cursor.execute(
-                    'SELECT COUNT(*) as recent_products FROM products WHERE posted_date >= date("now", "-30 days")')
+                if DATABASE_TYPE == 'postgresql':
+                    cursor.execute(
+                        "SELECT COUNT(*) as recent_products FROM products WHERE posted_date >= CURRENT_DATE - INTERVAL '30 days'")
+                else:
+                    cursor.execute(
+                        'SELECT COUNT(*) as recent_products FROM products WHERE posted_date >= date("now", "-30 days")')
                 recent_products_result = cursor.fetchone()
                 recent_products_count = recent_products_result['recent_products'] if recent_products_result else 0
             except:
                 recent_products_count = 0
 
             try:
-                cursor.execute(
-                    'SELECT COUNT(*) as recent_orders FROM orders WHERE order_date >= date("now", "-30 days")')
+                if DATABASE_TYPE == 'postgresql':
+                    cursor.execute(
+                        "SELECT COUNT(*) as recent_orders FROM orders WHERE order_date >= CURRENT_DATE - INTERVAL '30 days'")
+                else:
+                    cursor.execute(
+                        'SELECT COUNT(*) as recent_orders FROM orders WHERE order_date >= date("now", "-30 days")')
                 recent_orders_result = cursor.fetchone()
                 recent_orders_count = recent_orders_result['recent_orders'] if recent_orders_result else 0
             except:
@@ -3705,7 +4211,7 @@ def admin_api_analytics():
     """General analytics data for charts"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Category sales data
             cursor.execute('''
@@ -3768,7 +4274,7 @@ def admin_api_parish_analytics():
     """Parish-based analytics for Jamaica"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Buyers by parish
             cursor.execute('''
@@ -3785,7 +4291,7 @@ def admin_api_parish_analytics():
             cursor.execute('''
                 SELECT COALESCE(business_address, parish, 'Unknown') as parish, COUNT(*) as seller_count
                 FROM users 
-                WHERE is_seller = 1 
+                WHERE is_seller = true 
                 GROUP BY COALESCE(business_address, parish, 'Unknown')
                 HAVING seller_count > 0
                 ORDER BY seller_count DESC
@@ -3880,7 +4386,7 @@ def admin_api_revenue_data():
         chart_type = request.args.get('chart_type', 'line')
 
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Check if we have any orders first
             cursor.execute('SELECT COUNT(*) as order_count FROM orders')
@@ -3909,7 +4415,7 @@ def admin_api_revenue_data():
                 days_back = 90
                 group_by = 'DATE(order_date)'
             elif timeframe == '6m':
-                days_back = 180
+                days_back = true80
                 group_by = 'strftime("%Y-%W", order_date)'
             elif timeframe == '1y':
                 days_back = 365
@@ -3993,7 +4499,7 @@ def recent_activity():
     """Recent platform activity for dashboard"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
             activities = []
 
             # Get recent user registrations
@@ -4129,24 +4635,26 @@ def admin_api_users():
     """FIXED: Users API - handles missing created_at column"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
-            # FIXED: Remove created_at column since it doesn't exist
+            # Get all users with their stats including seller revenue
             cursor.execute('''
-                SELECT 
+                SELECT
                     u.email, u.first_name, u.last_name, u.phone_number, u.whatsapp_number,
-                    u.parish, u.business_address, u.business_name, u.is_seller, 
+                    u.parish, u.business_address, u.business_name, u.is_seller,
                     u.profile_picture,
                     COUNT(DISTINCT o.order_id) as order_count,
                     COUNT(DISTINCT p.product_key) as products_listed,
-                    COALESCE(SUM(o.total), 0) as total_spent,
+                    COALESCE(SUM(CASE WHEN o.user_email = u.email THEN o.total ELSE 0 END), 0) as total_spent,
+                    COALESCE(SUM(p.price * COALESCE(p.sold, 0)), 0) as seller_revenue,
                     COUNT(DISTINCT uf.id) as flag_count
                 FROM users u
                 LEFT JOIN orders o ON u.email = o.user_email
-                LEFT JOIN products p ON u.email = p.seller_email  
-                LEFT JOIN user_flags uf ON u.email = uf.user_email AND uf.is_active = 1
-                GROUP BY u.email
-                ORDER BY u.email DESC
+                LEFT JOIN products p ON u.email = p.seller_email
+                LEFT JOIN user_flags uf ON u.email = uf.user_email AND uf.is_active = true
+                GROUP BY u.email, u.first_name, u.last_name, u.phone_number, u.whatsapp_number,
+                    u.parish, u.business_address, u.business_name, u.is_seller, u.profile_picture
+                ORDER BY seller_revenue DESC, u.email DESC
             ''')
 
             users_raw = cursor.fetchall()
@@ -4158,6 +4666,7 @@ def admin_api_users():
                 user['order_count'] = user['order_count'] or 0
                 user['products_listed'] = user['products_listed'] or 0
                 user['total_spent'] = float(user['total_spent'] or 0)
+                user['seller_revenue'] = float(user['seller_revenue'] or 0)
                 user['flag_count'] = user['flag_count'] or 0
                 users.append(user)
 
@@ -4187,10 +4696,10 @@ def flag_user():
             return jsonify({'success': False, 'message': 'User email and reason required'}), 400
 
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Check if user exists
-            cursor.execute('SELECT email FROM users WHERE email = ?', (user_email,))
+            cursor.execute('SELECT email FROM users WHERE email = %s', (user_email,))
             if not cursor.fetchone():
                 return jsonify({'success': False, 'message': 'User not found'}), 404
 
@@ -4202,7 +4711,7 @@ def flag_user():
             # Create flag record
             cursor.execute('''
                 INSERT INTO user_flags (user_email, flag_type, reason, flagged_by, expires_at)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s,%s)
             ''', (user_email, flag_type, reason, session['admin_user']['email'], expires_at))
 
             conn.commit()
@@ -4223,6 +4732,119 @@ def flag_user():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/admin/api/user_details/<email>')
+@admin_required()
+def get_user_details(email):
+    """Get detailed information about a specific user"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Get user basic info
+            cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
+            user = cursor.fetchone()
+
+            if not user:
+                return jsonify({'success': False, 'message': 'User not found'}), 404
+
+            user_data = dict(user)
+
+            # Get user flags
+            cursor.execute('''
+                SELECT * FROM user_flags
+                WHERE user_email = %s AND is_active = true
+                ORDER BY flag_date DESC
+            ''', (email,))
+            flags = [dict(row) for row in cursor.fetchall()]
+
+            # Get orders if buyer
+            cursor.execute('''
+                SELECT o.*, COUNT(oi.id) as item_count
+                FROM orders o
+                LEFT JOIN order_items oi ON o.order_id = oi.order_id
+                WHERE o.user_email = %s
+                GROUP BY o.order_id
+                ORDER BY o.order_date DESC
+            ''', (email,))
+            orders = [dict(row) for row in cursor.fetchall()]
+
+            # Get products if seller
+            products = []
+            if user_data.get('is_seller'):
+                cursor.execute('''
+                    SELECT p.*,
+                           COALESCE((SELECT COUNT(*) FROM user_flags
+                                    WHERE user_email = p.seller_email AND is_active = true), 0) as seller_flagged
+                    FROM products p
+                    WHERE p.seller_email = %s
+                    ORDER BY p.posted_date DESC
+                ''', (email,))
+                products_raw = cursor.fetchall()
+                for row in products_raw:
+                    product = dict(row)
+                    # Parse JSON fields
+                    try:
+                        product['image_urls'] = json.loads(product['image_urls']) if product['image_urls'] else []
+                    except:
+                        product['image_urls'] = []
+                    try:
+                        product['sizes'] = json.loads(product['sizes']) if product['sizes'] else {}
+                    except:
+                        product['sizes'] = {}
+                    products.append(product)
+
+            return jsonify({
+                'success': True,
+                'user': user_data,
+                'flags': flags,
+                'orders': orders,
+                'products': products
+            })
+
+    except Exception as e:
+        logger.error(f"Error getting user details: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/admin/api/unflag_user', methods=['POST'])
+@admin_required()
+def unflag_user():
+    """Unflag/unpause a user account"""
+    try:
+        data = request.get_json()
+        user_email = data.get('user_email')
+
+        if not user_email:
+            return jsonify({'success': False, 'message': 'User email required'}), 400
+
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Deactivate all active flags for this user
+            cursor.execute('''
+                UPDATE user_flags
+                SET is_active = 0
+                WHERE user_email = %s AND is_active = true
+            ''', (user_email,))
+
+            conn.commit()
+
+            # Log admin activity
+            log_admin_activity(
+                session['admin_user']['email'],
+                'user_unflagged',
+                'user',
+                user_email,
+                'User account unpaused/unflagged'
+            )
+
+            return jsonify({'success': True, 'message': 'User unflagged successfully'})
+
+    except Exception as e:
+        logger.error(f"Error unflagging user: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 # ========================================
 # SELLER MANAGEMENT ENDPOINTS
 # ========================================
@@ -4233,13 +4855,14 @@ def admin_api_sellers():
     """Get all sellers for seller analytics section"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Get all sellers with detailed info
             cursor.execute('''
-                SELECT 
-                    u.email, u.first_name, u.last_name, u.business_name, 
-                    u.business_address, u.phone_number, u.profile_picture,
+                SELECT
+                    u.email, u.first_name, u.last_name, u.business_name,
+                    u.business_address, u.phone_number, u.profile_picture, u.parish,
+                    u.cod_enabled,
                     COUNT(DISTINCT p.product_key) as products_listed,
                     COALESCE(SUM(p.sold), 0) as total_sales,
                     COALESCE(SUM(p.sold * p.price), 0) as total_revenue,
@@ -4249,9 +4872,9 @@ def admin_api_sellers():
                 FROM users u
                 LEFT JOIN products p ON u.email = p.seller_email
                 LEFT JOIN seller_ratings sr ON u.email = sr.seller_email
-                LEFT JOIN user_flags uf ON u.email = uf.user_email AND uf.is_active = 1
-                WHERE u.is_seller = 1
-                GROUP BY u.email
+                LEFT JOIN user_flags uf ON u.email = uf.user_email AND uf.is_active = true
+                WHERE u.is_seller = true
+                GROUP BY u.email, u.cod_enabled
                 ORDER BY total_revenue DESC
             ''')
 
@@ -4280,6 +4903,97 @@ def admin_api_sellers():
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
+@app.route('/admin/api/seller/<seller_email>')
+@admin_required()
+def admin_api_seller_details(seller_email):
+    """Get detailed seller information for admin view"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Get seller info with verification status
+            cursor.execute('''
+                SELECT
+                    u.email, u.first_name, u.last_name, u.business_name,
+                    u.business_address, u.phone_number, u.profile_picture, u.parish,
+                    u.business_description,
+                    sv.verification_status, sv.submitted_at as verification_date,
+                    COUNT(DISTINCT p.product_key) as products_listed,
+                    COALESCE(SUM(p.sold), 0) as total_sales,
+                    COALESCE(SUM(p.sold * p.price), 0) as total_revenue,
+                    AVG(sr.rating) as avg_rating,
+                    COUNT(sr.rating) as rating_count,
+                    COUNT(DISTINCT uf.id) as flag_count
+                FROM users u
+                LEFT JOIN seller_verification sv ON u.email = sv.seller_email
+                LEFT JOIN products p ON u.email = p.seller_email
+                LEFT JOIN seller_ratings sr ON u.email = sr.seller_email
+                LEFT JOIN user_flags uf ON u.email = uf.user_email AND uf.is_active = true
+                WHERE u.email = %s AND u.is_seller = true
+                GROUP BY u.email
+            ''', (seller_email,))
+
+            seller = cursor.fetchone()
+            if not seller:
+                return jsonify({'success': False, 'message': 'Seller not found'}), 404
+
+            seller_data = dict(seller)
+            # Clean up data
+            seller_data['products_listed'] = seller_data['products_listed'] or 0
+            seller_data['total_sales'] = seller_data['total_sales'] or 0
+            seller_data['total_revenue'] = float(seller_data['total_revenue'] or 0)
+            seller_data['avg_rating'] = round(float(seller_data['avg_rating'] or 0), 1)
+            seller_data['rating_count'] = seller_data['rating_count'] or 0
+            seller_data['flag_count'] = seller_data['flag_count'] or 0
+
+            return jsonify({
+                'success': True,
+                'seller': seller_data
+            })
+
+    except Exception as e:
+        logger.error(f"Error getting seller details for {seller_email}: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/admin/api/toggle_cod', methods=['POST'])
+@admin_required()
+def admin_toggle_cod():
+    """Toggle COD (Cash on Delivery) access for a seller"""
+    try:
+        data = request.get_json()
+        seller_email = data.get('seller_email')
+        cod_enabled = data.get('cod_enabled', False)
+
+        if not seller_email:
+            return jsonify({'success': False, 'message': 'Seller email required'}), 400
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            # Update seller's COD access
+            cursor.execute('''
+                UPDATE users
+                SET cod_enabled = %s
+                WHERE email = %s AND is_seller = true
+            ''', (cod_enabled, seller_email))
+
+            if cursor.rowcount == 0:
+                return jsonify({'success': False, 'message': 'Seller not found'}), 404
+
+            conn.commit()
+
+            logger.info(f"Admin toggled COD for {seller_email}: {cod_enabled}")
+            return jsonify({
+                'success': True,
+                'message': f"COD {'enabled' if cod_enabled else 'disabled'} for {seller_email}"
+            })
+
+    except Exception as e:
+        logger.error(f"Error toggling COD for seller: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 # ========================================
 # PRODUCT MANAGEMENT ENDPOINTS
 # ========================================
@@ -4290,7 +5004,7 @@ def admin_api_products():
     """Get all products for product management"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Get all products with seller info
             cursor.execute('''
@@ -4349,16 +5063,16 @@ def remove_product():
             return jsonify({'success': False, 'message': 'Product key required'}), 400
 
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Check if product exists
-            cursor.execute('SELECT * FROM products WHERE product_key = ?', (product_key,))
+            cursor.execute('SELECT * FROM products WHERE product_key = %s', (product_key,))
             product = cursor.fetchone()
             if not product:
                 return jsonify({'success': False, 'message': 'Product not found'}), 404
 
             # Remove the product
-            cursor.execute('DELETE FROM products WHERE product_key = ?', (product_key,))
+            cursor.execute('DELETE FROM products WHERE product_key = %s', (product_key,))
             conn.commit()
 
             # Log admin activity
@@ -4387,19 +5101,23 @@ def admin_api_orders():
     """Get all orders for order management"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Get all orders with user info
             cursor.execute('''
-                SELECT 
+                SELECT
                     o.order_id, o.user_email, o.full_name, o.phone_number,
                     o.parish, o.total, o.payment_method, o.order_date, o.status,
+                    o.payment_verified, o.lynk_reference,
                     u.first_name, u.last_name,
                     COUNT(oi.product_key) as item_count
                 FROM orders o
                 LEFT JOIN users u ON o.user_email = u.email
                 LEFT JOIN order_items oi ON o.order_id = oi.order_id
-                GROUP BY o.order_id
+                GROUP BY o.order_id, o.user_email, o.full_name, o.phone_number,
+                    o.parish, o.total, o.payment_method, o.order_date, o.status,
+                    o.payment_verified, o.lynk_reference,
+                    u.first_name, u.last_name
                 ORDER BY o.order_date DESC
             ''')
 
@@ -4441,10 +5159,10 @@ def update_order_status():
             return jsonify({'success': False, 'message': 'Invalid status'}), 400
 
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Update order status
-            cursor.execute('UPDATE orders SET status = ? WHERE order_id = ?', (new_status, order_id))
+            cursor.execute('UPDATE orders SET status = %s WHERE order_id = %s', (new_status, order_id))
 
             if cursor.rowcount == 0:
                 return jsonify({'success': False, 'message': 'Order not found'}), 404
@@ -4477,7 +5195,7 @@ def admin_api_financials():
     """Get financial data for financial dashboard"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Calculate financial metrics
             cursor.execute('''
@@ -4536,6 +5254,187 @@ def admin_api_financials():
 
 
 # ========================================
+# ADMIN PAYOUT MANAGEMENT
+# ========================================
+
+@app.route('/admin/api/pending_payouts')
+@admin_required()
+def admin_pending_payouts():
+    """Get all pending seller payout requests"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            cursor.execute('''
+                SELECT
+                    wr.id,
+                    wr.seller_email,
+                    wr.amount,
+                    wr.fee,
+                    wr.net_amount,
+                    wr.method,
+                    wr.status,
+                    wr.request_date,
+                    wr.processing_time,
+                    u.first_name,
+                    u.last_name,
+                    spm.account_number,
+                    spm.account_name,
+                    spm.bank_name
+                FROM withdrawal_requests wr
+                JOIN users u ON wr.seller_email = u.email
+                LEFT JOIN seller_payment_methods spm ON wr.seller_email = spm.seller_email
+                    AND spm.payment_type = wr.method
+                WHERE wr.status = 'pending'
+                ORDER BY wr.request_date DESC
+            ''')
+
+            pending_payouts = [dict(row) for row in cursor.fetchall()]
+
+            # Get summary
+            cursor.execute('''
+                SELECT
+                    COUNT(*) as total_pending,
+                    COALESCE(SUM(amount), 0) as total_amount
+                FROM withdrawal_requests
+                WHERE status = 'pending'
+            ''')
+            summary = cursor.fetchone()
+
+            return jsonify({
+                'success': True,
+                'payouts': pending_payouts,
+                'summary': {
+                    'total_pending': int(summary['total_pending']),
+                    'total_amount': float(summary['total_amount'])
+                }
+            })
+
+    except Exception as e:
+        logger.error(f"Error getting pending payouts: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/admin/api/approve_payout', methods=['POST'])
+@admin_required()
+def admin_approve_payout():
+    """Manually approve and mark payout as completed"""
+    try:
+        data = request.get_json()
+        payout_id = data.get('payout_id')
+
+        if not payout_id:
+            return jsonify({'success': False, 'message': 'Payout ID required'})
+
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Get payout details
+            cursor.execute('''
+                SELECT seller_email, amount, net_amount
+                FROM withdrawal_requests
+                WHERE id = %s AND status = 'pending'
+            ''', (payout_id,))
+
+            payout = cursor.fetchone()
+            if not payout:
+                return jsonify({'success': False, 'message': 'Payout not found or already processed'})
+
+            # Update withdrawal request to completed
+            cursor.execute('''
+                UPDATE withdrawal_requests
+                SET status = 'completed',
+                    completed_date = %s
+                WHERE id = %s
+            ''', (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), payout_id))
+
+            # Update seller finances - remove from pending
+            cursor.execute('''
+                UPDATE seller_finances
+                SET pending_withdrawals = GREATEST(pending_withdrawals - %s, 0)
+                WHERE seller_email = %s
+            ''', (payout['amount'], payout['seller_email']))
+
+            # Find and update transaction
+            cursor.execute('''
+                UPDATE payment_transactions
+                SET status = 'completed',
+                    completed_at = %s
+                WHERE seller_email = %s
+                AND transaction_type = 'withdrawal'
+                AND amount = %s
+                AND status = 'processing'
+                ORDER BY created_at DESC
+                LIMIT 1
+            ''', (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), payout['seller_email'], payout['amount']))
+
+            # Send seller notification
+            cursor.execute('''
+                INSERT INTO seller_notifications (seller_email, notification_type, title, message, created_at)
+                VALUES (%s, %s, %s, %s, %s)
+            ''', (
+                payout['seller_email'],
+                'payout_approved',
+                '✅ Payout Approved!',
+                f"Your withdrawal request of J${payout['net_amount']:,.2f} has been approved and processed. Funds should arrive within the specified processing time.",
+                datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            ))
+
+            conn.commit()
+
+            logger.info(f"Admin approved payout {payout_id} for {payout['seller_email']}: J${payout['net_amount']}")
+
+            return jsonify({
+                'success': True,
+                'message': f"Payout of J${payout['net_amount']:,.2f} approved successfully!"
+            })
+
+    except Exception as e:
+        logger.error(f"Error approving payout: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/admin/api/payout_history')
+@admin_required()
+def admin_payout_history():
+    """Get completed payout history"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            cursor.execute('''
+                SELECT
+                    wr.id,
+                    wr.seller_email,
+                    wr.amount,
+                    wr.fee,
+                    wr.net_amount,
+                    wr.method,
+                    wr.status,
+                    wr.request_date,
+                    wr.completed_date,
+                    u.first_name,
+                    u.last_name
+                FROM withdrawal_requests wr
+                JOIN users u ON wr.seller_email = u.email
+                WHERE wr.status IN ('completed', 'failed')
+                ORDER BY wr.completed_date DESC
+                LIMIT 100
+            ''')
+
+            history = [dict(row) for row in cursor.fetchall()]
+
+            return jsonify({
+                'success': True,
+                'history': history
+            })
+
+    except Exception as e:
+        logger.error(f"Error getting payout history: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+# ========================================
 # ADMIN USER MANAGEMENT ENDPOINTS
 # ========================================
 
@@ -4545,7 +5444,7 @@ def admin_api_admin_users():
     """Get all admin users for settings"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             cursor.execute('''
                 SELECT email, admin_level, created_by, created_at, last_login, is_active
@@ -4583,17 +5482,17 @@ def create_admin_user():
         hashed_password = generate_password_hash(password)
 
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Check if admin already exists
-            cursor.execute('SELECT email FROM admin_users WHERE email = ?', (email,))
+            cursor.execute('SELECT email FROM admin_users WHERE email = %s', (email,))
             if cursor.fetchone():
                 return jsonify({'success': False, 'message': 'Admin user already exists'}), 400
 
             # Create admin user
             cursor.execute('''
                 INSERT INTO admin_users (email, password, admin_level, created_by)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s,%s)
             ''', (email, hashed_password, admin_level, session['admin_user']['email']))
             conn.commit()
 
@@ -4628,10 +5527,10 @@ def deactivate_admin():
             return jsonify({'success': False, 'message': 'Cannot deactivate yourself'}), 400
 
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Deactivate admin
-            cursor.execute('UPDATE admin_users SET is_active = 0 WHERE email = ?', (admin_email,))
+            cursor.execute('UPDATE admin_users SET is_active = 0 WHERE email = %s', (admin_email,))
 
             if cursor.rowcount == 0:
                 return jsonify({'success': False, 'message': 'Admin user not found'}), 404
@@ -4664,14 +5563,14 @@ def test_admin_data():
     """Test endpoint to verify data (temporary for debugging)"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Count users
             cursor.execute('SELECT COUNT(*) as count FROM users')
             user_count = cursor.fetchone()['count']
 
             # Count sellers
-            cursor.execute('SELECT COUNT(*) as count FROM users WHERE is_seller = 1')
+            cursor.execute('SELECT COUNT(*) as count FROM users WHERE is_seller = true')
             seller_count = cursor.fetchone()['count']
 
             # Count products
@@ -4687,7 +5586,7 @@ def test_admin_data():
             sample_users = [dict(row) for row in cursor.fetchall()]
 
             # Get sample seller data
-            cursor.execute('SELECT email, business_name FROM users WHERE is_seller = 1 LIMIT 3')
+            cursor.execute('SELECT email, business_name FROM users WHERE is_seller = true LIMIT 3')
             sample_sellers = [dict(row) for row in cursor.fetchall()]
 
             return jsonify({
@@ -4821,11 +5720,11 @@ def seller_verification():
 
             # Store in database
             with get_db() as conn:
-                cursor = conn.cursor()
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
                 # Check if verification already exists
                 cursor.execute('''
-                    SELECT id FROM seller_verifications WHERE seller_email = ?
+                    SELECT id FROM seller_verification WHERE seller_email = %s
                 ''', (user_email,))
 
                 existing = cursor.fetchone()
@@ -4833,22 +5732,22 @@ def seller_verification():
                 if existing:
                     # Update existing verification
                     cursor.execute('''
-                        UPDATE seller_verifications 
-                        SET id_document_path = ?, id_document_type = ?, trn_number = ?, 
-                            trn_document_path = ?, notes = ?, verification_status = 'pending_review',
+                        UPDATE seller_verification
+                        SET id_document_path = %s, id_document_type = %s, trn_number = %s,
+                            trn_document_path = %s, notes = %s, verification_status = 'pending_review',
                             submitted_at = CURRENT_TIMESTAMP
-                        WHERE seller_email = ?
-                    ''', (f"verifications/{id_filename}", id_document_type, trn_number,
-                          f"verifications/{trn_filename}", notes, user_email))
+                        WHERE seller_email = %s
+                    ''', (f"uploads/verifications/{id_filename}", id_document_type, trn_number,
+                          f"uploads/verifications/{trn_filename}", notes, user_email))
                 else:
                     # Create new verification
                     cursor.execute('''
-                        INSERT INTO seller_verifications 
-                        (seller_email, id_document_path, id_document_type, trn_number, 
+                        INSERT INTO seller_verification
+                        (seller_email, id_document_path, id_document_type, trn_number,
                          trn_document_path, notes, verification_status)
-                        VALUES (?, ?, ?, ?, ?, ?, 'pending_review')
-                    ''', (user_email, f"verifications/{id_filename}", id_document_type,
-                          trn_number, f"verifications/{trn_filename}", notes))
+                        VALUES (%s, %s, %s, %s, %s, %s, 'pending_review')
+                    ''', (user_email, f"uploads/verifications/{id_filename}", id_document_type,
+                          trn_number, f"uploads/verifications/{trn_filename}", notes))
 
                 conn.commit()
 
@@ -4861,17 +5760,20 @@ def seller_verification():
             return redirect(url_for('seller_verification_pending'))
 
         except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
             logger.error(f"Error in seller verification: {e}")
+            logger.error(f"Full traceback: {error_details}")
             from flask_wtf.csrf import generate_csrf
             return render_template('seller_verification.html',
-                                   error="An error occurred while processing your verification. Please try again.",
+                                   error=f"An error occurred: {str(e)}",
                                    csrf_token=generate_csrf())
 
     # GET request - check current verification status
     with get_db() as conn:
-        cursor = conn.cursor()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
         cursor.execute('''
-            SELECT verification_status FROM seller_verifications WHERE seller_email = ?
+            SELECT verification_status FROM seller_verification WHERE seller_email = %s
         ''', (user_email,))
         verification = cursor.fetchone()
 
@@ -4907,11 +5809,11 @@ def seller_verification_rejected():
     user_email = session['user']['email']
 
     with get_db() as conn:
-        cursor = conn.cursor()
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
         cursor.execute('''
-            SELECT rejection_reason, reviewed_at 
-            FROM seller_verifications 
-            WHERE seller_email = ?
+            SELECT rejection_reason, reviewed_at
+            FROM seller_verification
+            WHERE seller_email = %s
         ''', (user_email,))
         verification = cursor.fetchone()
 
@@ -4927,11 +5829,14 @@ def seller_dashboard():
 
     seller_email = session['user']['email']
 
+    # Check if seller is flagged
+    flag_status = is_user_flagged(seller_email)
+
     with get_db() as conn:
-        cursor = conn.cursor()
-        # Check verification status from seller_verifications table
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+        # Check verification status from seller_verification table
         cursor.execute('''
-            SELECT verification_status FROM seller_verifications WHERE seller_email = ?
+            SELECT verification_status FROM seller_verification WHERE seller_email = %s
         ''', (seller_email,))
         verification_record = cursor.fetchone()
 
@@ -4948,10 +5853,10 @@ def seller_dashboard():
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Verify seller exists
-            cursor.execute('SELECT * FROM users WHERE email = ? AND is_seller = ?', (seller_email, True))
+            cursor.execute('SELECT * FROM users WHERE email = %s AND is_seller = %s', (seller_email, True))
             seller = cursor.fetchone()
             if not seller:
                 logger.warning(f"Seller not found or not authorized: {seller_email}")
@@ -4962,11 +5867,12 @@ def seller_dashboard():
                 SELECT product_key, name, category, price, posted_date, sold, clicks, likes, 
                        image_url, description, amount
                 FROM products 
-                WHERE seller_email = ?
+                WHERE seller_email = %s
                 ORDER BY posted_date DESC
             ''', (seller_email,))
 
             products_raw = cursor.fetchall()
+            logger.info(f"DEBUG: Found {len(products_raw)} products for seller {seller_email}")
             products = []
             total_calculated_earnings = 0.0
 
@@ -4993,7 +5899,7 @@ def seller_dashboard():
             cursor.execute('''
                 SELECT COALESCE(SUM(quantity * price), 0) as actual_earnings
                 FROM sales_log 
-                WHERE seller_email = ?
+                WHERE seller_email = %s
             ''', (seller_email,))
 
             sales_result = cursor.fetchone()
@@ -5006,7 +5912,7 @@ def seller_dashboard():
             cursor.execute('''
                 SELECT COALESCE(SUM(amount), 0) as completed_withdrawals
                 FROM withdrawal_requests 
-                WHERE seller_email = ? AND status = 'completed'
+                WHERE seller_email = %s AND status = 'completed'
             ''', (seller_email,))
 
             completed_withdrawals_result = cursor.fetchone()
@@ -5017,7 +5923,7 @@ def seller_dashboard():
             cursor.execute('''
                 SELECT COALESCE(SUM(amount), 0) as pending_withdrawals
                 FROM withdrawal_requests 
-                WHERE seller_email = ? AND status = 'pending'
+                WHERE seller_email = %s AND status = 'pending'
             ''', (seller_email,))
 
             pending_withdrawals_result = cursor.fetchone()
@@ -5031,16 +5937,21 @@ def seller_dashboard():
             cursor.execute('''
                 SELECT balance, total_earnings, pending_withdrawals 
                 FROM seller_finances 
-                WHERE seller_email = ?
+                WHERE seller_email = %s
             ''', (seller_email,))
 
             financial_data = cursor.fetchone()
 
             # Update or create seller_finances with correct calculated values
             cursor.execute('''
-                INSERT OR REPLACE INTO seller_finances 
+                INSERT INTO seller_finances
                 (seller_email, balance, total_earnings, pending_withdrawals)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (seller_email)
+                DO UPDATE SET
+                    balance = EXCLUDED.balance,
+                    total_earnings = EXCLUDED.total_earnings,
+                    pending_withdrawals = EXCLUDED.pending_withdrawals
             ''', (seller_email, available_balance, total_earnings, pending_withdrawals))
             conn.commit()
 
@@ -5048,7 +5959,7 @@ def seller_dashboard():
             cursor.execute('''
                 SELECT id, method, amount, fee, net_amount, status, request_date, processing_time 
                 FROM withdrawal_requests 
-                WHERE seller_email = ?
+                WHERE seller_email = %s
                 ORDER BY request_date DESC
                 LIMIT 20
             ''', (seller_email,))
@@ -5114,7 +6025,9 @@ def seller_dashboard():
                 f"Seller dashboard loaded for {seller_email}: {total_products} products, {total_sold} sold, earnings: J${total_earnings:,.2f}")
 
     except Exception as e:
+        import traceback
         logger.error(f"Error loading seller dashboard for {seller_email}: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         # Return empty dashboard on error
         products = []
         financial_summary = {
@@ -5137,6 +6050,7 @@ def seller_dashboard():
         user=session['user'],
         seller_products=products,
         financial_data=financial_summary,
+        flag_status=flag_status,
         cart_items=cart_data['items'],
         cart_total=cart_data['total'],
         discount=cart_data['discount'],
@@ -5187,14 +6101,14 @@ def seller_payment_methods():
             is_primary = data.get('is_primary') == 'true'
 
             with get_db() as conn:
-                cursor = conn.cursor()
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
                 # If setting as primary, remove primary flag from others
                 if is_primary:
                     cursor.execute('''
                         UPDATE seller_payment_methods 
                         SET is_primary = FALSE 
-                        WHERE seller_email = ?
+                        WHERE seller_email = %s
                     ''', (seller_email,))
 
                 if payment_type == 'bank':
@@ -5202,7 +6116,7 @@ def seller_payment_methods():
                         INSERT INTO seller_payment_methods 
                         (seller_email, payment_type, account_name, account_number, 
                          bank_name, routing_number, is_primary)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        VALUES (%s, %s, %s, %s, %s, %s,%s)
                     ''', (
                         seller_email, payment_type,
                         data.get('account_name'),
@@ -5218,7 +6132,7 @@ def seller_payment_methods():
                         INSERT INTO seller_payment_methods 
                         (seller_email, payment_type, account_name, card_last_four, card_brand, 
                          payment_provider, is_primary)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                        VALUES (%s, %s, %s, %s, %s, %s,%s)
                     ''', (
                         seller_email, payment_type,
                         data.get('cardholder_name'),
@@ -5233,7 +6147,7 @@ def seller_payment_methods():
                         INSERT INTO seller_payment_methods 
                         (seller_email, payment_type, account_name, mobile_number, 
                          mobile_provider, is_primary)
-                        VALUES (?, ?, ?, ?, ?, ?)
+                        VALUES (%s, %s, %s, %s, %s,%s)
                     ''', (
                         seller_email, payment_type,
                         data.get('account_name'),
@@ -5252,13 +6166,13 @@ def seller_payment_methods():
     # GET request - return payment methods as JSON
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
             cursor.execute('''
                 SELECT id, payment_type, account_name, account_number, bank_name,
                        routing_number, card_last_four, card_brand, mobile_number, 
                        mobile_provider, is_primary, is_verified, created_at
                 FROM seller_payment_methods 
-                WHERE seller_email = ?
+                WHERE seller_email = %s
                 ORDER BY is_primary DESC, created_at DESC
             ''', (seller_email,))
 
@@ -5286,12 +6200,12 @@ def delete_payment_method(method_id):
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Check if this method is being used in pending withdrawals
             cursor.execute('''
                 SELECT COUNT(*) as count FROM withdrawal_requests 
-                WHERE seller_email = ? AND status = 'pending'
+                WHERE seller_email = %s AND status = 'pending'
             ''', (seller_email,))
 
             pending_count = cursor.fetchone()['count']
@@ -5303,7 +6217,7 @@ def delete_payment_method(method_id):
 
             cursor.execute('''
                 DELETE FROM seller_payment_methods 
-                WHERE id = ? AND seller_email = ?
+                WHERE id = %s AND seller_email = %s
             ''', (method_id, seller_email))
 
             if cursor.rowcount > 0:
@@ -5326,20 +6240,20 @@ def set_primary_payment_method(method_id):
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Remove primary from all methods
             cursor.execute('''
                 UPDATE seller_payment_methods 
                 SET is_primary = FALSE 
-                WHERE seller_email = ?
+                WHERE seller_email = %s
             ''', (seller_email,))
 
             # Set the selected method as primary
             cursor.execute('''
                 UPDATE seller_payment_methods 
                 SET is_primary = TRUE 
-                WHERE id = ? AND seller_email = ?
+                WHERE id = %s AND seller_email = %s
             ''', (method_id, seller_email))
 
             if cursor.rowcount > 0:
@@ -5373,10 +6287,10 @@ def seller_withdraw():
             return jsonify({'success': False, 'message': 'Please select a payment method'})
 
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Verify user is a seller
-            cursor.execute('SELECT is_seller FROM users WHERE email = ?', (user_email,))
+            cursor.execute('SELECT is_seller FROM users WHERE email = %s', (user_email,))
             user = cursor.fetchone()
             if not user or not user['is_seller']:
                 return jsonify({'success': False, 'message': 'Unauthorized'})
@@ -5384,7 +6298,7 @@ def seller_withdraw():
             # Get payment method details
             cursor.execute('''
                 SELECT * FROM seller_payment_methods 
-                WHERE id = ? AND seller_email = ?
+                WHERE id = %s AND seller_email = %s
             ''', (payment_method_id, user_email))
 
             payment_method = cursor.fetchone()
@@ -5393,7 +6307,7 @@ def seller_withdraw():
 
             # Get current available balance
             cursor.execute('''
-                SELECT balance FROM seller_finances WHERE seller_email = ?
+                SELECT balance FROM seller_finances WHERE seller_email = %s
             ''', (user_email,))
 
             balance_row = cursor.fetchone()
@@ -5431,7 +6345,7 @@ def seller_withdraw():
                 INSERT INTO payment_transactions 
                 (transaction_id, seller_email, amount, fee, net_amount, transaction_type, 
                  payment_method_id, status)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s,%s)
             ''', (transaction_id, user_email, amount, fee, net_amount, 'withdrawal',
                   payment_method_id, 'processing'))
 
@@ -5439,7 +6353,7 @@ def seller_withdraw():
             cursor.execute('''
                 INSERT INTO withdrawal_requests 
                 (seller_email, amount, fee, net_amount, method, status, request_date, processing_time)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s,%s)
             ''', (user_email, amount, fee, net_amount, payment_method['payment_type'], 'pending',
                   datetime.now().strftime('%Y-%m-%d %H:%M:%S'), processing_time))
 
@@ -5447,8 +6361,8 @@ def seller_withdraw():
             new_balance = current_balance - amount
             cursor.execute('''
                 UPDATE seller_finances 
-                SET balance = ?, pending_withdrawals = pending_withdrawals + ?
-                WHERE seller_email = ?
+                SET balance = %s, pending_withdrawals = pending_withdrawals + ?
+                WHERE seller_email = %s
             ''', (new_balance, amount, user_email))
 
             conn.commit()
@@ -5460,24 +6374,24 @@ def seller_withdraw():
 
                 try:
                     with get_db() as conn:
-                        cursor = conn.cursor()
+                        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
                         cursor.execute('''
                             UPDATE withdrawal_requests 
                             SET status = 'completed' 
-                            WHERE seller_email = ? AND amount = ? AND status = 'pending'
+                            WHERE seller_email = %s AND amount = %s AND status = 'pending'
                             ORDER BY request_date DESC LIMIT 1
                         ''', (user_email, amount))
 
                         cursor.execute('''
                             UPDATE payment_transactions 
-                            SET status = 'completed', completed_at = ?
-                            WHERE transaction_id = ?
+                            SET status = 'completed', completed_at = %s
+                            WHERE transaction_id = %s
                         ''', (datetime.now().strftime('%Y-%m-%d %H:%M:%S'), transaction_id))
 
                         cursor.execute('''
                             UPDATE seller_finances 
                             SET pending_withdrawals = pending_withdrawals - ?
-                            WHERE seller_email = ?
+                            WHERE seller_email = %s
                         ''', (amount, user_email))
 
                         conn.commit()
@@ -5518,10 +6432,10 @@ def seller_financials():
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Verify user is a seller
-            cursor.execute('SELECT is_seller FROM users WHERE email = ?', (user_email,))
+            cursor.execute('SELECT is_seller FROM users WHERE email = %s', (user_email,))
             user = cursor.fetchone()
             if not user or not user['is_seller']:
                 return jsonify({'success': False, 'message': 'Unauthorized'}), 403
@@ -5529,7 +6443,7 @@ def seller_financials():
             # Get current financial data
             cursor.execute('''
                 SELECT balance, total_earnings, pending_withdrawals
-                FROM seller_finances WHERE seller_email = ?
+                FROM seller_finances WHERE seller_email = %s
             ''', (user_email,))
             financial_data = cursor.fetchone()
 
@@ -5540,7 +6454,7 @@ def seller_financials():
             cursor.execute('''
                 SELECT product_key, name, category, price, posted_date, sold, clicks, likes, image_url, description, amount
                 FROM products 
-                WHERE seller_email = ?
+                WHERE seller_email = %s
                 ORDER BY posted_date DESC
             ''', (user_email,))
             products = []
@@ -5564,7 +6478,7 @@ def seller_financials():
             cursor.execute('''
                 SELECT id, method, amount, fee, net_amount, status, request_date, processing_time
                 FROM withdrawal_requests 
-                WHERE seller_email = ?
+                WHERE seller_email = %s
                 ORDER BY request_date DESC
             ''', (user_email,))
             withdrawal_history = []
@@ -5619,10 +6533,10 @@ def seller_dashboard_data():
         logger.info(f"Accessing seller_dashboard/data for {seller_email}")
 
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Verify user is a seller (redundant but safe)
-            cursor.execute('SELECT is_seller FROM users WHERE email = ?', (seller_email,))
+            cursor.execute('SELECT is_seller FROM users WHERE email = %s', (seller_email,))
             user = cursor.fetchone()
             if not user or not user['is_seller']:
                 logger.warning(f"User {seller_email} is not a seller")
@@ -5632,7 +6546,7 @@ def seller_dashboard_data():
         product_key = request.args.get('product_key')
 
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
             if period == 'yearly':
                 start_date = (datetime.now() - timedelta(days=365)).strftime('%Y-%m-%d')
                 date_format = '%Y'
@@ -5667,7 +6581,7 @@ def seller_dashboard_data():
             cursor.execute(f'''
                 SELECT {group_by} as period, SUM(quantity) as units_sold
                 FROM sales_log
-                WHERE seller_email = ? AND sale_date >= ? {'AND product_key = ?' if product_key else ''}
+                WHERE seller_email = %s AND sale_date >= ? {'AND product_key = %s' if product_key else ''}
                 GROUP BY period
                 ORDER BY period
             ''', (seller_email, start_date, product_key) if product_key else (seller_email, start_date))
@@ -5680,7 +6594,7 @@ def seller_dashboard_data():
                 SELECT {cart_group_by} as period, SUM(quantity) as cart_count
                 FROM cart_log cl
                 JOIN products p ON cl.product_key = p.product_key
-                WHERE p.seller_email = ? AND cl.cart_date >= ? {'AND cl.product_key = ?' if product_key else ''}
+                WHERE p.seller_email = %s AND cl.cart_date >= ? {'AND cl.product_key = %s' if product_key else ''}
                 GROUP BY period
                 ORDER BY period
             ''', (seller_email, start_date, product_key) if product_key else (seller_email, start_date))
@@ -5693,7 +6607,7 @@ def seller_dashboard_data():
             cursor.execute(f'''
                 SELECT strftime("{date_format}", posted_date) as period, clicks as click_count
                 FROM products
-                WHERE seller_email = ? AND posted_date >= ? {'AND product_key = ?' if product_key else ''}
+                WHERE seller_email = %s AND posted_date >= ? {'AND product_key = %s' if product_key else ''}
                 GROUP BY period
                 ORDER BY period
             ''', (seller_email, start_date, product_key) if product_key else (seller_email, start_date))
@@ -5706,7 +6620,7 @@ def seller_dashboard_data():
                 SELECT {likes_group_by} as period, COUNT(ul.user_email) as like_count
                 FROM user_likes ul
                 JOIN products p ON ul.product_key = p.product_key
-                WHERE p.seller_email = ? AND ul.created_at >= ? {'AND ul.product_key = ?' if product_key else ''}
+                WHERE p.seller_email = %s AND ul.created_at >= ? {'AND ul.product_key = %s' if product_key else ''}
                 GROUP BY period
                 ORDER BY period
             ''', (seller_email, start_date, product_key) if product_key else (seller_email, start_date))
@@ -5719,7 +6633,7 @@ def seller_dashboard_data():
             cursor.execute(f'''
                 SELECT strftime("{date_format}", posted_date) as period, sold as sold_count
                 FROM products
-                WHERE seller_email = ? AND posted_date >= ? {'AND product_key = ?' if product_key else ''}
+                WHERE seller_email = %s AND posted_date >= ? {'AND product_key = %s' if product_key else ''}
                 GROUP BY period
                 ORDER BY period
             ''', (seller_email, start_date, product_key) if product_key else (seller_email, start_date))
@@ -5740,64 +6654,436 @@ def seller_dashboard_data():
         logger.error(f"Error in seller_dashboard_data for {seller_email}: {e}\n{traceback.format_exc()}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/seller_statistics')
+def seller_statistics():
+    """Get detailed statistics for seller analytics dashboard"""
+    if 'user' not in session or not session['user'].get('is_seller', False):
+        return jsonify({'success': False, 'message': 'Not authorized'}), 401
+
+    seller_email = session['user']['email']
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Get all products with their stats
+            cursor.execute('''
+                SELECT product_key, name, price, sold, clicks, likes, image_url, posted_date
+                FROM products
+                WHERE seller_email = %s
+                ORDER BY sold DESC
+            ''', (seller_email,))
+
+            products_raw = cursor.fetchall()
+            products = []
+            total_views = 0
+            total_likes = 0
+            total_sales = 0
+            total_revenue = 0.0
+
+            for row in products_raw:
+                clicks = row['clicks'] or 0
+                likes = row['likes'] or 0
+                sold = row['sold'] or 0
+                price = float(row['price'])
+                revenue = sold * price
+
+                total_views += clicks
+                total_likes += likes
+                total_sales += sold
+                total_revenue += revenue
+
+                # Handle posted_date - it might be a string or datetime object
+                posted_date = row['posted_date']
+                if posted_date:
+                    if hasattr(posted_date, 'strftime'):
+                        posted_date_str = posted_date.strftime('%Y-%m-%d')
+                    else:
+                        posted_date_str = str(posted_date)
+                else:
+                    posted_date_str = 'N/A'
+
+                products.append({
+                    'product_key': row['product_key'],
+                    'name': row['name'],
+                    'price': price,
+                    'sold': sold,
+                    'clicks': clicks,
+                    'likes': likes,
+                    'image_url': row['image_url'] or 'product-placeholder.svg',
+                    'posted_date': posted_date_str
+                })
+
+            # Get sales over time (last 7 days)
+            cursor.execute('''
+                SELECT
+                    DATE(sale_date) as date,
+                    COUNT(*) as sales
+                FROM sales_log
+                WHERE seller_email = %s
+                AND sale_date >= CURRENT_DATE - INTERVAL '7 days'
+                GROUP BY DATE(sale_date)
+                ORDER BY date ASC
+            ''', (seller_email,))
+
+            sales_over_time_raw = cursor.fetchall()
+
+            # Fill in missing days with 0 sales
+            from datetime import datetime, timedelta
+
+            # Build sales dictionary handling both date objects and strings
+            sales_dict = {}
+            for row in sales_over_time_raw:
+                date_val = row['date']
+                if hasattr(date_val, 'strftime'):
+                    date_key = date_val.strftime('%m/%d')
+                else:
+                    # If it's already a string, try to parse it
+                    try:
+                        date_obj = datetime.strptime(str(date_val), '%Y-%m-%d')
+                        date_key = date_obj.strftime('%m/%d')
+                    except:
+                        date_key = str(date_val)
+                sales_dict[date_key] = row['sales']
+
+            sales_over_time = []
+            for i in range(6, -1, -1):
+                date = datetime.now() - timedelta(days=i)
+                date_str = date.strftime('%m/%d')
+                sales_over_time.append({
+                    'date': date_str,
+                    'sales': sales_dict.get(date_str, 0)
+                })
+
+            return jsonify({
+                'success': True,
+                'total_views': total_views,
+                'total_likes': total_likes,
+                'total_sales': total_sales,
+                'total_revenue': total_revenue,
+                'products': products,
+                'sales_over_time': sales_over_time
+            })
+
+    except Exception as e:
+        logger.error(f"Error in seller_statistics for {seller_email}: {e}\n{traceback.format_exc()}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/seller/notifications')
+def get_seller_notifications():
+    """Get notifications for the current seller"""
+    if 'user' not in session or not session['user'].get('is_seller', False):
+        return jsonify({'success': False, 'message': 'Not authorized'}), 401
+
+    seller_email = session['user']['email']
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Get unread notifications
+            cursor.execute('''
+                SELECT id, notification_type, product_key, product_name, buyer_email,
+                       quantity, price, sale_date, order_id, is_read, created_at
+                FROM seller_notifications
+                WHERE seller_email = %s
+                ORDER BY created_at DESC
+                LIMIT 50
+            ''', (seller_email,))
+
+            notifications = []
+            for row in cursor.fetchall():
+                notifications.append({
+                    'id': row['id'],
+                    'type': row['notification_type'],
+                    'product_key': row['product_key'],
+                    'product_name': row['product_name'],
+                    'buyer_email': row['buyer_email'],
+                    'quantity': row['quantity'],
+                    'price': row['price'],
+                    'sale_date': row['sale_date'],
+                    'order_id': row['order_id'],
+                    'is_read': row['is_read'],
+                    'created_at': row['created_at']
+                })
+
+            # Count unread notifications
+            cursor.execute('SELECT COUNT(*) as unread_count FROM seller_notifications WHERE seller_email = %s AND is_read = FALSE', (seller_email,))
+            unread_count = cursor.fetchone()['unread_count']
+
+            return jsonify({
+                'success': True,
+                'notifications': notifications,
+                'unread_count': unread_count
+            })
+
+    except Exception as e:
+        logger.error(f"Error getting notifications for {seller_email}: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/seller/notifications/<int:notification_id>/read', methods=['POST'])
+def mark_notification_read(notification_id):
+    """Mark a notification as read"""
+    if 'user' not in session or not session['user'].get('is_seller', False):
+        return jsonify({'success': False, 'message': 'Not authorized'}), 401
+
+    seller_email = session['user']['email']
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Update notification as read (verify it belongs to the seller)
+            cursor.execute('''
+                UPDATE seller_notifications
+                SET is_read = true
+                WHERE id = %s AND seller_email = %s
+            ''', (notification_id, seller_email))
+
+            if cursor.rowcount == 0:
+                return jsonify({'success': False, 'message': 'Notification not found'}), 404
+
+            conn.commit()
+            return jsonify({'success': True})
+
+    except Exception as e:
+        logger.error(f"Error marking notification {notification_id} as read for {seller_email}: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/seller/update_stock', methods=['POST'])
+def update_product_stock():
+    """Update product stock level"""
+    if 'user' not in session or not session['user'].get('is_seller', False):
+        return jsonify({'success': False, 'message': 'Not authorized'}), 401
+
+    seller_email = session['user']['email']
+
+    try:
+        data = request.get_json()
+        product_key = data.get('product_key')
+        new_stock = data.get('stock')
+
+        if not product_key or new_stock is None:
+            return jsonify({'success': False, 'message': 'Product key and stock amount required'}), 400
+
+        if new_stock < 0:
+            return jsonify({'success': False, 'message': 'Stock cannot be negative'}), 400
+
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Verify product belongs to seller
+            cursor.execute('SELECT product_key, name FROM products WHERE product_key = %s AND seller_email = %s',
+                          (product_key, seller_email))
+            product = cursor.fetchone()
+
+            if not product:
+                return jsonify({'success': False, 'message': 'Product not found or not authorized'}), 404
+
+            # Update stock
+            cursor.execute('UPDATE products SET amount = %s WHERE product_key = %s AND seller_email = %s',
+                          (new_stock, product_key, seller_email))
+
+            conn.commit()
+
+            logger.info(f"Seller {seller_email} updated stock for {product_key} to {new_stock}")
+
+            return jsonify({'success': True, 'message': 'Stock updated successfully', 'new_stock': new_stock})
+
+    except Exception as e:
+        logger.error(f"Error updating stock for {seller_email}: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+@app.route('/seller/check_low_stock', methods=['POST'])
+def check_all_low_stock():
+    """Check all products for low stock and create notifications"""
+    if 'user' not in session or not session['user'].get('is_seller', False):
+        return jsonify({'success': False, 'message': 'Not authorized'}), 401
+
+    seller_email = session['user']['email']
+
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Get all products with low stock (2 or less) for this seller
+            cursor.execute('''
+                SELECT product_key, name, amount, seller_email
+                FROM products
+                WHERE seller_email = %s AND amount <= 2
+            ''', (seller_email,))
+
+            low_stock_products = cursor.fetchall()
+            notifications_created = 0
+
+            for product in low_stock_products:
+                # Check if notification already exists for this product
+                cursor.execute('''
+                    SELECT id FROM seller_notifications
+                    WHERE seller_email = %s AND product_key = %s AND notification_type = 'low_stock' AND is_read = FALSE
+                ''', (seller_email, product['product_key']))
+
+                existing_notification = cursor.fetchone()
+
+                if not existing_notification:
+                    # Create low stock notification
+                    cursor.execute('''
+                        INSERT INTO seller_notifications
+                        (seller_email, notification_type, product_key, product_name, quantity, sale_date)
+                        VALUES (%s, %s, %s, %s, %s,%s)
+                    ''', (
+                        seller_email,
+                        'low_stock',
+                        product['product_key'],
+                        product['name'],
+                        product['amount'],
+                        datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    ))
+                    notifications_created += 1
+
+            conn.commit()
+
+            return jsonify({
+                'success': True,
+                'message': f'Checked all products. Created {notifications_created} new low stock notifications.',
+                'notifications_created': notifications_created
+            })
+
+    except Exception as e:
+        logger.error(f"Error checking low stock for {seller_email}: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @app.route('/seller/<seller_email>')
 def seller_store(seller_email):
     """Individual seller's store page"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
-            # Get seller info - UPDATED to include business_description
+            # Get seller info - with safe column handling
             cursor.execute('''
                 SELECT u.email, u.first_name, u.last_name, u.business_name, u.business_address,
-                       u.profile_picture, u.phone_number, u.parish, u.business_description,
-                       AVG(sr.rating) as avg_rating, COUNT(sr.rating) as rating_count,
-                       COUNT(DISTINCT p.product_key) as product_count,
-                       SUM(p.sold) as total_sales
+                       u.profile_picture, u.store_logo, u.phone_number, u.parish,
+                       sv.verification_status
                 FROM users u
-                LEFT JOIN seller_ratings sr ON u.email = sr.seller_email
-                LEFT JOIN products p ON u.email = p.seller_email
-                WHERE u.email = ? AND u.is_seller = 1
-                GROUP BY u.email
+                LEFT JOIN seller_verification sv ON u.email = sv.seller_email
+                WHERE u.email = %s AND u.is_seller = true
             ''', (seller_email,))
 
             seller = cursor.fetchone()
             if not seller:
                 return render_template('404.html', error="Seller not found"), 404
 
-            seller_data = dict(seller)
-            seller_data['avg_rating'] = round(seller_data['avg_rating'], 1) if seller_data['avg_rating'] else 0
-            seller_data['rating_count'] = seller_data['rating_count'] or 0
-            seller_data['product_count'] = seller_data['product_count'] or 0
-            seller_data['total_sales'] = seller_data['total_sales'] or 0
+            # Convert row to dict and handle None/NULL values properly
+            seller_data = {}
+            for key in seller.keys():
+                value = seller[key]
+                # Convert any Undefined or None to proper Python None
+                seller_data[key] = value if value is not None else None
+
+            # Try to get business_description separately (column might not exist)
+            try:
+                cursor.execute('''
+                    SELECT business_description FROM users WHERE email = %s
+                ''', (seller_email,))
+                desc_result = cursor.fetchone()
+                seller_data['business_description'] = desc_result['business_description'] if desc_result and \
+                                                                                             desc_result[
+                                                                                                 'business_description'] else 'Discover amazing products carefully curated just for you. We\'re committed to providing the highest quality items with exceptional customer service. Browse our collection and find exactly what you\'re looking for!'
+            except Exception as e:
+                # Column doesn't exist or error - use default
+                logger.warning(f"Could not get business_description: {e}")
+                seller_data[
+                    'business_description'] = 'Discover amazing products carefully curated just for you. We\'re committed to providing the highest quality items with exceptional customer service. Browse our collection and find exactly what you\'re looking for!'
+
+            # Get seller stats
+            cursor.execute('''
+                SELECT 
+                    AVG(sr.rating) as avg_rating, 
+                    COUNT(sr.rating) as rating_count,
+                    COUNT(DISTINCT p.product_key) as product_count,
+                    SUM(p.sold) as total_sales
+                FROM users u
+                LEFT JOIN seller_ratings sr ON u.email = sr.seller_email
+                LEFT JOIN products p ON u.email = p.seller_email
+                WHERE u.email = %s
+                GROUP BY u.email
+            ''', (seller_email,))
+
+            stats = cursor.fetchone()
+            if stats:
+                seller_data['avg_rating'] = round(float(stats['avg_rating'] or 0), 1)
+                seller_data['rating_count'] = stats['rating_count'] or 0
+                seller_data['product_count'] = stats['product_count'] or 0
+                seller_data['total_sales'] = stats['total_sales'] or 0
+            else:
+                seller_data['avg_rating'] = 0
+                seller_data['rating_count'] = 0
+                seller_data['product_count'] = 0
+                seller_data['total_sales'] = 0
+
             seller_data['join_date'] = '2024'
-            # business_description is now included from the query
+
+            # Ensure all required fields exist with safe defaults
+            seller_data['first_name'] = seller_data.get('first_name') or ''
+            seller_data['last_name'] = seller_data.get('last_name') or ''
+            seller_data['business_name'] = seller_data.get('business_name') or 'Seller Store'
+            seller_data['profile_picture'] = seller_data.get('profile_picture') or None
+            seller_data['phone_number'] = seller_data.get('phone_number') or ''
+            seller_data['parish'] = seller_data.get('parish') or ''
+            seller_data['business_address'] = seller_data.get('business_address') or ''
+            # Check verification status - only 'approved' shows verified badge
+            actual_verification_status = seller_data.get('verification_status')
+            seller_data['verification_status'] = actual_verification_status or 'unverified'
+            seller_data['is_verified'] = actual_verification_status == 'approved'
 
             # Get seller's products
             cursor.execute('''
-                SELECT * FROM products 
-                WHERE seller_email = ? 
+                SELECT * FROM products
+                WHERE seller_email = %s
                 ORDER BY posted_date DESC, clicks DESC
             ''', (seller_email,))
 
             products = []
             categories = set()
-            for row in cursor.fetchall():
-                product_data = dict(row)
-                try:
-                    product_data['image_urls'] = json.loads(product_data['image_urls'])
-                    product_data['sizes'] = json.loads(product_data['sizes'])
-                except:
-                    product_data['image_urls'] = [product_data['image_url']] if product_data['image_url'] else []
-                    product_data['sizes'] = {}
 
-                products.append(product_data)
-                if product_data['category']:
-                    categories.add(product_data['category'])
+            # Check if seller is flagged
+            seller_is_flagged = is_user_flagged(seller_email)
+
+            # Get all product rows
+            all_products = cursor.fetchall()
+
+            # If seller is NOT flagged, show products (is_user_flagged returns None if not flagged, dict if flagged)
+            if seller_is_flagged is None:
+                for row in all_products:
+                    product_data = dict(row)
+                    try:
+                        product_data['image_urls'] = json.loads(product_data['image_urls']) if product_data.get(
+                            'image_urls') else []
+                        product_data['sizes'] = json.loads(product_data['sizes']) if product_data.get('sizes') else {}
+                    except:
+                        product_data['image_urls'] = [product_data['image_url']] if product_data.get(
+                            'image_url') else []
+                        product_data['sizes'] = {}
+
+                    products.append(product_data)
+                    if product_data.get('category'):
+                        categories.add(product_data['category'])
 
             product_categories = sorted(list(categories))
 
-        cart_data = get_cart_items()
+        # Get cart data safely - handle case where user might not have a cart (e.g., admin viewing)
+        try:
+            cart_data = get_cart_items()
+        except Exception as cart_error:
+            logger.warning(f"Could not load cart data: {cart_error}")
+            cart_data = {
+                'items': [],
+                'total': 0,
+                'discount': 0,
+                'cart_item_count': 0
+            }
 
         return render_template(
             'seller_store_page.html',
@@ -5812,7 +7098,10 @@ def seller_store(seller_email):
         )
     except Exception as e:
         logger.error(f"Error in seller_store: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         return render_template('404.html', error=f"Error loading store: {str(e)}"), 500
+
 
 @app.route('/product_listing')
 def product_listing():
@@ -5820,11 +7109,11 @@ def product_listing():
         return redirect(url_for('login'))
     seller_email = session['user']['email']
     with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM users WHERE email = ? AND is_seller = ?', (seller_email, True))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+        cursor.execute('SELECT * FROM users WHERE email = %s AND is_seller = %s', (seller_email, True))
         if not cursor.fetchone():
             return redirect(url_for('login'))
-        cursor.execute('SELECT * FROM products WHERE seller_email = ?', (seller_email,))
+        cursor.execute('SELECT * FROM products WHERE seller_email = %s', (seller_email,))
         seller_products = {
             row['product_key']: dict(row, image_urls=json.loads(row['image_urls']), sizes=json.loads(row['sizes']))
             for row in cursor.fetchall()}
@@ -5844,10 +7133,28 @@ def new_product():
         return redirect(url_for('login'))
 
     with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM users WHERE email = ? AND is_seller = ?', (session['user']['email'], True))
-        if not cursor.fetchone():
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+        cursor.execute('SELECT * FROM users WHERE email = %s AND is_seller = %s', (session['user']['email'], True))
+        user = cursor.fetchone()
+        if not user:
             return redirect(url_for('login'))
+
+        # Check if seller is verified from seller_verification table
+        cursor.execute('SELECT verification_status FROM seller_verification WHERE seller_email = %s', (session['user']['email'],))
+        verification = cursor.fetchone()
+
+        if not verification:
+            flash('You must complete seller verification before posting products.', 'error')
+            return redirect(url_for('seller_verification'))
+
+        if verification['verification_status'] != 'approved':
+            if verification['verification_status'] == 'pending_review':
+                return redirect(url_for('seller_verification_pending'))
+            elif verification['verification_status'] == 'rejected':
+                return redirect(url_for('seller_verification_rejected'))
+            else:
+                flash('You must complete seller verification before posting products.', 'error')
+                return redirect(url_for('seller_verification'))
 
         if request.method == 'POST':
             try:
@@ -5858,54 +7165,140 @@ def new_product():
                 parish = request.form['parish']
                 original_cost = float(request.form['original_cost'])
                 selling_price = float(request.form['selling_price'])
+
+                # SHIPPING: Get shipping method and add cost to price
+                shipping_method = request.form.get('shipping_method', 'jamaica_post')
+                shipping_costs = {
+                    'knutsford': 650,
+                    'jamaica_post': 400,
+                    'local_delivery': 300
+                }
+                shipping_cost = shipping_costs.get(shipping_method, 400)
+
+                # Add shipping to selling price (buyers see "FREE SHIPPING")
+                final_price = selling_price + shipping_cost
+
+                # COD: Check if seller enabled COD for this product
+                # Only allow if admin has enabled COD for this seller
+                cod_available = False
+                if user.get('cod_enabled', False):
+                    cod_available = request.form.get('cod_available') == 'true'
+
                 colors = request.form.getlist('colors[]')
                 sizes = {}
 
+                # DEBUG: Log what we received
+                logger.info(f"DEBUG - Colors received: {colors}")
+                logger.info(f"DEBUG - Category: {category}")
+
                 for color in colors:
-                    if color:
+                    if color and color.strip():  # Check if color is not empty or whitespace
+                        color = color.strip()  # Remove any whitespace
                         if category == 'Shoes':
                             size_list = request.form.getlist(f'sizes_{color}[]')
+                            logger.info(f"DEBUG - Sizes for {color}: {size_list}")
                             if size_list:
-                                sizes[color] = [size for size in size_list if size]
+                                sizes[color] = [size.strip() for size in size_list if size and size.strip()]
                         else:
                             size = request.form.get(f'sizes_{color}', '')
-                            if size:
-                                sizes[color] = size
+                            logger.info(f"DEBUG - Size for {color}: {size}")
+                            if size and size.strip():
+                                sizes[color] = size.strip()
+
+                # DEBUG: Log final sizes dictionary
+                logger.info(f"DEBUG - Final sizes dict: {sizes}")
+
+                # If no colors/sizes were added, create a default entry
+                if not sizes:
+                    logger.warning("No colors/sizes provided - using default 'One Size'")
+                    sizes = {"Default": "One Size"}
 
                 image_urls = []
+                video_urls = []
+                video_url = None
+
+                # Validate first upload is an image
+                first_file = request.files.get('image_0')
+                if first_file and first_file.filename:
+                    if allowed_video(first_file.filename):
+                        cart_data = get_cart_items()
+                        return render_template('new_product.html',
+                                               user=session.get('user'),
+                                               parishes=PARISHES,
+                                               error="First upload must be an image, not a video",
+                                               cart_total=cart_data['total'],
+                                               discount=cart_data['discount'],
+                                               cart_item_count=cart_data['cart_item_count'])
+
                 for i in range(5):
                     file_key = f'image_{i}'
                     if file_key in request.files and request.files[file_key].filename:
                         file = request.files[file_key]
-                        if file and allowed_file(file.filename):
+                        if file:
                             filename = secure_filename(file.filename)
-                            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                            image_urls.append(f"uploads/{filename}")
+                            # Check if it's a video or image
+                            if allowed_video(file.filename):
+                                # It's a video - save it and store as video_url (only first video)
+                                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                                if not video_url:  # Only save first video
+                                    video_url = f"uploads/{filename}"
+                                video_urls.append(f"uploads/{filename}")
+                            elif allowed_file(file.filename):
+                                # It's an image
+                                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                                image_urls.append(f"uploads/{filename}")
 
-                if not image_urls:
+                # Combine: images first, then videos at the end (like Amazon)
+                all_media = image_urls + video_urls
+
+                if not all_media:
                     cart_data = get_cart_items()
                     return render_template('new_product.html',
+                                           user=session.get('user'),
                                            parishes=PARISHES,
                                            error="At least one image is required",
                                            cart_total=cart_data['total'],
                                            discount=cart_data['discount'],
                                            cart_item_count=cart_data['cart_item_count'])
 
-                roi = ((selling_price - original_cost) / original_cost) * 100 if original_cost > 0 else 0
-                product_key = f"{name} - {selling_price} JMD"
+                # Ensure image_url is always an image (never a video)
+                main_image = all_media[0]
+                for media in all_media:
+                    if not media.endswith(('.mp4', '.webm', '.mov')):
+                        main_image = media
+                        break
 
-                cursor.execute('SELECT product_key FROM products WHERE product_key = ?', (product_key,))
+                roi = ((final_price - original_cost) / original_cost) * 100 if original_cost > 0 else 0
+                product_key = f"{name} - {final_price} JMD"
+
+                cursor.execute('SELECT product_key FROM products WHERE product_key = %s', (product_key,))
                 if cursor.fetchone():
-                    product_key = f"{name} - {selling_price} JMD - {datetime.now().strftime('%s')}"
+                    product_key = f"{name} - {final_price} JMD - {datetime.now().strftime('%s')}"
+
+                # Add shipping columns if they don't exist (migration)
+                try:
+                    cursor.execute('''
+                        ALTER TABLE products
+                        ADD COLUMN IF NOT EXISTS shipping_method VARCHAR(50),
+                        ADD COLUMN IF NOT EXISTS base_price DECIMAL(10,2),
+                        ADD COLUMN IF NOT EXISTS shipping_cost DECIMAL(10,2)
+                    ''')
+                except:
+                    pass  # Columns might already exist
+
+                # New products start with 0 sold, 0 views, 0 likes
+                # These will increment as people view, like, and purchase
 
                 cursor.execute('''
                     INSERT INTO products (product_key, name, price, description, image_url, image_urls, shipping, brand, category,
-                                        original_cost, roi, sizes, seller_email, sold, clicks, likes, posted_date, amount)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                        original_cost, roi, sizes, seller_email, sold, clicks, likes, posted_date, amount,
+                                        shipping_method, base_price, shipping_cost, video_url, cod_available)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ''', (
-                    product_key, name, selling_price, description, image_urls[0], json.dumps(image_urls),
+                    product_key, name, final_price, description, main_image, json.dumps(all_media),
                     parish, brand, category, original_cost, roi, json.dumps(sizes),
-                    session['user']['email'], 0, 0, 0, datetime.now().strftime('%Y-%m-%d'), 10
+                    session['user']['email'], 0, 0, 0, datetime.now().strftime('%Y-%m-%d'), 10,
+                    shipping_method, selling_price, shipping_cost, video_url, cod_available
                 ))
                 conn.commit()
                 return redirect(url_for('seller_dashboard'))
@@ -5914,6 +7307,7 @@ def new_product():
                 logger.error(f"Error in new_product POST: {e}")
                 cart_data = get_cart_items()
                 return render_template('new_product.html',
+                                       user=session.get('user'),
                                        parishes=PARISHES,
                                        error="An error occurred while creating the product. Please try again.",
                                        cart_total=cart_data['total'],
@@ -5924,6 +7318,7 @@ def new_product():
     cart_data = get_cart_items()
     return render_template(
         'new_product.html',
+        user=dict(user) if user else session.get('user'),
         parishes=PARISHES,
         cart_total=cart_data['total'],
         discount=cart_data['discount'],
@@ -5939,12 +7334,20 @@ def agent_get_all_verifications():
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             cursor.execute('''
                    SELECT sv.*, u.first_name, u.last_name, u.business_name, u.phone_number,
-                          u.first_name || ' ' || u.last_name as seller_name
-                   FROM seller_verifications sv
+                          COALESCE(
+                              CASE
+                                  WHEN u.last_name IS NULL OR u.last_name = 'None' OR u.last_name = ''
+                                  THEN u.first_name
+                                  ELSE u.first_name || ' ' || u.last_name
+                              END,
+                              u.business_name,
+                              'N/A'
+                          ) as seller_name
+                   FROM seller_verification sv
                    JOIN users u ON sv.seller_email = u.email
                    ORDER BY sv.submitted_at DESC
                ''')
@@ -5972,12 +7375,20 @@ def agent_get_pending_verifications():
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             cursor.execute('''
                    SELECT sv.*, u.first_name, u.last_name, u.business_name, u.phone_number,
-                          u.first_name || ' ' || u.last_name as seller_name
-                   FROM seller_verifications sv
+                          COALESCE(
+                              CASE
+                                  WHEN u.last_name IS NULL OR u.last_name = 'None' OR u.last_name = ''
+                                  THEN u.first_name
+                                  ELSE u.first_name || ' ' || u.last_name
+                              END,
+                              u.business_name,
+                              'N/A'
+                          ) as seller_name
+                   FROM seller_verification sv
                    JOIN users u ON sv.seller_email = u.email
                    WHERE sv.verification_status = 'pending_review'
                    ORDER BY sv.submitted_at ASC
@@ -6006,14 +7417,22 @@ def agent_get_verification_details(seller_email):
 
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             cursor.execute('''
                    SELECT sv.*, u.first_name, u.last_name, u.business_name, u.phone_number,
-                          u.first_name || ' ' || u.last_name as seller_name
-                   FROM seller_verifications sv
+                          COALESCE(
+                              CASE
+                                  WHEN u.last_name IS NULL OR u.last_name = 'None' OR u.last_name = ''
+                                  THEN u.first_name
+                                  ELSE u.first_name || ' ' || u.last_name
+                              END,
+                              u.business_name,
+                              'N/A'
+                          ) as seller_name
+                   FROM seller_verification sv
                    JOIN users u ON sv.seller_email = u.email
-                   WHERE sv.seller_email = ?
+                   WHERE sv.seller_email = %s
                ''', (seller_email,))
 
             verification = cursor.fetchone()
@@ -6030,11 +7449,15 @@ def agent_get_verification_details(seller_email):
         return jsonify({'success': False, 'message': 'Error loading verification details'}), 500
 
 
-@app.route('/agent/verifications/approve', methods=['POST'])
+@app.route('/admin/verifications/approve', methods=['POST'])
 def approve_seller_verification():
-    """Approve a seller verification"""
-    if 'user' not in session or not session['user'].get('is_support'):
-        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    """Approve a seller verification - ADMIN or SUPPORT AGENT"""
+    # Allow both admin and support agents
+    is_admin = 'admin' in session or 'admin_user' in session
+    is_support = 'user' in session and session['user'].get('is_support')
+
+    if not (is_admin or is_support):
+        return jsonify({'success': False, 'message': 'Unauthorized - Admin or Support access required'}), 401
 
     try:
         data = request.get_json()
@@ -6043,28 +7466,27 @@ def approve_seller_verification():
         if not seller_email:
             return jsonify({'success': False, 'message': 'Seller email required'}), 400
 
+        # Get reviewer email
+        if is_admin:
+            reviewer_email = session.get('admin_user', {}).get('email') or session.get('admin', {}).get('email')
+        else:
+            reviewer_email = session['user']['email']
+
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Update verification status
             cursor.execute('''
-                   UPDATE seller_verifications 
-                   SET verification_status = 'approved', 
+                   UPDATE seller_verification
+                   SET verification_status = 'approved',
                        reviewed_at = CURRENT_TIMESTAMP,
-                       reviewed_by = ?
-                   WHERE seller_email = ?
-               ''', (session['user']['email'], seller_email))
-
-            # Update user verification status
-            cursor.execute('''
-                   UPDATE users 
-                   SET verification_status = 'approved'
-                   WHERE email = ?
-               ''', (seller_email,))
+                       reviewed_by = %s
+                   WHERE seller_email = %s
+               ''', (reviewer_email, seller_email))
 
             conn.commit()
 
-            logger.info(f"Seller verification approved: {seller_email} by {session['user']['email']}")
+            logger.info(f"Seller verification approved: {seller_email} by {reviewer_email}")
 
             return jsonify({
                 'success': True,
@@ -6076,11 +7498,15 @@ def approve_seller_verification():
         return jsonify({'success': False, 'message': 'Error approving verification'}), 500
 
 
-@app.route('/agent/verifications/reject', methods=['POST'])
+@app.route('/admin/verifications/reject', methods=['POST'])
 def reject_seller_verification():
-    """Reject a seller verification"""
-    if 'user' not in session or not session['user'].get('is_support'):
-        return jsonify({'success': False, 'message': 'Unauthorized'}), 401
+    """Reject a seller verification - ADMIN or SUPPORT AGENT"""
+    # Allow both admin and support agents
+    is_admin = 'admin' in session or 'admin_user' in session
+    is_support = 'user' in session and session['user'].get('is_support')
+
+    if not (is_admin or is_support):
+        return jsonify({'success': False, 'message': 'Unauthorized - Admin or Support access required'}), 401
 
     try:
         data = request.get_json()
@@ -6090,29 +7516,28 @@ def reject_seller_verification():
         if not seller_email or not reason:
             return jsonify({'success': False, 'message': 'Seller email and reason required'}), 400
 
+        # Get reviewer email
+        if is_admin:
+            reviewer_email = session.get('admin_user', {}).get('email') or session.get('admin', {}).get('email')
+        else:
+            reviewer_email = session['user']['email']
+
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Update verification status
             cursor.execute('''
-                   UPDATE seller_verifications 
+                   UPDATE seller_verification
                    SET verification_status = 'rejected',
                        reviewed_at = CURRENT_TIMESTAMP,
-                       reviewed_by = ?,
-                       rejection_reason = ?
-                   WHERE seller_email = ?
-               ''', (session['user']['email'], reason, seller_email))
-
-            # Update user verification status
-            cursor.execute('''
-                   UPDATE users 
-                   SET verification_status = 'rejected'
-                   WHERE email = ?
-               ''', (seller_email,))
+                       reviewed_by = %s,
+                       rejection_reason = %s
+                   WHERE seller_email = %s
+               ''', (reviewer_email, reason, seller_email))
 
             conn.commit()
 
-            logger.info(f"Seller verification rejected: {seller_email} by {session['user']['email']}")
+            logger.info(f"Seller verification rejected: {seller_email} by {reviewer_email}")
 
             return jsonify({
                 'success': True,
@@ -6128,11 +7553,11 @@ def edit_product(product_key):
     if 'user' not in session:
         return redirect(url_for('login'))
     with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM users WHERE email = ? AND is_seller = ?', (session['user']['email'], True))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+        cursor.execute('SELECT * FROM users WHERE email = %s AND is_seller = %s', (session['user']['email'], True))
         if not cursor.fetchone():
             return redirect(url_for('login'))
-        cursor.execute('SELECT * FROM products WHERE product_key = ? AND seller_email = ?',
+        cursor.execute('SELECT * FROM products WHERE product_key = %s AND seller_email = %s',
                        (product_key, session['user']['email']))
         product = cursor.fetchone()
         if not product:
@@ -6146,46 +7571,126 @@ def edit_product(product_key):
             parish = request.form['parish']
             original_cost = float(request.form['original_cost'])
             selling_price = float(request.form['selling_price'])
+
+            # SHIPPING: Get shipping method and add cost to price
+            shipping_method = request.form.get('shipping_method', product.get('shipping_method', 'jamaica_post'))
+            shipping_costs = {
+                'knutsford': 650,
+                'jamaica_post': 400,
+                'local_delivery': 300
+            }
+            shipping_cost = shipping_costs.get(shipping_method, 400)
+
+            # Add shipping to selling price (buyers see "FREE SHIPPING")
+            final_price = selling_price + shipping_cost
+
             colors = request.form.getlist('colors[]')
             sizes = {}
+
+            # DEBUG: Log what we received for edit
+            logger.info(f"DEBUG EDIT - Colors received: {colors}")
+            logger.info(f"DEBUG EDIT - Category: {category}")
+
             for color in colors:
-                if color:
+                if color and color.strip():  # Check if color is not empty or whitespace
+                    color = color.strip()  # Remove any whitespace
                     if category == 'Shoes':
                         size_list = request.form.getlist(f'sizes_{color}[]')
+                        logger.info(f"DEBUG EDIT - Sizes for {color}: {size_list}")
                         if size_list:
-                            sizes[color] = [size for size in size_list if size]
+                            sizes[color] = [size.strip() for size in size_list if size and size.strip()]
                     else:
                         size = request.form.get(f'sizes_{color}', '')
-                        if size:
-                            sizes[color] = size
-            image_urls = product['image_urls']
+                        logger.info(f"DEBUG EDIT - Size for {color}: {size}")
+                        if size and size.strip():
+                            sizes[color] = size.strip()
+
+            # DEBUG: Log final sizes dictionary
+            logger.info(f"DEBUG EDIT - Final sizes dict: {sizes}")
+
+            # If no colors/sizes, keep existing or use default
+            if not sizes and product.get('sizes'):
+                logger.warning("No new colors/sizes - keeping existing")
+                sizes = product['sizes']
+            elif not sizes:
+                logger.warning("No colors/sizes - using default")
+                sizes = {"Default": "One Size"}
+            # Handle image/video updates - merge old and new uploads
+            old_image_urls = product['image_urls']
+            all_media = []
+            video_url = product.get('video_url')  # Keep existing video if no new one uploaded
+            new_video_found = False
+
+            # Validate first upload is an image (if a new file is uploaded)
+            first_file = request.files.get('image_0')
+            if first_file and first_file.filename:
+                if allowed_video(first_file.filename):
+                    cart_data = get_cart_items()
+                    return render_template(
+                        'new_product.html',
+                        user=session.get('user'),
+                        parishes=PARISHES,
+                        product=product,
+                        product_key=product_key,
+                        error="First upload must be an image, not a video",
+                        cart_total=cart_data['total'],
+                        discount=cart_data['discount'],
+                        cart_item_count=cart_data['cart_item_count']
+                    )
+
+            # Process each upload slot - keep old if no new file uploaded
             for i in range(5):
                 file_key = f'image_{i}'
                 if file_key in request.files and request.files[file_key].filename:
+                    # New file uploaded in this slot
                     file = request.files[file_key]
-                    if file and allowed_file(file.filename):
+                    if file:
                         filename = secure_filename(file.filename)
-                        file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
-                        if i < len(image_urls):
-                            image_urls[i] = f"uploads/{filename}"
-                        else:
-                            image_urls.append(f"uploads/{filename}")
-            if not image_urls:
+                        if allowed_video(file.filename):
+                            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                            if not new_video_found:  # Only set first video as main video_url
+                                video_url = f"uploads/{filename}"
+                                new_video_found = True
+                            all_media.append(f"uploads/{filename}")
+                        elif allowed_file(file.filename):
+                            file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                            all_media.append(f"uploads/{filename}")
+                else:
+                    # No new file - keep existing file from this slot if it exists
+                    if i < len(old_image_urls):
+                        all_media.append(old_image_urls[i])
+
+            if not all_media:
+                cart_data = get_cart_items()
                 return render_template(
                     'new_product.html',
+                    user=session.get('user'),
                     parishes=PARISHES,
                     product=product,
                     product_key=product_key,
-                    error="At least one image is required"
+                    error="At least one image is required",
+                    cart_total=cart_data['total'],
+                    discount=cart_data['discount'],
+                    cart_item_count=cart_data['cart_item_count']
                 )
-            roi = ((selling_price - original_cost) / original_cost) * 100 if original_cost > 0 else 0
+
+            # Ensure image_url is always an image (never a video)
+            main_image = all_media[0]
+            for media in all_media:
+                if not media.endswith(('.mp4', '.webm', '.mov')):
+                    main_image = media
+                    break
+
+            roi = ((final_price - original_cost) / original_cost) * 100 if original_cost > 0 else 0
             cursor.execute('''
-                UPDATE products SET name = ?, price = ?, description = ?, image_url = ?, image_urls = ?, shipping = ?,
-                                  brand = ?, category = ?, original_cost = ?, roi = ?, sizes = ?, amount = ?
-                WHERE product_key = ? AND seller_email = ?
+                UPDATE products SET name = %s, price = %s, description = %s, image_url = %s, image_urls = %s, video_url = %s, shipping = %s,
+                                  brand = %s, category = %s, original_cost = %s, roi = %s, sizes = %s, amount = %s,
+                                  shipping_method = %s, base_price = %s, shipping_cost = %s
+                WHERE product_key = %s AND seller_email = %s
             ''', (
-                name, selling_price, description, image_urls[0], json.dumps(image_urls), parish, brand, category,
+                name, final_price, description, main_image, json.dumps(all_media), video_url, parish, brand, category,
                 original_cost, roi, json.dumps(sizes), request.form.get('amount', product['amount'], type=int),
+                shipping_method, selling_price, shipping_cost,
                 product_key, session['user']['email']
             ))
             conn.commit()
@@ -6193,6 +7698,7 @@ def edit_product(product_key):
     cart_data = get_cart_items()
     return render_template(
         'new_product.html',
+        user=session.get('user'),
         parishes=PARISHES,
         product=product,
         product_key=product_key,
@@ -6207,10 +7713,10 @@ def delete_product(product_key):
         return redirect(url_for('login'))
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM users WHERE email = ? AND is_seller = ?', (session['user']['email'], True))
+        cursor.execute('SELECT * FROM users WHERE email = %s AND is_seller = %s', (session['user']['email'], True))
         if not cursor.fetchone():
             return redirect(url_for('login'))
-        cursor.execute('DELETE FROM products WHERE product_key = ? AND seller_email = ?',
+        cursor.execute('DELETE FROM products WHERE product_key = %s AND seller_email = %s',
                        (product_key, session['user']['email']))
         conn.commit()
     return redirect(url_for('seller_dashboard'))
@@ -6219,29 +7725,76 @@ def delete_product(product_key):
 def product(product_key):
     product_key = unquote(product_key.replace('+', ' ')).strip()
     with get_db() as conn:
-        cursor = conn.cursor()
-        cursor.execute('SELECT * FROM products WHERE product_key = ?', (product_key,))
+        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+        cursor.execute('SELECT * FROM products WHERE product_key = %s', (product_key,))
         product = cursor.fetchone()
         if not product:
-            cursor.execute('SELECT * FROM products WHERE LOWER(product_key) = LOWER(?)', (product_key,))
+            cursor.execute('SELECT * FROM products WHERE LOWER(product_key) = LOWER(%s)', (product_key,))
             product = cursor.fetchone()
         if not product:
             return redirect(url_for('index'))
         product = dict(product, image_urls=json.loads(product['image_urls']), sizes=json.loads(product['sizes']))
-        cursor.execute('UPDATE products SET clicks = clicks + 1 WHERE product_key = ?', (product['product_key'],))
-        cursor.execute('SELECT business_name, business_address FROM users WHERE email = ?', (product['seller_email'],))
+
+        # Check if seller is flagged - if so, completely hide product
+        # is_user_flagged returns None if not flagged, dict if flagged
+        seller_flagged = is_user_flagged(product['seller_email'])
+        if seller_flagged is not None:
+            # Product is hidden - redirect to homepage
+            return redirect(url_for('index'))
+
+        cursor.execute('UPDATE products SET clicks = clicks + 1 WHERE product_key = %s', (product['product_key'],))
+
+        # Track product view for personalization (PostgreSQL only, logged-in users)
+        if DATABASE_TYPE == 'postgresql' and 'user' in session and session.get('user', {}).get('email'):
+            try:
+                track_product_view(
+                    user_email=session['user']['email'],
+                    product_key=product['product_key'],
+                    category=product.get('category')
+                )
+            except Exception as e:
+                logger.error(f"Error tracking product view: {e}")
+                # Don't block the page if tracking fails
+                pass
+
+        cursor.execute('''
+            SELECT u.business_name, u.business_address, sv.verification_status
+            FROM users u
+            LEFT JOIN seller_verification sv ON u.email = sv.seller_email
+            WHERE u.email = %s
+        ''', (product['seller_email'],))
         seller = cursor.fetchone()
         cursor.execute('''
             SELECT AVG(rating) as avg_rating, COUNT(rating) as rating_count
             FROM seller_ratings
-            WHERE seller_email = ?
+            WHERE seller_email = %s
         ''', (product['seller_email'],))
         rating_info = cursor.fetchone()
         avg_rating = round(rating_info['avg_rating'], 1) if rating_info['avg_rating'] else 0
         rating_count = rating_info['rating_count'] if rating_info['rating_count'] else 0
+
+        # Get product reviews
+        cursor.execute('''
+            SELECT pr.*, u.first_name, u.last_name
+            FROM product_reviews pr
+            JOIN users u ON pr.buyer_email = u.email
+            WHERE pr.product_key = %s
+            ORDER BY pr.created_at DESC
+        ''', (product['product_key'],))
+        product_reviews = cursor.fetchall()
+
+        # Get average product rating
+        cursor.execute('''
+            SELECT AVG(rating) as avg_product_rating, COUNT(*) as product_review_count
+            FROM product_reviews
+            WHERE product_key = %s
+        ''', (product['product_key'],))
+        product_rating_info = cursor.fetchone()
+        avg_product_rating = round(product_rating_info['avg_product_rating'], 1) if product_rating_info['avg_product_rating'] else 0
+        product_review_count = product_rating_info['product_review_count'] or 0
         cursor.execute('''
             SELECT * FROM products
-            WHERE category = ? AND product_key != ?
+            WHERE category = %s AND product_key != %s
             ORDER BY clicks DESC
             LIMIT 4
         ''', (product['category'], product['product_key']))
@@ -6253,7 +7806,7 @@ def product(product_key):
         if 'user' in session:
             cursor.execute('''
                 SELECT * FROM user_likes
-                WHERE user_email = ? AND product_key = ?
+                WHERE user_email = %s AND product_key = %s
             ''', (session['user']['email'], product['product_key']))
             user_liked = cursor.fetchone() is not None
         conn.commit()
@@ -6264,6 +7817,9 @@ def product(product_key):
         seller=seller,
         avg_rating=avg_rating,
         rating_count=rating_count,
+        product_reviews=product_reviews,
+        avg_product_rating=avg_product_rating,
+        product_review_count=product_review_count,
         related_products=related_products,
         user_liked=user_liked,
         cart_items=cart_data['items'],
@@ -6295,8 +7851,8 @@ def cart():
             base_product_key = re.sub(r'\s*\([^)]+\)$', '', product_key).strip()
 
             with get_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute('SELECT name, price, image_url, amount FROM products WHERE product_key = ?',
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+                cursor.execute('SELECT name, price, image_url, amount FROM products WHERE product_key = %s',
                                (base_product_key,))
                 product = cursor.fetchone()
                 if not product:
@@ -6328,7 +7884,7 @@ def cart():
                 if 'user' in session:
                     cursor.execute('''
                         INSERT INTO cart_log (user_email, product_key, quantity, cart_date)
-                        VALUES (?, ?, ?, ?)
+                        VALUES (%s, %s, %s,%s)
                     ''', (session['user']['email'], base_product_key, quantity, datetime.now().strftime('%Y-%m-%d')))
                     conn.commit()
 
@@ -6358,6 +7914,7 @@ def cart():
 @app.route('/toggle_like/<path:product_key>', methods=['POST'])
 def toggle_like(product_key):
     if 'user' not in session:
+        logger.warning("Toggle like: User not logged in")
         return jsonify({'success': False, 'message': 'Login required'}), 401
 
     try:
@@ -6369,53 +7926,60 @@ def toggle_like(product_key):
             try:
                 validate_csrf(csrf_token)
             except Exception as e:
+                logger.warning(f"CSRF validation failed: {e}")
                 return jsonify({'success': False, 'message': 'CSRF token invalid'}), 400
 
         product_key = unquote(product_key.replace('+', ' ')).strip()
+        logger.info(f"Toggle like for product: {product_key} by user: {session['user']['email']}")
 
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT * FROM products WHERE product_key = ?', (product_key,))
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+            cursor.execute('SELECT * FROM products WHERE product_key = %s', (product_key,))
             product = cursor.fetchone()
             if not product:
+                logger.warning(f"Product not found: {product_key}")
                 return jsonify({'success': False, 'message': 'Product not found'}), 404
 
             cursor.execute('''
                 SELECT * FROM user_likes
-                WHERE user_email = ? AND product_key = ?
+                WHERE user_email = %s AND product_key = %s
             ''', (session['user']['email'], product_key))
             existing_like = cursor.fetchone()
 
             if existing_like:
                 # Unlike
+                logger.info(f"Unliking product: {product_key}")
                 cursor.execute('''
                     DELETE FROM user_likes
-                    WHERE user_email = ? AND product_key = ?
+                    WHERE user_email = %s AND product_key = %s
                 ''', (session['user']['email'], product_key))
                 cursor.execute(
-                    'UPDATE products SET likes = CASE WHEN likes > 0 THEN likes - 1 ELSE 0 END WHERE product_key = ?',
+                    'UPDATE products SET likes = CASE WHEN likes > 0 THEN likes - 1 ELSE 0 END WHERE product_key = %s',
                     (product_key,))
                 conn.commit()
 
                 # Get updated like count
-                cursor.execute('SELECT likes FROM products WHERE product_key = ?', (product_key,))
+                cursor.execute('SELECT likes FROM products WHERE product_key = %s', (product_key,))
                 updated_product = cursor.fetchone()
                 likes_count = updated_product['likes'] if updated_product else 0
+                logger.info(f"Unlike successful. New count: {likes_count}")
 
                 return jsonify({'success': True, 'liked': False, 'likes': likes_count})
             else:
                 # Like
+                logger.info(f"Liking product: {product_key}")
                 cursor.execute('''
                     INSERT INTO user_likes (user_email, product_key, created_at)
-                    VALUES (?, ?, ?)
+                    VALUES (%s, %s, %s)
                 ''', (session['user']['email'], product_key, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-                cursor.execute('UPDATE products SET likes = likes + 1 WHERE product_key = ?', (product_key,))
+                cursor.execute('UPDATE products SET likes = likes + 1 WHERE product_key = %s', (product_key,))
                 conn.commit()
 
                 # Get updated like count
-                cursor.execute('SELECT likes FROM products WHERE product_key = ?', (product_key,))
+                cursor.execute('SELECT likes FROM products WHERE product_key = %s', (product_key,))
                 updated_product = cursor.fetchone()
                 likes_count = updated_product['likes'] if updated_product else 0
+                logger.info(f"Like successful. New count: {likes_count}")
 
                 return jsonify({'success': True, 'liked': True, 'likes': likes_count})
 
@@ -6468,8 +8032,8 @@ def update_cart():
 
         base_product_key = re.sub(r'\s*\([^)]+\)$', '', product_key).strip()
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT amount FROM products WHERE product_key = ?', (base_product_key,))
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+            cursor.execute('SELECT amount FROM products WHERE product_key = %s', (base_product_key,))
             product = cursor.fetchone()
             if not product:
                 return jsonify({'success': False, 'message': 'Product not found'}), 404
@@ -6498,6 +8062,7 @@ def update_cart():
 # Replace your existing checkout route with this fixed version
 
 @app.route('/checkout', methods=['GET', 'POST'])
+@limiter.limit("20 per hour")  # SECURITY: Max 20 checkouts per hour (prevents spam orders)
 def checkout():
     import re
     import uuid
@@ -6591,36 +8156,41 @@ def checkout():
                         post_offices=PARISH_POST_OFFICES.get(guest_parish, [])
                     )
 
-                # Calculate totals
-                shipping_fee = 1200 if shipping_option == 'overnight' else 500
-                tax = cart_data['total'] * 0.05
-                final_total = cart_data['total'] + shipping_fee + tax - cart_data['discount']
+                # Calculate totals using new payment system (NO SHIPPING - included in product price)
+                totals = calculate_order_totals(cart_data['total'], payment_method)
+                final_total = totals['final_total'] - cart_data['discount']
 
                 # LYNK LOGGING: Log Lynk payment for verification
                 if payment_method == 'lynk':
                     logger.info(
                         f"LYNK PAYMENT - Guest Order - Reference: {lynk_reference}, Amount: J${final_total}, Email: {guest_email}")
 
-                # Calculate estimated delivery
-                delivery_days = 1 if shipping_option == 'overnight' else 5
+                # Calculate estimated delivery (3-5 business days standard)
+                delivery_days = 5
                 estimated_delivery = (datetime.now() + timedelta(days=delivery_days)).strftime('%B %d, %Y')
 
+                # Define shipping and tax (shipping is included in product prices, tax is platform fee)
+                shipping_fee = 0  # Shipping is FREE and included in product prices
+                shipping_option = 'standard'  # Default shipping option
+                tax = totals['platform_fee']  # Platform fee acts as "tax"
+
                 with get_db() as conn:
-                    cursor = conn.cursor()
+                    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
                     order_id = f"GUEST-{str(uuid.uuid4())[:8].upper()}"
 
-                    # UPDATED: Create guest order with Lynk fields
+                    # UPDATED: Create guest order with new payment system fields
                     cursor.execute('''
-                        INSERT INTO orders (order_id, user_email, full_name, phone_number, address, parish, post_office, 
-                                          total, discount, payment_method, order_date, status, shipping_option, shipping_fee, tax,
+                        INSERT INTO orders (order_id, user_email, full_name, phone_number, address, parish, post_office,
+                                          total, discount, payment_method, order_date, status,
+                                          subtotal, platform_fee, payment_gateway_fee, total_before_gateway_fee,
                                           lynk_reference, payment_verified)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ''', (
                         order_id, guest_email, f"{guest_first_name} {guest_last_name}", guest_phone,
                         guest_address, guest_parish, guest_post_office, final_total, cart_data['discount'],
                         payment_method, datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'pending_payment' if payment_method == 'lynk' else 'pending',
-                        shipping_option, shipping_fee, tax,
+                        'pending_payment' if payment_method in ['lynk', 'whatsapp'] else 'pending',
+                        totals['subtotal'], totals['platform_fee'], totals['payment_gateway_fee'], totals['total_before_gateway_fee'],
                         lynk_reference if payment_method == 'lynk' else None,
                         False  # Will be verified manually or via API later
                     ))
@@ -6628,27 +8198,47 @@ def checkout():
 
                     # Add order items and update inventory
                     for item in cart_data['items']:
+                        # Strip variations from product_key before inserting
+                        base_product_key = re.sub(r'\s*\([^)]+\)$', '', item['product_key']).strip()
+
                         cursor.execute('''
                             INSERT INTO order_items (order_id, product_key, quantity, price)
-                            VALUES (?, ?, ?, ?)
-                        ''', (order_id, item['product_key'], item['quantity'], item['price']))
+                            VALUES (%s, %s, %s, %s)
+                        ''', (order_id, base_product_key, item['quantity'], item['price']))
 
                         # Update product inventory
-                        base_product_key = re.sub(r'\s*\([^)]+\)$', '', item['product_key']).strip()
-                        cursor.execute('UPDATE products SET amount = amount - ?, sold = sold + ? WHERE product_key = ?',
+                        cursor.execute('UPDATE products SET amount = amount - %s, sold = sold + %s WHERE product_key = %s',
                                        (item['quantity'], item['quantity'], base_product_key))
+
+                        # Check for low stock and create notification (guest checkout)
+                        cursor.execute('SELECT amount, name, seller_email FROM products WHERE product_key = %s', (base_product_key,))
+                        product_info = cursor.fetchone()
+                        if product_info and product_info['amount'] <= 2:
+                            # Create low stock notification
+                            cursor.execute('''
+                                INSERT INTO seller_notifications
+                                (seller_email, notification_type, product_key, product_name, quantity, sale_date)
+                                VALUES (%s, %s, %s, %s, %s,%s)
+                            ''', (
+                                product_info['seller_email'],
+                                'low_stock',
+                                base_product_key,
+                                product_info['name'],
+                                product_info['amount'],  # Current stock level
+                                datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            ))
 
                         # LYNK: Add to sales log for Lynk payments too
                         if payment_method == 'lynk':
                             # Get seller email for this product
-                            cursor.execute('SELECT seller_email FROM products WHERE product_key = ?',
+                            cursor.execute('SELECT seller_email FROM products WHERE product_key = %s',
                                            (base_product_key,))
                             product_info = cursor.fetchone()
                             seller_email = product_info['seller_email'] if product_info else 'unknown@example.com'
 
                             cursor.execute('''
                                 INSERT INTO sales_log (seller_email, product_key, quantity, price, sale_date, buyer_email)
-                                VALUES (?, ?, ?, ?, ?, ?)
+                                VALUES (%s, %s, %s, %s, %s,%s)
                             ''', (
                                 seller_email,
                                 base_product_key,
@@ -6657,6 +8247,62 @@ def checkout():
                                 datetime.now().strftime('%Y-%m-%d'),
                                 guest_email
                             ))
+
+                            # Create notification for the seller (guest purchase)
+                            cursor.execute('''
+                                INSERT INTO seller_notifications
+                                (seller_email, notification_type, product_key, product_name, buyer_email, quantity, price, sale_date, order_id)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s,%s)
+                            ''', (
+                                seller_email,
+                                'sale',
+                                base_product_key,
+                                item['name'],
+                                guest_email,
+                                item['quantity'],
+                                item['price'],
+                                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                order_id
+                            ))
+
+                    # NEW: Update seller finances and platform finances
+                    seller_payouts = calculate_seller_payouts(cart_data['items'])
+
+                    for seller_email, amount in seller_payouts.items():
+                        # Check if seller_finances record exists
+                        cursor.execute('SELECT seller_email FROM seller_finances WHERE seller_email = %s', (seller_email,))
+                        if cursor.fetchone():
+                            # Update existing record
+                            cursor.execute('''
+                                UPDATE seller_finances
+                                SET balance = COALESCE(balance, 0) + %s,
+                                    total_earnings = COALESCE(total_earnings, 0) + %s
+                                WHERE seller_email = %s
+                            ''', (amount, amount, seller_email))
+                        else:
+                            # Create new record
+                            cursor.execute('''
+                                INSERT INTO seller_finances (seller_email, balance, total_earnings)
+                                VALUES (%s, %s, %s)
+                            ''', (seller_email, amount, amount))
+
+                        # Log seller transaction
+                        cursor.execute('''
+                            INSERT INTO seller_transactions (seller_email, transaction_type, amount, order_id, buyer_email, description)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        ''', (seller_email, 'sale', amount, order_id, guest_email, f'Sale from order {order_id}'))
+
+                    # Record platform revenue
+                    cursor.execute('''
+                        INSERT INTO platform_finances (order_id, revenue_from_fees, gateway_fees_paid, net_revenue, payment_method)
+                        VALUES (%s, %s, %s, %s, %s)
+                    ''', (
+                        order_id,
+                        totals['platform_fee'],
+                        totals['payment_gateway_fee'],
+                        totals['platform_fee'] - totals['payment_gateway_fee'],
+                        payment_method
+                    ))
 
                     conn.commit()
 
@@ -6668,9 +8314,12 @@ def checkout():
                         'total_amount': final_total,
                         'shipping_fee': shipping_fee,
                         'tax': tax,
+                        'shipping_option': shipping_option,
+                        'subtotal': totals['subtotal'],
+                        'platform_fee': totals['platform_fee'],
+                        'payment_gateway_fee': totals['payment_gateway_fee'],
                         'discount': cart_data['discount'],
                         'estimated_delivery': estimated_delivery,
-                        'shipping_option': shipping_option,
                         'order_date': datetime.now().strftime('%B %d, %Y at %I:%M %p'),
                         'items': cart_data['items'],
                         'is_guest': True,
@@ -6743,56 +8392,81 @@ def checkout():
                             post_offices=PARISH_POST_OFFICES.get(parish, [])
                         )
 
-                # Calculate totals
-                shipping_fee = 1200 if shipping_option == 'overnight' else 500
-                tax = cart_data['total'] * 0.05
-                final_total = cart_data['total'] + shipping_fee + tax - cart_data['discount']
+                # Calculate totals using new payment system (NO SHIPPING - included in product price)
+                totals = calculate_order_totals(cart_data['total'], payment_method)
+                final_total = totals['final_total'] - cart_data['discount']
 
                 # LYNK LOGGING: Log Lynk payment for verification
                 if payment_method == 'lynk':
                     logger.info(
                         f"LYNK PAYMENT - User Order - Reference: {lynk_reference}, Amount: J${final_total}, User: {session['user']['email']}")
 
-                # Calculate estimated delivery
-                delivery_days = 1 if shipping_option == 'overnight' else 5
+                # Calculate estimated delivery (3-5 business days standard)
+                delivery_days = 5
                 estimated_delivery = (datetime.now() + timedelta(days=delivery_days)).strftime('%B %d, %Y')
 
+                # Define shipping and tax (shipping is included in product prices, tax is platform fee)
+                shipping_fee = 0  # Shipping is FREE and included in product prices
+                tax = totals['platform_fee']  # Platform fee acts as "tax"
+                # shipping_option is already defined from form at line 8003
+
                 with get_db() as conn:
-                    cursor = conn.cursor()
+                    cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
                     order_id = str(uuid.uuid4())[:8].upper()
 
-                    # UPDATED: Create user order with Lynk fields
+                    # UPDATED: Create user order with new payment system fields
                     cursor.execute('''
-                        INSERT INTO orders (order_id, user_email, full_name, phone_number, address, parish, post_office, 
-                                          total, discount, payment_method, order_date, status, shipping_option, shipping_fee, tax,
+                        INSERT INTO orders (order_id, user_email, full_name, phone_number, address, parish, post_office,
+                                          total, discount, payment_method, order_date, status,
+                                          subtotal, platform_fee, payment_gateway_fee, total_before_gateway_fee,
                                           lynk_reference, payment_verified)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                     ''', (
                         order_id, session['user']['email'], full_name, phone_number, address, parish, post_office,
                         final_total, cart_data['discount'], payment_method,
                         datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'pending_payment' if payment_method == 'lynk' else 'pending',
-                        shipping_option, shipping_fee, tax,
+                        'pending_payment' if payment_method in ['lynk', 'whatsapp'] else 'pending',
+                        totals['subtotal'], totals['platform_fee'], totals['payment_gateway_fee'], totals['total_before_gateway_fee'],
                         lynk_reference if payment_method == 'lynk' else None,
                         False  # Will be verified manually or via API later
                     ))
 
                     # Add order items and update inventory
                     for item in cart_data['items']:
+                        # Strip variations from product_key before inserting
+                        base_product_key = re.sub(r'\s*\([^)]+\)$', '', item['product_key']).strip()
+
                         cursor.execute('''
                             INSERT INTO order_items (order_id, product_key, quantity, price)
-                            VALUES (?, ?, ?, ?)
-                        ''', (order_id, item['product_key'], item['quantity'], item['price']))
+                            VALUES (%s, %s, %s, %s)
+                        ''', (order_id, base_product_key, item['quantity'], item['price']))
 
                         # Update product inventory
-                        base_product_key = re.sub(r'\s*\([^)]+\)$', '', item['product_key']).strip()
-                        cursor.execute('UPDATE products SET amount = amount - ?, sold = sold + ? WHERE product_key = ?',
+                        cursor.execute('UPDATE products SET amount = amount - %s, sold = sold + %s WHERE product_key = %s',
                                        (item['quantity'], item['quantity'], base_product_key))
+
+                        # Check for low stock and create notification
+                        cursor.execute('SELECT amount, name, seller_email FROM products WHERE product_key = %s', (base_product_key,))
+                        product_info = cursor.fetchone()
+                        if product_info and product_info['amount'] <= 2:
+                            # Create low stock notification
+                            cursor.execute('''
+                                INSERT INTO seller_notifications
+                                (seller_email, notification_type, product_key, product_name, quantity, sale_date)
+                                VALUES (%s, %s, %s, %s, %s,%s)
+                            ''', (
+                                product_info['seller_email'],
+                                'low_stock',
+                                base_product_key,
+                                product_info['name'],
+                                product_info['amount'],  # Current stock level
+                                datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                            ))
 
                         # Add to sales log
                         cursor.execute('''
                             INSERT INTO sales_log (seller_email, product_key, quantity, price, sale_date, buyer_email)
-                            VALUES (?, ?, ?, ?, ?, ?)
+                            VALUES (%s, %s, %s, %s, %s,%s)
                         ''', (
                             item.get('seller_email', session['user']['email']),
                             base_product_key,
@@ -6802,15 +8476,34 @@ def checkout():
                             session['user']['email']
                         ))
 
+                        # Create notification for the seller
+                        seller_email = item.get('seller_email', session['user']['email'])
+                        if seller_email != session['user']['email']:  # Don't notify if seller is buying their own item
+                            cursor.execute('''
+                                INSERT INTO seller_notifications
+                                (seller_email, notification_type, product_key, product_name, buyer_email, quantity, price, sale_date, order_id)
+                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s,%s)
+                            ''', (
+                                seller_email,
+                                'sale',
+                                base_product_key,
+                                item['name'],
+                                session['user']['email'],
+                                item['quantity'],
+                                item['price'],
+                                datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                                order_id
+                            ))
+
                     # 🔥 NEW: Increment purchase count for logged-in users
                     cursor.execute('''
                         UPDATE users 
                         SET purchase_count = COALESCE(purchase_count, 0) + 1 
-                        WHERE email = ?
+                        WHERE email = %s
                     ''', (session['user']['email'],))
 
                     # Get updated purchase count
-                    cursor.execute('SELECT purchase_count FROM users WHERE email = ?', (session['user']['email'],))
+                    cursor.execute('SELECT purchase_count FROM users WHERE email = %s', (session['user']['email'],))
                     user_data = cursor.fetchone()
                     updated_purchase_count = user_data['purchase_count'] if user_data else 1
 
@@ -6822,8 +8515,8 @@ def checkout():
                         # Mark as eligible for free gift
                         cursor.execute('''
                             UPDATE users 
-                            SET discount_applied = 1, discount_used = 0 
-                            WHERE email = ?
+                            SET discount_applied = true, discount_used = 0 
+                            WHERE email = %s
                         ''', (session['user']['email'],))
                         session['user']['discount_applied'] = True
                         session['user']['discount_used'] = False
@@ -6831,9 +8524,54 @@ def checkout():
                         logger.info(
                             f"User {session['user']['email']} earned free gift after {updated_purchase_count} purchases")
 
-                    # Mark discount as used
-                    cursor.execute('UPDATE users SET discount_used = ? WHERE email = ?',
-                                   (True, session['user']['email']))
+                    # Check if cart contains any free items (indicating a gift was claimed)
+                    has_free_item = any(item['price'] == 0 for item in cart_data['items'])
+
+                    if has_free_item:
+                        # Mark discount as used and reset for next cycle
+                        cursor.execute('UPDATE users SET discount_used = %s WHERE email = %s',
+                                       (True, session['user']['email']))
+                        logger.info(f"User {session['user']['email']} claimed free gift - discount marked as used")
+
+                    # NEW: Update seller finances and platform finances
+                    seller_payouts = calculate_seller_payouts(cart_data['items'])
+
+                    for seller_email, amount in seller_payouts.items():
+                        # Check if seller_finances record exists
+                        cursor.execute('SELECT seller_email FROM seller_finances WHERE seller_email = %s', (seller_email,))
+                        if cursor.fetchone():
+                            # Update existing record
+                            cursor.execute('''
+                                UPDATE seller_finances
+                                SET balance = COALESCE(balance, 0) + %s,
+                                    total_earnings = COALESCE(total_earnings, 0) + %s
+                                WHERE seller_email = %s
+                            ''', (amount, amount, seller_email))
+                        else:
+                            # Create new record
+                            cursor.execute('''
+                                INSERT INTO seller_finances (seller_email, balance, total_earnings)
+                                VALUES (%s, %s, %s)
+                            ''', (seller_email, amount, amount))
+
+                        # Log seller transaction
+                        cursor.execute('''
+                            INSERT INTO seller_transactions (seller_email, transaction_type, amount, order_id, buyer_email, description)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                        ''', (seller_email, 'sale', amount, order_id, session['user']['email'], f'Sale from order {order_id}'))
+
+                    # Record platform revenue
+                    cursor.execute('''
+                        INSERT INTO platform_finances (order_id, revenue_from_fees, gateway_fees_paid, net_revenue, payment_method)
+                        VALUES (%s, %s, %s, %s, %s)
+                    ''', (
+                        order_id,
+                        totals['platform_fee'],
+                        totals['payment_gateway_fee'],
+                        totals['platform_fee'] - totals['payment_gateway_fee'],
+                        payment_method
+                    ))
+
                     conn.commit()
 
                     # 🔥 UPDATE PURCHASE COUNT
@@ -6842,13 +8580,13 @@ def checkout():
                                             SET purchase_count = (
                                                 SELECT COUNT(*) 
                                                 FROM orders 
-                                                WHERE user_email = ? AND status NOT IN ('cancelled', 'refunded')
+                                                WHERE user_email = %s AND status NOT IN ('cancelled', 'refunded')
                                             )
-                                            WHERE email = ?
+                                            WHERE email = %s
                                         ''', (session['user']['email'], session['user']['email']))
 
                     # Get updated purchase count
-                    cursor.execute('SELECT purchase_count FROM users WHERE email = ?', (session['user']['email'],))
+                    cursor.execute('SELECT purchase_count FROM users WHERE email = %s', (session['user']['email'],))
                     user_data = cursor.fetchone()
                     updated_purchase_count = user_data['purchase_count'] if user_data else 0
 
@@ -6859,8 +8597,8 @@ def checkout():
                     if updated_purchase_count >= 5 and updated_purchase_count % 5 == 0:
                         cursor.execute('''
                                                 UPDATE users 
-                                                SET discount_applied = 1, discount_used = 0 
-                                                WHERE email = ?
+                                                SET discount_applied = true, discount_used = 0 
+                                                WHERE email = %s
                                             ''', (session['user']['email'],))
                         session['user']['discount_applied'] = True
                         session['user']['discount_used'] = False
@@ -6889,7 +8627,8 @@ def checkout():
                     }
 
                     # Update user session
-                    session['user']['discount_used'] = True
+                    if has_free_item:
+                        session['user']['discount_used'] = True
                     session.pop('cart', None)
                     session.modified = True
 
@@ -6911,6 +8650,31 @@ def checkout():
             )
 
     # GET request - render the checkout form
+
+    # Check if ALL cart items support COD
+    # COD is only available if every product in cart has cod_available = True
+    cod_available = False
+    if cart_data['items']:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Get product keys from cart
+            product_keys = [item['product_key'] for item in cart_data['items']]
+
+            # Check if all products have cod_available = True
+            placeholders = ','.join(['%s'] * len(product_keys))
+            cursor.execute(f'''
+                SELECT COUNT(*) as total_products,
+                       SUM(CASE WHEN cod_available = TRUE THEN 1 ELSE 0 END) as cod_products
+                FROM products
+                WHERE product_key IN ({placeholders})
+            ''', product_keys)
+
+            result = cursor.fetchone()
+            if result:
+                # COD available only if ALL products support it
+                cod_available = result['total_products'] == result['cod_products'] and result['total_products'] > 0
+
     return render_template(
         'checkout.html',
         cart_items=cart_data['items'],
@@ -6920,7 +8684,8 @@ def checkout():
         cart_item_count=cart_data['cart_item_count'],
         parishes=PARISHES,
         parish_post_offices=PARISH_POST_OFFICES,
-        post_offices=PARISH_POST_OFFICES.get(session.get('user', {}).get('parish', 'Kingston'), [])
+        post_offices=PARISH_POST_OFFICES.get(session.get('user', {}).get('parish', 'Kingston'), []),
+        cod_available=cod_available
     )
 
 
@@ -6961,7 +8726,7 @@ def guest_order_confirmation():
 
     with get_db() as conn:
         cursor = conn.cursor()
-        cursor.execute('SELECT * FROM orders WHERE order_id = ?', (order_id,))
+        cursor.execute('SELECT * FROM orders WHERE order_id = %s', (order_id,))
         order = cursor.fetchone()
 
         if not order:
@@ -6972,7 +8737,7 @@ def guest_order_confirmation():
             SELECT oi.product_key, oi.quantity, oi.price, p.name, p.image_url
             FROM order_items oi
             LEFT JOIN products p ON oi.product_key = p.product_key
-            WHERE oi.order_id = ?
+            WHERE oi.order_id = %s
         ''', (order_id,))
         order_items = cursor.fetchall()
 
@@ -6993,23 +8758,23 @@ def guest_order_confirmation():
 
 @app.route('/cancel_refund', methods=['GET', 'POST'])
 def cancel_refund():
-    if 'user' not in session:
-        return redirect(url_for('login'))
     if request.method == 'POST':
+        if 'user' not in session:
+            return redirect(url_for('login'))
         try:
             order_id = request.form.get('order_id')
             reason = request.form.get('reason')
             if not order_id or not reason:
                 return render_template('cancel_refund.html', error="Order ID and reason are required", user=session.get('user'))
             with get_db() as conn:
-                cursor = conn.cursor()
-                cursor.execute('SELECT * FROM orders WHERE order_id = ? AND user_email = ?', (order_id, session['user']['email']))
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+                cursor.execute('SELECT * FROM orders WHERE order_id = %s AND user_email = %s', (order_id, session['user']['email']))
                 order = cursor.fetchone()
                 if not order:
                     return render_template('cancel_refund.html', error="Order not found or not authorized", user=session.get('user'))
                 cursor.execute('''
                     INSERT INTO cancel_refund_requests (order_id, user_email, reason, request_date, status)
-                    VALUES (?, ?, ?, ?, ?)
+                    VALUES (%s, %s, %s, %s,%s)
                 ''', (order_id, session['user']['email'], reason, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 'pending'))
                 conn.commit()
                 return render_template('cancel_refund.html', success="Cancellation/Refund request submitted", user=session.get('user'))
@@ -7025,30 +8790,30 @@ def like_product(product_key):
     product_key = unquote(product_key.replace('+', ' ')).strip()
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT * FROM products WHERE product_key = ?', (product_key,))
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+            cursor.execute('SELECT * FROM products WHERE product_key = %s', (product_key,))
             product = cursor.fetchone()
             if not product:
                 return jsonify({'success': False, 'message': 'Product not found'}), 404
             cursor.execute('''
                 SELECT * FROM user_likes
-                WHERE user_email = ? AND product_key = ?
+                WHERE user_email = %s AND product_key = %s
             ''', (session['user']['email'], product_key))
             existing_like = cursor.fetchone()
             if existing_like:
                 cursor.execute('''
                     DELETE FROM user_likes
-                    WHERE user_email = ? AND product_key = ?
+                    WHERE user_email = %s AND product_key = %s
                 ''', (session['user']['email'], product_key))
-                cursor.execute('UPDATE products SET likes = likes - 1 WHERE product_key = ?', (product_key,))
+                cursor.execute('UPDATE products SET likes = likes - 1 WHERE product_key = %s', (product_key,))
                 conn.commit()
                 return jsonify({'success': True, 'liked': False, 'likes': product['likes'] - 1})
             else:
                 cursor.execute('''
                     INSERT INTO user_likes (user_email, product_key, created_at)
-                    VALUES (?, ?, ?)
+                    VALUES (%s, %s, %s)
                 ''', (session['user']['email'], product_key, datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-                cursor.execute('UPDATE products SET likes = likes + 1 WHERE product_key = ?', (product_key,))
+                cursor.execute('UPDATE products SET likes = likes + 1 WHERE product_key = %s', (product_key,))
                 conn.commit()
                 return jsonify({'success': True, 'liked': True, 'likes': product['likes'] + 1})
     except Exception as e:
@@ -7071,7 +8836,7 @@ def make_admin():
         # Create admin
         cursor.execute('''
             INSERT INTO admin_users (email, password, admin_level, is_active, created_at)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s,%s)
         ''', (
             'admin@test.com',
             generate_password_hash('admin123'),
@@ -7112,22 +8877,22 @@ def rate_seller():
             return jsonify({'success': False, 'message': 'Invalid rating'}), 400
 
         with get_db() as conn:
-            cursor = conn.cursor()
-            cursor.execute('SELECT * FROM users WHERE email = ? AND is_seller = ?', (seller_email, True))
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+            cursor.execute('SELECT * FROM users WHERE email = %s AND is_seller = %s', (seller_email, True))
             seller = cursor.fetchone()
             if not seller:
                 return jsonify({'success': False, 'message': 'Seller not found'}), 404
 
             cursor.execute('''
                 INSERT OR REPLACE INTO seller_ratings (buyer_email, seller_email, rating)
-                VALUES (?, ?, ?)
+                VALUES (%s, %s, %s)
             ''', (session['user']['email'], seller_email, rating))
             conn.commit()
 
             cursor.execute('''
                 SELECT AVG(rating) as avg_rating, COUNT(rating) as rating_count
                 FROM seller_ratings
-                WHERE seller_email = ?
+                WHERE seller_email = %s
             ''', (seller_email,))
             rating_info = cursor.fetchone()
 
@@ -7142,6 +8907,86 @@ def rate_seller():
         return jsonify({'success': False, 'message': 'Error processing rating'}), 500
 
 
+@app.route('/submit_product_review', methods=['POST'])
+def submit_product_review():
+    """Submit or update a product review"""
+    if 'user' not in session:
+        return jsonify({'success': False, 'message': 'Login required'}), 401
+
+    try:
+        # Validate CSRF token
+        from flask_wtf.csrf import validate_csrf
+        csrf_token = request.headers.get('X-CSRFToken')
+        if csrf_token:
+            try:
+                validate_csrf(csrf_token)
+            except Exception as e:
+                return jsonify({'success': False, 'message': 'CSRF token invalid'}), 400
+
+        data = request.get_json()
+        product_key = data.get('product_key')
+        rating = data.get('rating')
+        review_text = data.get('review_text', '').strip()
+
+        if not product_key:
+            return jsonify({'success': False, 'message': 'Product key required'}), 400
+
+        if not rating or not isinstance(rating, int) or rating < 1 or rating > 5:
+            return jsonify({'success': False, 'message': 'Invalid rating (1-5)'}), 400
+
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Get product and seller info
+            cursor.execute('SELECT seller_email FROM products WHERE product_key = %s', (product_key,))
+            product = cursor.fetchone()
+            if not product:
+                return jsonify({'success': False, 'message': 'Product not found'}), 404
+
+            seller_email = product['seller_email']
+            buyer_email = session['user']['email']
+
+            # Check if buyer has purchased this product (verified purchase)
+            cursor.execute('''
+                SELECT COUNT(*) as purchase_count
+                FROM orders o
+                JOIN order_items oi ON o.order_id = oi.order_id
+                WHERE oi.product_key = %s AND o.user_email = %s
+            ''', (product_key, buyer_email))
+            purchase_check = cursor.fetchone()
+            is_verified_purchase = purchase_check['purchase_count'] > 0
+
+            # Insert or update review
+            cursor.execute('''
+                INSERT INTO product_reviews (product_key, buyer_email, seller_email, rating, review_text, is_verified_purchase)
+                VALUES (%s, %s, %s, %s, %s,%s)
+                ON CONFLICT(product_key, buyer_email)
+                DO UPDATE SET rating = %s, review_text = %s, updated_at = CURRENT_TIMESTAMP
+            ''', (product_key, buyer_email, seller_email, rating, review_text, is_verified_purchase, rating, review_text))
+
+            conn.commit()
+
+            # Get updated review stats
+            cursor.execute('''
+                SELECT AVG(rating) as avg_rating, COUNT(*) as review_count
+                FROM product_reviews
+                WHERE product_key = %s
+            ''', (product_key,))
+            stats = cursor.fetchone()
+
+            return jsonify({
+                'success': True,
+                'message': 'Review submitted successfully',
+                'avg_rating': round(stats['avg_rating'], 1) if stats['avg_rating'] else 0,
+                'review_count': stats['review_count'] or 0,
+                'is_verified_purchase': is_verified_purchase
+            })
+
+    except Exception as e:
+        logger.error(f"Error submitting product review: {e}\n{traceback.format_exc()}")
+        return jsonify({'success': False, 'message': 'Error submitting review'}), 500
+
+
 @app.route('/search', methods=['GET'])
 def search():
     query = request.args.get('query', '').strip()
@@ -7149,17 +8994,38 @@ def search():
     cart_data = get_cart_items()
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
-            sql = 'SELECT * FROM products WHERE name LIKE ?'
-            params = [f'%{query}%']
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Split query into keywords for partial matching
+            keywords = query.lower().split() if query else []
+            keyword_conditions = []
+            params = []
+
+            for keyword in keywords:
+                keyword_conditions.append("LOWER(p.name) LIKE %s")
+                params.append(f'%{keyword}%')
+
+            keyword_clause = " AND ".join(keyword_conditions) if keyword_conditions else "1=1"
+
+            # Exclude products from flagged sellers
+            sql = f'''
+                SELECT p.* FROM products p
+                LEFT JOIN user_flags uf ON p.seller_email = uf.user_email AND uf.is_active = true
+                WHERE uf.id IS NULL AND ({keyword_clause})
+            '''
+
             if category:
-                sql += ' AND category = ?'
+                sql += ' AND p.category = %s'
                 params.append(category)
+
             cursor.execute(sql, params)
-            products = [
+            products_list = [
                 dict(row, image_urls=json.loads(row['image_urls']), sizes=json.loads(row['sizes']))
                 for row in cursor.fetchall()
             ]
+            # Convert list to dictionary with product_key as key (matching index route format)
+            products = {product['product_key']: product for product in products_list}
+
             return render_template(
                 'index.html',
                 products=products,
@@ -7181,6 +9047,7 @@ def search():
         return render_template(
             'index.html',
             error="Error performing search",
+            products={},
             cart_items=cart_data['items'],
             cart_total=cart_data['total'],
             discount=cart_data['discount'],
@@ -7211,13 +9078,13 @@ def verify_lynk_payment():
             return jsonify({'success': False, 'message': 'Order ID required'}), 400
 
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Update payment verification status
             cursor.execute('''
                 UPDATE orders 
-                SET payment_verified = ?, status = ?
-                WHERE order_id = ?
+                SET payment_verified = %s, status = %s
+                WHERE order_id = %s
             ''', (verified, 'confirmed' if verified else 'pending_payment', order_id))
 
             if cursor.rowcount == 0:
@@ -7264,7 +9131,7 @@ def admin_api_lynk_orders():
     """Get all Lynk orders for admin dashboard"""
     try:
         with get_db() as conn:
-            cursor = conn.cursor()
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
             # Get all Lynk orders with verification status
             cursor.execute('''
@@ -7294,6 +9161,124 @@ def admin_api_lynk_orders():
 
     except Exception as e:
         logger.error(f"Error getting Lynk orders: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/admin/api/conversations')
+@admin_required()
+def admin_api_conversations():
+    """Get all customer conversations for admin dashboard"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Get all conversation sessions with stats
+            cursor.execute('''
+                SELECT
+                    session_id,
+                    user_email,
+                    MAX(timestamp) as last_message_time,
+                    COUNT(*) as message_count,
+                    SUM(CASE WHEN unread = true AND sender = 'user' THEN 1 ELSE 0 END) as unread_count
+                FROM contact_messages
+                GROUP BY session_id, user_email
+                ORDER BY last_message_time DESC
+            ''')
+
+            conversations = []
+            for row in cursor.fetchall():
+                conversations.append({
+                    'session_id': row[0],
+                    'user_email': row[1],
+                    'last_message_time': row[2],
+                    'message_count': row[3],
+                    'unread_count': row[4] or 0
+                })
+
+            return jsonify({
+                'success': True,
+                'conversations': conversations
+            })
+
+    except Exception as e:
+        logger.error(f"Error getting conversations: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/admin/api/conversation/<session_id>/messages')
+@admin_required()
+def admin_api_conversation_messages(session_id):
+    """Get all messages for a specific conversation"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            cursor.execute('''
+                SELECT sender, message, timestamp
+                FROM contact_messages
+                WHERE session_id = %s
+                ORDER BY timestamp ASC
+            ''', (session_id,))
+
+            messages = []
+            for row in cursor.fetchall():
+                messages.append({
+                    'sender': row[0],
+                    'message': row[1],
+                    'timestamp': row[2]
+                })
+
+            # Mark user messages as read
+            cursor.execute('''
+                UPDATE contact_messages
+                SET unread = 0
+                WHERE session_id = %s AND sender = 'user'
+            ''', (session_id,))
+            conn.commit()
+
+            return jsonify({
+                'success': True,
+                'messages': messages
+            })
+
+    except Exception as e:
+        logger.error(f"Error getting conversation messages: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
+@app.route('/admin/api/send_reply', methods=['POST'])
+@admin_required()
+def admin_api_send_reply():
+    """Send admin reply to customer"""
+    try:
+        data = request.get_json()
+        session_id = data.get('session_id')
+        user_email = data.get('user_email')
+        message = data.get('message', '').strip()
+
+        if not session_id or not user_email or not message:
+            return jsonify({'success': False, 'message': 'Missing required fields'}), 400
+
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+
+            # Insert admin reply
+            cursor.execute('''
+                INSERT INTO contact_messages (user_id, user_email, session_id, sender, message, timestamp, unread)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+            ''', (user_email, user_email, session_id, 'support', message, datetime.now().strftime('%Y-%m-%d %H:%M:%S'), 1))
+
+            conn.commit()
+
+            logger.info(f"Admin sent reply to {user_email} in session {session_id}")
+
+            return jsonify({
+                'success': True,
+                'message': 'Reply sent successfully'
+            })
+
+    except Exception as e:
+        logger.error(f"Error sending admin reply: {e}")
         return jsonify({'success': False, 'message': str(e)}), 500
 
 
@@ -7424,6 +9409,8 @@ if __name__ == '__main__':
     add_purchase_count_column()              # ADD THIS
     update_purchase_counts_from_orders()     # ADD THIS
     fix_messaging_tables()
-    migrate_products()
+    ensure_demo_seller()                     # Create demo sellers FIRST
+    migrate_products()                       # Now add all dummy products!
     ensure_support_user()
-    socketio.run(app, debug=True, allow_unsafe_werkzeug=True)
+    port = int(os.environ.get('PORT', 8080))
+    socketio.run(app, debug=True, allow_unsafe_werkzeug=True, port=port)

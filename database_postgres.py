@@ -1,0 +1,944 @@
+# database_postgres.py - PostgreSQL database manager for ZoZi Marketplace
+import os
+import json
+import logging
+import psycopg2
+import psycopg2.extras
+from contextlib import contextmanager
+from datetime import datetime
+from urllib.parse import urlparse
+from werkzeug.security import generate_password_hash, check_password_hash
+
+# Set up logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+def get_database_url():
+    """Get database URL from environment or default"""
+    return os.getenv('DATABASE_URL', 'postgresql://username:password@localhost:5432/zozi_marketplace')
+
+def parse_database_url(database_url):
+    """Parse database URL into connection parameters"""
+    url = urlparse(database_url)
+    return {
+        'host': url.hostname,
+        'port': url.port or 5432,
+        'database': url.path[1:] if url.path else 'zozi_marketplace',
+        'user': url.username,
+        'password': url.password
+    }
+
+@contextmanager
+def get_db():
+    """
+    PostgreSQL context manager for database connections
+    Usage:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            # do database operations
+    """
+    conn = None
+    try:
+        database_url = get_database_url()
+
+        # Handle both postgres:// and postgresql:// URLs
+        if database_url.startswith('postgres://'):
+            database_url = database_url.replace('postgres://', 'postgresql://', 1)
+
+        conn = psycopg2.connect(database_url)
+        conn.autocommit = False
+        yield conn
+        conn.commit()
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        logger.error(f"Database error: {e}")
+        raise
+    finally:
+        if conn:
+            conn.close()
+
+def get_db_connection():
+    """
+    Alternative method - simple connection getter
+    Remember to close the connection when done!
+    """
+    database_url = get_database_url()
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+
+    conn = psycopg2.connect(database_url)
+    return conn
+
+def init_db():
+    """Initialize PostgreSQL database with all required tables"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+
+            logger.info("Creating PostgreSQL tables for Zo-Zi Marketplace...")
+
+            # Users table - matching your SQLite structure
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS users (
+                    id SERIAL PRIMARY KEY,
+                    email VARCHAR(255) UNIQUE NOT NULL,
+                    password VARCHAR(255) NOT NULL,
+                    first_name VARCHAR(100) NOT NULL,
+                    last_name VARCHAR(100) NOT NULL,
+                    is_seller BOOLEAN DEFAULT FALSE,
+                    is_support BOOLEAN DEFAULT FALSE,
+                    phone_number VARCHAR(20),
+                    address TEXT,
+                    parish VARCHAR(50),
+                    post_office VARCHAR(100),
+                    profile_picture VARCHAR(255),
+                    discount_used BOOLEAN DEFAULT FALSE,
+                    notification_preference VARCHAR(10),
+                    business_name VARCHAR(255),
+                    business_address TEXT,
+                    security_question TEXT,
+                    security_answer TEXT,
+                    discount_applied BOOLEAN DEFAULT FALSE,
+                    gender VARCHAR(20),
+                    delivery_address TEXT,
+                    billing_address TEXT,
+                    whatsapp_number VARCHAR(20),
+                    business_description TEXT,
+                    verification_status VARCHAR(50) DEFAULT 'pending_documents',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    purchase_count INTEGER DEFAULT 0
+                )
+            ''')
+
+            # Products table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS products (
+                    id SERIAL PRIMARY KEY,
+                    product_key VARCHAR(255) UNIQUE NOT NULL,
+                    seller_email VARCHAR(255) NOT NULL,
+                    name VARCHAR(255) NOT NULL,
+                    description TEXT,
+                    price DECIMAL(10,2) NOT NULL,
+                    category VARCHAR(100),
+                    sizes JSONB DEFAULT '{}',
+                    image_urls JSONB DEFAULT '[]',
+                    image_url VARCHAR(255),
+                    posted_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    clicks INTEGER DEFAULT 0,
+                    likes INTEGER DEFAULT 0,
+                    sold INTEGER DEFAULT 0,
+                    stock_quantity INTEGER DEFAULT 0,
+                    is_active BOOLEAN DEFAULT TRUE
+                )
+            ''')
+
+            # Orders table - matching your SQLite structure
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS orders (
+                    id SERIAL PRIMARY KEY,
+                    order_id VARCHAR(255) UNIQUE NOT NULL,
+                    user_email VARCHAR(255) NOT NULL,
+                    full_name VARCHAR(255),
+                    phone_number VARCHAR(20),
+                    address TEXT,
+                    parish VARCHAR(50),
+                    post_office VARCHAR(100),
+                    total DECIMAL(10,2) NOT NULL,
+                    discount DECIMAL(10,2) DEFAULT 0,
+                    payment_method VARCHAR(50),
+                    order_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    status VARCHAR(50) DEFAULT 'pending',
+                    shipping_option VARCHAR(100),
+                    shipping_fee DECIMAL(10,2) DEFAULT 0,
+                    tax DECIMAL(10,2) DEFAULT 0,
+                    lynk_reference VARCHAR(255),
+                    payment_verified BOOLEAN DEFAULT FALSE
+                )
+            ''')
+
+            # Order items table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS order_items (
+                    id SERIAL PRIMARY KEY,
+                    order_id VARCHAR(255) NOT NULL,
+                    product_key VARCHAR(255) NOT NULL,
+                    quantity INTEGER NOT NULL,
+                    price DECIMAL(10,2) NOT NULL,
+                    size VARCHAR(50)
+                )
+            ''')
+
+            # Admin users table - matching your SQLite structure
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS admin_users (
+                    id SERIAL PRIMARY KEY,
+                    email VARCHAR(255) UNIQUE NOT NULL,
+                    password VARCHAR(255) NOT NULL,
+                    admin_level VARCHAR(50) DEFAULT 'admin',
+                    created_by VARCHAR(255),
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_login TIMESTAMP,
+                    is_active BOOLEAN DEFAULT TRUE,
+                    permissions TEXT DEFAULT '{"users":true,"products":true,"orders":true,"analytics":true,"financials":true}'
+                )
+            ''')
+
+            # User flags table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS user_flags (
+                    id SERIAL PRIMARY KEY,
+                    user_email VARCHAR(255) NOT NULL,
+                    flag_type VARCHAR(50) NOT NULL,
+                    reason TEXT,
+                    flagged_by VARCHAR(255) NOT NULL,
+                    flag_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TIMESTAMP,
+                    is_active BOOLEAN DEFAULT TRUE
+                )
+            ''')
+
+            # Admin activity log
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS admin_activity_log (
+                    id SERIAL PRIMARY KEY,
+                    admin_email VARCHAR(255) NOT NULL,
+                    action_type VARCHAR(100) NOT NULL,
+                    target_type VARCHAR(50),
+                    target_id VARCHAR(255),
+                    description TEXT,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ip_address INET
+                )
+            ''')
+
+            # Seller finances table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS seller_finances (
+                    id SERIAL PRIMARY KEY,
+                    seller_email VARCHAR(255) UNIQUE NOT NULL,
+                    balance DECIMAL(10,2) DEFAULT 0,
+                    total_sales DECIMAL(10,2) DEFAULT 0,
+                    pending_withdrawals DECIMAL(10,2) DEFAULT 0,
+                    total_withdrawn DECIMAL(10,2) DEFAULT 0,
+                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    commission_rate DECIMAL(5,4) DEFAULT 0.05
+                )
+            ''')
+
+            # Seller transactions table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS seller_transactions (
+                    id SERIAL PRIMARY KEY,
+                    seller_email VARCHAR(255) NOT NULL,
+                    transaction_type VARCHAR(50) NOT NULL,
+                    amount DECIMAL(10,2) NOT NULL,
+                    description TEXT,
+                    order_id VARCHAR(255),
+                    transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
+            # Withdrawal requests table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS withdrawal_requests (
+                    id SERIAL PRIMARY KEY,
+                    seller_email VARCHAR(255) NOT NULL,
+                    amount DECIMAL(10,2) NOT NULL,
+                    status VARCHAR(50) DEFAULT 'pending',
+                    request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    processed_date TIMESTAMP,
+                    bank_details JSONB,
+                    notes TEXT
+                )
+            ''')
+
+            # Seller verification table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS seller_verification (
+                    id SERIAL PRIMARY KEY,
+                    seller_email VARCHAR(255) UNIQUE NOT NULL,
+                    business_name VARCHAR(255),
+                    business_address TEXT,
+                    phone_number VARCHAR(20),
+                    id_document_path VARCHAR(255),
+                    business_document_path VARCHAR(255),
+                    bank_statement_path VARCHAR(255),
+                    verification_status VARCHAR(50) DEFAULT 'pending_review',
+                    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    reviewed_at TIMESTAMP,
+                    reviewed_by VARCHAR(255),
+                    rejection_reason TEXT
+                )
+            ''')
+
+            # Messages table - matching your SQLite structure
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS messages (
+                    id SERIAL PRIMARY KEY,
+                    conversation_id INTEGER NOT NULL,
+                    sender_email VARCHAR(255) NOT NULL,
+                    receiver_email VARCHAR(255) NOT NULL,
+                    message TEXT NOT NULL,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    read_status BOOLEAN DEFAULT FALSE
+                )
+            ''')
+
+            # Payment transactions table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS payment_transactions (
+                    id SERIAL PRIMARY KEY,
+                    transaction_id VARCHAR(255) UNIQUE NOT NULL,
+                    order_id VARCHAR(255),
+                    user_email VARCHAR(255) NOT NULL,
+                    amount DECIMAL(10,2) NOT NULL,
+                    payment_method VARCHAR(50) NOT NULL,
+                    transaction_type VARCHAR(50) NOT NULL,
+                    status VARCHAR(50) DEFAULT 'pending',
+                    gateway_response JSONB,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    processed_at TIMESTAMP
+                )
+            ''')
+
+            # Contact sessions table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS contact_sessions (
+                    id SERIAL PRIMARY KEY,
+                    user_email VARCHAR(255) NOT NULL,
+                    session_id VARCHAR(255) UNIQUE NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    is_active BOOLEAN DEFAULT TRUE
+                )
+            ''')
+
+            # Create indexes for better performance
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_products_seller ON products(seller_email)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_email)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient_email)')
+
+            logger.info("✅ PostgreSQL database initialized successfully!")
+            return True
+
+    except Exception as e:
+        logger.error(f"❌ Error initializing database: {e}")
+        return False
+
+def test_connection():
+    """Test PostgreSQL database connection"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM users')
+            result = cursor.fetchone()
+            logger.info(f"✅ PostgreSQL connection successful! Found {result[0]} users")
+            return True
+    except Exception as e:
+        logger.error(f"❌ PostgreSQL connection failed: {e}")
+        return False
+
+# User-related database functions (PostgreSQL compatible)
+def create_user(email, first_name, last_name, password, phone_number=None, parish='Kingston', is_seller=False):
+    """Create a new user account"""
+    try:
+        # Hash password if not already hashed
+        if password and not ('pbkdf2:' in password or 'scrypt:' in password or 'bcrypt' in password):
+            password = generate_password_hash(password)
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO users (email, first_name, last_name, password, phone_number, parish, is_seller,
+                                 discount_applied, discount_used)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ''', (email, first_name, last_name, password, phone_number, parish, is_seller, False, False))
+            return True
+    except psycopg2.IntegrityError:
+        return False  # User already exists
+    except Exception as e:
+        logger.error(f"Error creating user: {e}")
+        return False
+
+def get_user_by_email(email):
+    """Get user details by email"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('SELECT * FROM users WHERE email = %s', (email,))
+            return cursor.fetchone()
+    except Exception as e:
+        logger.error(f"Error getting user: {e}")
+        return None
+
+def get_user_by_phone(phone_number):
+    """Get user details by phone number"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('SELECT * FROM users WHERE phone_number = %s', (phone_number,))
+            return cursor.fetchone()
+    except Exception as e:
+        logger.error(f"Error getting user by phone: {e}")
+        return None
+
+def verify_user_login(identifier, password):
+    """Verify user login credentials (email or phone)"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('''
+                SELECT * FROM users
+                WHERE email = %s OR phone_number = %s
+            ''', (identifier, identifier))
+            user = cursor.fetchone()
+
+            if user and user['password']:
+                # Check if password is hashed
+                if 'pbkdf2:' in user['password'] or 'scrypt:' in user['password'] or 'bcrypt' in user['password']:
+                    if check_password_hash(user['password'], password):
+                        return user
+                else:
+                    # Plain text password - check and update
+                    if user['password'] == password:
+                        # Update to hashed password
+                        hashed_password = generate_password_hash(password)
+                        cursor.execute('UPDATE users SET password = %s WHERE email = %s', (hashed_password, user['email']))
+                        conn.commit()
+                        return user
+            return None
+    except Exception as e:
+        logger.error(f"Error verifying login: {e}")
+        return None
+
+def update_user_profile(email, **kwargs):
+    """Update user profile information"""
+    try:
+        # Build dynamic update query
+        fields = []
+        values = []
+        for key, value in kwargs.items():
+            if value is not None:
+                fields.append(f"{key} = %s")
+                values.append(value)
+
+        if not fields:
+            return False
+
+        values.append(email)
+        query = f"UPDATE users SET {', '.join(fields)} WHERE email = %s"
+
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, values)
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        logger.error(f"Error updating user profile: {e}")
+        return False
+
+# Product-related database functions (PostgreSQL compatible)
+def get_all_products(active_only=True):
+    """Get all products from the database"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('SELECT * FROM products ORDER BY posted_date DESC')
+            products = []
+            for row in cursor.fetchall():
+                product = dict(row)
+                # Parse JSON fields
+                if product.get('image_urls'):
+                    try:
+                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'], str) else product['image_urls']
+                    except:
+                        product['image_urls'] = []
+                else:
+                    product['image_urls'] = []
+
+                if product.get('sizes'):
+                    try:
+                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else product['sizes']
+                    except:
+                        product['sizes'] = {}
+                else:
+                    product['sizes'] = {}
+                products.append(product)
+            return products
+    except Exception as e:
+        logger.error(f"Error getting products: {e}")
+        return []
+
+def get_product_by_key(product_key):
+    """Get a specific product by its key"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('SELECT * FROM products WHERE product_key = %s', (product_key,))
+            row = cursor.fetchone()
+            if row:
+                product = dict(row)
+                if product.get('image_urls'):
+                    try:
+                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'], str) else product['image_urls']
+                    except:
+                        product['image_urls'] = []
+                else:
+                    product['image_urls'] = []
+
+                if product.get('sizes'):
+                    try:
+                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else product['sizes']
+                    except:
+                        product['sizes'] = {}
+                else:
+                    product['sizes'] = {}
+                return product
+            return None
+    except Exception as e:
+        logger.error(f"Error getting product: {e}")
+        return None
+
+def get_products_by_seller(seller_email):
+    """Get all products for a specific seller"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('SELECT * FROM products WHERE seller_email = %s ORDER BY posted_date DESC', (seller_email,))
+            products = []
+            for row in cursor.fetchall():
+                product = dict(row)
+                if product.get('image_urls'):
+                    try:
+                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'], str) else product['image_urls']
+                    except:
+                        product['image_urls'] = []
+                else:
+                    product['image_urls'] = []
+
+                if product.get('sizes'):
+                    try:
+                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else product['sizes']
+                    except:
+                        product['sizes'] = {}
+                else:
+                    product['sizes'] = {}
+                products.append(product)
+            return products
+    except Exception as e:
+        logger.error(f"Error getting seller products: {e}")
+        return []
+
+def search_products(query, category=None):
+    """Search products by name, description, or category"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+            if category:
+                cursor.execute('''
+                    SELECT * FROM products
+                    WHERE (name LIKE %s OR description LIKE %s)
+                    AND category = %s
+                    ORDER BY clicks DESC, likes DESC
+                ''', (f'%{query}%', f'%{query}%', category))
+            else:
+                cursor.execute('''
+                    SELECT * FROM products
+                    WHERE (name LIKE %s OR description LIKE %s)
+                    ORDER BY clicks DESC, likes DESC
+                ''', (f'%{query}%', f'%{query}%'))
+
+            products = []
+            for row in cursor.fetchall():
+                product = dict(row)
+                if product.get('image_urls'):
+                    try:
+                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'], str) else product['image_urls']
+                    except:
+                        product['image_urls'] = []
+                else:
+                    product['image_urls'] = []
+
+                if product.get('sizes'):
+                    try:
+                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else product['sizes']
+                    except:
+                        product['sizes'] = {}
+                else:
+                    product['sizes'] = {}
+                products.append(product)
+            return products
+    except Exception as e:
+        logger.error(f"Error searching products: {e}")
+        return []
+
+def update_product_stats(product_key, field, increment=1):
+    """Update product statistics (clicks, likes, etc.)"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute(f'UPDATE products SET {field} = {field} + %s WHERE product_key = %s',
+                           (increment, product_key))
+            conn.commit()
+            return cursor.rowcount > 0
+    except Exception as e:
+        logger.error(f"Error updating product stats: {e}")
+        return False
+
+# Order-related functions (PostgreSQL compatible)
+def get_user_orders(user_email):
+    """Get all orders for a user"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('''
+                SELECT * FROM orders
+                WHERE user_email = %s
+                ORDER BY order_date DESC
+            ''', (user_email,))
+            return cursor.fetchall()
+    except Exception as e:
+        logger.error(f"Error getting user orders: {e}")
+        return []
+
+def get_order_items(order_id):
+    """Get all items for a specific order"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('''
+                SELECT oi.*, p.name, p.image_url
+                FROM order_items oi
+                LEFT JOIN products p ON oi.product_key = p.product_key
+                WHERE oi.order_id = %s
+            ''', (order_id,))
+            return cursor.fetchall()
+    except Exception as e:
+        logger.error(f"Error getting order items: {e}")
+        return []
+
+# Admin-related functions (PostgreSQL compatible)
+def get_admin_user(email):
+    """Get admin user details"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('SELECT * FROM admin_users WHERE email = %s AND is_active = TRUE', (email,))
+            return cursor.fetchone()
+    except Exception as e:
+        logger.error(f"Error getting admin user: {e}")
+        return None
+
+def get_user_flags(user_email):
+    """Get active flags for a user"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('''
+                SELECT * FROM user_flags
+                WHERE user_email = %s AND is_active = TRUE
+                AND (expires_at IS NULL OR expires_at > NOW())
+                ORDER BY flag_date DESC
+            ''', (user_email,))
+            return cursor.fetchall()
+    except Exception as e:
+        logger.error(f"Error getting user flags: {e}")
+        return []
+
+def log_admin_activity(admin_email, action_type, target_type=None, target_id=None, description=None, ip_address=None):
+    """Log admin activity"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO admin_activity_log
+                (admin_email, action_type, target_type, target_id, description, ip_address)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            ''', (admin_email, action_type, target_type, target_id, description, ip_address))
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"Error logging admin activity: {e}")
+        return False
+
+# Seller financial functions (PostgreSQL compatible)
+def get_seller_finances(seller_email):
+    """Get seller's financial information"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('SELECT * FROM seller_finances WHERE seller_email = %s', (seller_email,))
+            return cursor.fetchone()
+    except Exception as e:
+        logger.error(f"Error getting seller finances: {e}")
+        return None
+
+def get_seller_transactions(seller_email, limit=10):
+    """Get seller's recent transactions"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('''
+                SELECT * FROM seller_transactions
+                WHERE seller_email = %s
+                ORDER BY transaction_date DESC
+                LIMIT %s
+            ''', (seller_email, limit))
+            return cursor.fetchall()
+    except Exception as e:
+        logger.error(f"Error getting seller transactions: {e}")
+        return []
+
+def get_withdrawal_requests(seller_email, limit=5):
+    """Get seller's withdrawal request history"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('''
+                SELECT * FROM withdrawal_requests
+                WHERE seller_email = %s
+                ORDER BY request_date DESC
+                LIMIT %s
+            ''', (seller_email, limit))
+            return cursor.fetchall()
+    except Exception as e:
+        logger.error(f"Error getting withdrawal requests: {e}")
+        return []
+
+# Analytics functions for admin dashboard
+def get_daily_stats(days=30):
+    """Get daily statistics for the last N days"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('''
+                SELECT
+                    DATE(order_date) as date,
+                    COUNT(*) as orders_count,
+                    SUM(total) as revenue,
+                    AVG(total) as avg_order_value
+                FROM orders
+                WHERE order_date >= NOW() - INTERVAL '%s days'
+                AND status != 'cancelled'
+                GROUP BY DATE(order_date)
+                ORDER BY date DESC
+            ''', (days,))
+            return cursor.fetchall()
+    except Exception as e:
+        logger.error(f"Error getting daily stats: {e}")
+        return []
+
+def get_category_stats():
+    """Get sales statistics by category"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('''
+                SELECT
+                    p.category,
+                    COUNT(DISTINCT p.product_key) as products_count,
+                    SUM(p.sold) as total_sold,
+                    SUM(p.sold * p.price) as revenue
+                FROM products p
+                WHERE p.sold > 0
+                GROUP BY p.category
+                ORDER BY revenue DESC
+            ''')
+            return cursor.fetchall()
+    except Exception as e:
+        logger.error(f"Error getting category stats: {e}")
+        return []
+
+# Utility functions
+def get_database_stats():
+    """Get general database statistics - PostgreSQL compatible"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+            # Count users
+            cursor.execute('SELECT COUNT(*) as total_users FROM users')
+            total_users = cursor.fetchone()['total_users']
+
+            # Count sellers
+            cursor.execute('SELECT COUNT(*) as total_sellers FROM users WHERE is_seller = TRUE')
+            total_sellers = cursor.fetchone()['total_sellers']
+
+            # Count products
+            cursor.execute('SELECT COUNT(*) as total_products FROM products')
+            total_products = cursor.fetchone()['total_products']
+
+            # Total orders
+            cursor.execute('SELECT COUNT(*) as total_orders FROM orders')
+            total_orders = cursor.fetchone()['total_orders']
+
+            # Total revenue
+            cursor.execute('SELECT SUM(total) as total_revenue FROM orders WHERE status != %s', ('cancelled',))
+            total_revenue = cursor.fetchone()['total_revenue'] or 0
+
+            # Platform fees (5%)
+            platform_fees = float(total_revenue) * 0.05
+
+            return {
+                'total_users': total_users,
+                'total_sellers': total_sellers,
+                'total_products': total_products,
+                'total_orders': total_orders,
+                'total_revenue': float(total_revenue),
+                'platform_fees': platform_fees
+            }
+    except Exception as e:
+        logger.error(f"Error getting database stats: {e}")
+        return {}
+
+# User Browsing History & Personalization Functions
+
+def track_product_view(user_email, product_key, category):
+    """Track when a user views a product for personalization"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                INSERT INTO user_product_views (user_email, product_key, category)
+                VALUES (%s, %s, %s)
+            ''', (user_email, product_key, category))
+            return True
+    except Exception as e:
+        logger.error(f"Error tracking product view: {e}")
+        return False
+
+def get_last_viewed_product(user_email):
+    """Get the most recently viewed product by a user"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('''
+                SELECT product_key, category, viewed_at
+                FROM user_product_views
+                WHERE user_email = %s
+                ORDER BY viewed_at DESC
+                LIMIT 1
+            ''', (user_email,))
+            return cursor.fetchone()
+    except Exception as e:
+        logger.error(f"Error getting last viewed product: {e}")
+        return None
+
+def get_user_viewing_history(user_email, limit=10):
+    """Get user's viewing history"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('''
+                SELECT DISTINCT category
+                FROM user_product_views
+                WHERE user_email = %s
+                ORDER BY viewed_at DESC
+                LIMIT %s
+            ''', (user_email, limit))
+            return cursor.fetchall()
+    except Exception as e:
+        logger.error(f"Error getting user viewing history: {e}")
+        return []
+
+def get_personalized_products(user_email, excluded_seller_emails=None):
+    """
+    Get products personalized based on user's browsing history
+    Returns products ordered by:
+    1. Same category as last viewed
+    2. Similar categories based on viewing history
+    3. Popular products (high clicks/likes)
+    4. Random remaining products
+    """
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+            # Get last viewed product category
+            last_viewed = get_last_viewed_product(user_email)
+
+            if last_viewed and last_viewed['category']:
+                last_category = last_viewed['category']
+
+                # Build exclusion clause for flagged sellers
+                exclusion_clause = ""
+                params = [last_category]
+
+                if excluded_seller_emails:
+                    placeholders = ','.join(['%s'] * len(excluded_seller_emails))
+                    exclusion_clause = f"AND seller_email NOT IN ({placeholders})"
+                    params.extend(excluded_seller_emails)
+
+                # Get products with personalized ordering
+                query = f'''
+                    SELECT *,
+                        CASE
+                            WHEN category = %s THEN 1
+                            WHEN category IN (
+                                SELECT DISTINCT category
+                                FROM user_product_views
+                                WHERE user_email = %s
+                                LIMIT 5
+                            ) THEN 2
+                            ELSE 3
+                        END as priority,
+                        (clicks + likes * 2) as popularity_score
+                    FROM products
+                    WHERE 1=1 {exclusion_clause}
+                    ORDER BY priority ASC, popularity_score DESC, RANDOM()
+                '''
+
+                params.insert(1, user_email)
+                cursor.execute(query, params)
+            else:
+                # No viewing history - show popular products first
+                exclusion_clause = ""
+                params = []
+
+                if excluded_seller_emails:
+                    placeholders = ','.join(['%s'] * len(excluded_seller_emails))
+                    exclusion_clause = f"WHERE seller_email NOT IN ({placeholders})"
+                    params.extend(excluded_seller_emails)
+
+                query = f'''
+                    SELECT *,
+                        (clicks + likes * 2) as popularity_score
+                    FROM products
+                    {exclusion_clause}
+                    ORDER BY popularity_score DESC, RANDOM()
+                '''
+
+                cursor.execute(query, params)
+
+            products = {}
+            for row in cursor.fetchall():
+                product = dict(row)
+                # Parse JSON fields
+                if product.get('image_urls'):
+                    product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'], str) else product['image_urls']
+                if product.get('sizes'):
+                    product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else product['sizes']
+                products[product['product_key']] = product
+
+            return products
+
+    except Exception as e:
+        logger.error(f"Error getting personalized products: {e}")
+        # Fallback to all products
+        return get_all_products()
+
+if __name__ == "__main__":
+    # Test the database when running this file directly
+    print("🔧 Testing Zo-Zi PostgreSQL database connection...")
+    print(f"📁 Database URL: {get_database_url()}")
+
+    if test_connection():
+        print("✅ Ready to migrate from SQLite to PostgreSQL!")
+    else:
+        print("❌ Please check your PostgreSQL configuration and ensure the database is running.")
+        print("💡 Create a database named 'zozi_marketplace' in PostgreSQL first.")

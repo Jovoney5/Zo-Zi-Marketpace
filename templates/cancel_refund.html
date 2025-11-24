@@ -193,7 +193,7 @@
         <p>Reach out via:</p>
         <ul>
             <li>📧 <a href="mailto:support@zozimarketplace.com">support@zozimarketplace.com</a></li>
-            <li>📞 +1-876-555-ZOZI</li>
+            <li>📞 +1-876 796-2601</li>
             <li>🟢 Or chat with our live agent from your <a href="{{ url_for('profile') }}">dashboard</a>.</li>
         </ul>
 
@@ -346,7 +346,7 @@
                             const itemDiv = document.createElement('div');
                             itemDiv.className = 'cart-item';
                             itemDiv.innerHTML = `
-                                <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
+                                <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.product_key)}" onerror="this.src='/static/product-placeholder.svg'">
                                 <div class="cart-item-details">
                                     <p><a href="/product/${encodeURIComponent(item.product_key)}">${escapeHTML(item.product_key)}</a></p>
                                     <p>${item.price} JMD x ${item.quantity}</p>
@@ -417,7 +417,7 @@
                 data.forEach(suggestion => {
                     const a = document.createElement('a');
                     a.href = `/product/${encodeURIComponent(suggestion.product_key)}`;
-                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/placeholder.jpg'"><span>${escapeHTML(suggestion.name)}</span>`;
+                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/product-placeholder.svg'"><span>${escapeHTML(suggestion.name)}</span>`;
                     suggestionsDiv.appendChild(a);
                 });
                 suggestionsDiv.style.display = data.length ? 'block' : 'none';

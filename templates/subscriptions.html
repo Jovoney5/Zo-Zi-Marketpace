@@ -160,30 +160,140 @@
     <div class="subscriptions-container">
         <div class="header-container">
             <h1>🛒 Zo-Zi Seller Plans – Unlock Your Marketplace!</h1>
-            <p>Join our vibrant community of sellers and grow your business with Zo-Zi’s powerful tools and visibility.</p>
+            <p>Join our vibrant community of sellers and grow your business with Zo-Zi's powerful tools and visibility.</p>
         </div>
+
+        <!-- Current Plan Section -->
+        {% if user %}
+        <div style="max-width: 700px; margin: 0 auto 30px auto; background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); border-radius: 15px; padding: 25px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); color: white; text-align: center;">
+            <div style="font-size: 14px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.9; margin-bottom: 10px;">Your Current Plan</div>
+            <div style="font-size: 32px; font-weight: bold; margin-bottom: 15px;">✨ Free Plan</div>
+            <div style="background: rgba(255,255,255,0.2); border-radius: 10px; padding: 20px; margin-top: 15px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; text-align: left;">
+                    <div>
+                        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">Monthly Cost</div>
+                        <div style="font-size: 24px; font-weight: bold;">0 JMD</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">Product Listings</div>
+                        <div style="font-size: 24px; font-weight: bold;">Unlimited</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 12px; opacity: 0.9; margin-bottom: 5px;">Checkout Fee</div>
+                        <div style="font-size: 24px; font-weight: bold;">10%</div>
+                    </div>
+                </div>
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.3);">
+                    <div style="font-size: 12px; opacity: 0.9; margin-bottom: 8px;">Included Features:</div>
+                    <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
+                        <span style="background: rgba(255,255,255,0.3); padding: 5px 12px; border-radius: 15px; font-size: 12px;">📊 Sales Dashboard</span>
+                        <span style="background: rgba(255,255,255,0.3); padding: 5px 12px; border-radius: 15px; font-size: 12px;">📱 Mobile Support</span>
+                        <span style="background: rgba(255,255,255,0.3); padding: 5px 12px; border-radius: 15px; font-size: 12px;">💬 Community Access</span>
+                        <span style="background: rgba(255,255,255,0.3); padding: 5px 12px; border-radius: 15px; font-size: 12px;">📧 Email Support</span>
+                    </div>
+                </div>
+            </div>
+            <div style="margin-top: 15px; padding: 12px; background: rgba(255,215,0,0.2); border-radius: 8px; font-size: 13px;">
+                💡 <strong>Save on checkout fees!</strong> Upgrade to reduce your checkout fee to 7% or 5% and keep more profit!
+            </div>
+        </div>
+        {% endif %}
+
         <div class="plan-cards">
             <div class="plan-card">
-                <h2>🌱 Basic Seller</h2>
-                <div class="price">500 JMD/mo</div>
+                <h2>✨ Free Plan</h2>
+                <div class="price">0 JMD/mo</div>
+                <div style="font-size: 18px; color: #e74c3c; font-weight: bold; margin: 10px 0;">10% Checkout Fee</div>
                 <ul>
                     <li>Unlimited product listings</li>
-                    <li>Access to sales dashboard</li>
-                    <li>Free Seller Guide access</li>
-                    <li>Email & WhatsApp support</li>
+                    <li>Sales dashboard access</li>
+                    <li>Mobile app support</li>
+                    <li>Email support</li>
+                    <li>Community forum access</li>
+                    <li>Standard seller profile</li>
                 </ul>
-                <a href="{{ url_for('subscribe', plan='basic') }}" class="choose-plan">Choose Plan</a>
+                <div style="background: #f8f9fa; padding: 12px; border-radius: 8px; margin: 15px 0; font-size: 13px; color: #333;">
+                    <strong>Example:</strong> Sell 10,000 JMD → Pay 1,000 JMD checkout fee<br>
+                    <em style="font-size: 11px; color: #666;">(Not a tax - this is Zo-Zi's service fee)</em>
+                </div>
+                <a href="{{ url_for('seller_dashboard') }}" class="choose-plan" style="background: #2ecc71;">Current Plan</a>
+            </div>
+            <div class="plan-card" style="border: 2px solid #3498db;">
+                <div style="background: #3498db; color: white; margin: -20px -20px 15px -20px; padding: 8px; border-radius: 8px 8px 0 0; font-weight: bold;">⭐ MOST POPULAR</div>
+                <h2>🌱 Growth Plan</h2>
+                <div class="price">100 JMD/mo</div>
+                <div style="font-size: 18px; color: #27ae60; font-weight: bold; margin: 10px 0;">7% Checkout Fee 💰</div>
+                <ul>
+                    <li>Everything in Free, PLUS:</li>
+                    <li><strong>Save 3% on every sale!</strong></li>
+                    <li>Featured seller badge ⭐</li>
+                    <li>Priority product placement</li>
+                    <li>Advanced analytics dashboard</li>
+                    <li>WhatsApp priority support</li>
+                    <li>Custom store banner</li>
+                    <li>Monthly performance insights</li>
+                </ul>
+                <div style="background: #e8f5e9; padding: 12px; border-radius: 8px; margin: 15px 0; font-size: 13px; color: #2e7d32;">
+                    <strong>Example:</strong> Sell 10,000 JMD → Pay 700 JMD checkout fee<br>
+                    <strong>Break-even:</strong> Only 3,334 JMD in sales!<br>
+                    <em style="font-size: 11px; color: #555;">(Not a tax - this is Zo-Zi's service fee)</em>
+                </div>
+                <a href="{{ url_for('subscribe', plan='growth') }}" class="choose-plan" style="background: #3498db; color: white;">Upgrade Now</a>
             </div>
             <div class="plan-card pro">
-                <h2>🔥 Pro Seller</h2>
-                <div class="price">1,500 JMD/mo</div>
+                <h2>🔥 Pro Plan</h2>
+                <div class="price">300 JMD/mo</div>
+                <div style="font-size: 18px; color: #f39c12; font-weight: bold; margin: 10px 0;">5% Checkout Fee 🚀</div>
                 <ul>
-                    <li>Priority listing & homepage spotlight</li>
-                    <li>1 Free product branding/image</li>
-                    <li>Feature in marketing campaigns</li>
-                    <li>Advanced insights + Pro tools</li>
+                    <li>Everything in Growth, PLUS:</li>
+                    <li><strong>Save 5% on every sale!</strong></li>
+                    <li>Homepage spotlight rotation 🌟</li>
+                    <li>Featured in email campaigns</li>
+                    <li>Free product photography (1/mo)</li>
+                    <li>Dedicated account manager</li>
+                    <li>Social media promotion</li>
+                    <li>Premium seller verification ✅</li>
+                    <li>Bulk import tools</li>
                 </ul>
-                <a href="{{ url_for('subscribe', plan='pro') }}" class="choose-plan">Choose Plan</a>
+                <div style="background: #fff3cd; padding: 12px; border-radius: 8px; margin: 15px 0; font-size: 13px; color: #856404;">
+                    <strong>Example:</strong> Sell 10,000 JMD → Pay 500 JMD checkout fee<br>
+                    <strong>Break-even:</strong> Only 6,000 JMD in sales!<br>
+                    <em style="font-size: 11px; color: #555;">(Not a tax - this is Zo-Zi's service fee)</em>
+                </div>
+                <a href="{{ url_for('subscribe', plan='pro') }}" class="choose-plan">Go Premium</a>
+            </div>
+        </div>
+
+        <!-- Additional Revenue Streams Section -->
+        <div style="max-width: 900px; margin: 40px auto; background: rgba(255,255,255,0.9); border-radius: 15px; padding: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);">
+            <h2 style="color: #006400; text-align: center; margin-bottom: 10px;">🚀 Boost Your Sales</h2>
+            <p style="text-align: center; color: #666; margin-bottom: 30px;">Additional services to help you sell faster and stand out</p>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px;">
+                <div style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); padding: 20px; border-radius: 10px; color: white; text-align: center;">
+                    <div style="font-size: 32px; margin-bottom: 10px;">⭐</div>
+                    <h3 style="margin: 10px 0; font-size: 20px;">Featured Listing</h3>
+                    <div style="font-size: 24px; font-weight: bold; margin: 10px 0;">500 JMD</div>
+                    <p style="font-size: 13px; margin: 0;">7-day homepage spotlight</p>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #3498db 0%, #2980b9 100%); padding: 20px; border-radius: 10px; color: white; text-align: center;">
+                    <div style="font-size: 32px; margin-bottom: 10px;">📈</div>
+                    <h3 style="margin: 10px 0; font-size: 20px;">Promoted Product</h3>
+                    <div style="font-size: 24px; font-weight: bold; margin: 10px 0;">300 JMD</div>
+                    <p style="font-size: 13px; margin: 0;">3-day search boost</p>
+                </div>
+
+                <div style="background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); padding: 20px; border-radius: 10px; color: white; text-align: center;">
+                    <div style="font-size: 32px; margin-bottom: 10px;">📸</div>
+                    <h3 style="margin: 10px 0; font-size: 20px;">Pro Photography</h3>
+                    <div style="font-size: 24px; font-weight: bold; margin: 10px 0;">3,000 JMD</div>
+                    <p style="font-size: 13px; margin: 0;">Per product shoot</p>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 25px; padding: 15px; background: #f8f9fa; border-radius: 8px;">
+                <p style="margin: 0; color: #333; font-size: 14px;">💡 <strong>Pro Tip:</strong> Featured listings sell 3x faster on average!</p>
             </div>
         </div>
     </div>
@@ -330,7 +440,7 @@
                             const itemDiv = document.createElement('div');
                             itemDiv.className = 'cart-item';
                             itemDiv.innerHTML = `
-                                <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
+                                <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.product_key)}" onerror="this.src='/static/product-placeholder.svg'">
                                 <div class="cart-item-details">
                                     <p><a href="/product/${encodeURIComponent(item.product_key)}">${escapeHTML(item.product_key)}</a></p>
                                     <p>${item.price} JMD x ${item.quantity}</p>
@@ -401,7 +511,7 @@
                 data.forEach(suggestion => {
                     const a = document.createElement('a');
                     a.href = `/product/${encodeURIComponent(suggestion.product_key)}`;
-                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/placeholder.jpg'"><span>${escapeHTML(suggestion.name)}</span>`;
+                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/product-placeholder.svg'"><span>${escapeHTML(suggestion.name)}</span>`;
                     suggestionsDiv.appendChild(a);
                 });
                 suggestionsDiv.style.display = data.length ? 'block' : 'none';

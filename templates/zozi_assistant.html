@@ -431,13 +431,13 @@
       {% endif %}
       <div class="profile" onclick="window.location.href='{{ url_for('profile' if user else 'login') }}'" title="{% if user and user.profile_picture %}Change Profile Picture{% elif user %}Add Profile Picture{% else %}Login to add profile{% endif %}">
         {% if user and user.profile_picture %}
-          <img id="navbar-profile-picture" src="{{ url_for('static', filename='uploads/' + (user.profile_picture | default('default.jpg'))) }}" alt="Profile" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+          <img id="navbar-profile-picture" src="{{ url_for('static', filename='uploads/' + (user.profile_picture | default('default.jpg'))) }}" alt="Profile" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
         {% else %}
           <span>+</span>
         {% endif %}
       </div>
       <div class="cart-icon">
-        <img src="{{ url_for('static', filename='cart icon 3.png') }}" alt="Cart" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+        <img src="{{ url_for('static', filename='cart icon 3.png') }}" alt="Cart" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
         <span class="cart-total">{{ cart_item_count }}</span>
         <div class="cart-dropdown" id="cartDropdown">
           <div id="cartItems"></div>
@@ -445,7 +445,7 @@
         </div>
       </div>
       <div class="contact-icon" onclick="window.location.href='{{ url_for('contact') }}'">
-        <img src="{{ url_for('static', filename='customer service.png') }}" alt="Customer Service" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+        <img src="{{ url_for('static', filename='customer service.png') }}" alt="Customer Service" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
       </div>
     </div>
   </div>
@@ -752,7 +752,7 @@
           const itemDiv = document.createElement('div');
           itemDiv.className = 'cart-item';
           itemDiv.innerHTML = `
-            <img src="/static/${item.image_url}" alt="${item.product_key}" onerror="this.src='/static/placeholder.jpg'">
+            <img src="/static/${item.image_url}" alt="${item.product_key}" onerror="this.src='/static/product-placeholder.svg'">
             <div class="cart-item-details">
               <p>${item.product_key}</p>
               <p>${item.price} JMD x ${item.quantity}</p>

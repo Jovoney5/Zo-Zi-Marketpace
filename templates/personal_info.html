@@ -397,7 +397,7 @@
             <div style="color: green; margin-bottom: 10px;">{{ success }}</div>
         {% endif %}
         {% if user.profile_picture %}
-            <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile Picture" class="profile-pic" onerror="this.src='{{ url_for('static', filename='images/placeholder.jpg') }}'">
+            <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile Picture" class="profile-pic" onerror="this.src='{{ url_for('static', filename='images/product-placeholder.svg') }}'">
         {% else %}
             <div class="profile-pic" style="background: gray;"></div>
         {% endif %}
@@ -414,7 +414,8 @@
                 <option value="Other" {% if user.gender == 'Other' %}selected{% endif %}>Other</option>
             </select>
             <textarea name="address" placeholder="Address" required>{{ user.address | default('') }}</textarea>
-            <input type="tel" name="whatsapp_number" value="{{ user.whatsapp_number | default('') }}" placeholder="WhatsApp Number" required>
+            <label for="whatsapp_number" style="display: block; color: #333; font-weight: bold; margin-top: 10px; text-align: left; padding-left: 5%;">WhatsApp Number (e.g., +1876-555-1234)</label>
+            <input type="tel" id="whatsapp_number" name="whatsapp_number" value="{{ user.whatsapp_number | default('') }}" placeholder="WhatsApp Number" required>
             <button type="submit">Update Details</button>
         </form>
         <button onclick="window.location.href='{{ url_for('profile') }}'">Change Profile Picture</button>
@@ -470,7 +471,7 @@
                             const itemDiv = document.createElement('div');
                             itemDiv.className = 'cart-item';
                             itemDiv.innerHTML = `
-                                <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
+                                <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.product_key)}" onerror="this.src='/static/product-placeholder.svg'">
                                 <div class="cart-item-details">
                                     <p><a href="/product/${encodeURIComponent(item.product_key.replace(/ /g, '+'))}">${escapeHTML(item.product_key)}</a></p>
                                     <p>${item.price} JMD x ${item.quantity}</p>
@@ -569,7 +570,7 @@
                 data.forEach(suggestion => {
                     const a = document.createElement('a');
                     a.href = `/product/${suggestion.product_key.replace(/ /g, '+')}`;
-                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/placeholder.jpg'"><span>${escapeHTML(suggestion.name)}</span>`;
+                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/product-placeholder.svg'"><span>${escapeHTML(suggestion.name)}</span>`;
                     suggestionsDiv.appendChild(a);
                 });
                 suggestionsDiv.style.display = data.length ? 'block' : 'none';

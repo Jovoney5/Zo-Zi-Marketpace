@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Environment & Secrets
+.env
+*.env
+!.env.example
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+zo-zi.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+marketplace.log
+/tmp/
+*.pid
+PID
+
+# Backups
+*.bak
+*.bak2
+*.bak3
+app.py.bak*
+
+# Uploads (sensitive files)
+static/uploads/verifications/*.pdf
+
+# Instance folder
+instance/
+
+# Virtual environments
+venv/
+env/
+ENV/

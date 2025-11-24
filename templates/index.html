@@ -7,7 +7,7 @@
     <title>Zo-Zi - Home</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.4/socket.io.js"></script>
     <style>
-        body { margin: 0; font-family: Arial, sans-serif; background: #B0E0E6; padding-top: 0px; }
+        body { margin: 0; font-family: Arial, sans-serif; background: #DE8D5D; padding-top: 0px; }
 
         /* Toast Notification Styles */
         .toast {
@@ -353,9 +353,27 @@
 }
 
         .navbar-top { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1200px; }
-        .brand-container { display: flex; align-items: center; }
+        .brand-container { display: flex; align-items: center; gap: 15px; }
         .brand a { font-size: 24px; font-weight: bold; color: black; text-decoration: none; }
         .brand a:hover { color: #FFD700; }
+
+        /* Delivers in Jamaica Badge */
+        .delivery-badge {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+            white-space: nowrap;
+        }
+        .delivery-badge-icon {
+            font-size: 16px;
+        }
         .menu-container { position: relative; display: inline-block; margin-left: 10px; }
         .menu-icon { cursor: pointer; font-size: 24px; }
         .dropdown-content { display: none; position: absolute; background-color: white; min-width: 160px; box-shadow: 0px 8px 16px rgba(0,0,0,0.2); border-radius: 5px; z-index: 11; }
@@ -390,6 +408,7 @@
         .cart-dropdown .remove-item { position: absolute; right: 10px; cursor: pointer; font-size: 16px; color: red; }
         .cart-dropdown .remove-item:hover { color: darkred; }
         .cart-dropdown .empty-cart { padding: 10px; text-align: center; color: #666; }
+        .cart-dropdown .cart-total-display { padding: 10px; font-size: 16px; color: #006400; font-weight: bold; }
         .cart-dropdown .checkout-button { display: block; background: #FFD700; border: none; padding: 10px; margin: 10px; text-align: center; cursor: pointer; text-decoration: none; color: black; border-radius: 5px; }
         .cart-dropdown .checkout-button:hover { background: #FFA500; }
         .marketplace-header { background: rgba(0, 100, 0, 0.7); color: #B0E0E6; text-align: center; padding: 6px 8px 3px; margin: 0; min-height: 100px; display: flex; flex-direction: column; justify-content: center; }
@@ -401,6 +420,8 @@
         .hero-tile img { width: 100%; height: 100%; object-fit: cover; }
         .hero-tile p { position: absolute; bottom: 10px; width: 100%; margin: 0; font-size: 18px; font-weight: bold; color: white; background: rgba(0, 0, 0, 0.6); padding: 10px; }
         .hero-tile:hover { transform: scale(1.05); transition: transform 0.3s ease; }
+        .product-carousel { transition: opacity 0.5s ease-in-out; }
+        .product-carousel.fade-out { opacity: 0.3; }
         .signup-action { text-align: center; margin: 20px 0; }
         .signup-action .auth-buttons { padding: 12px 24px; font-size: 18px; }
         .category-section { display: flex; justify-content: center; align-items: center; margin: 10px 0; max-width: 1200px; margin-left: auto; margin-right: auto; }
@@ -425,10 +446,75 @@
         .product-card button { background: #FFD700; border: none; padding: 8px 12px; cursor: pointer; flex: 1; border-radius: 5px; font-weight: bold; transition: all 0.3s ease; }
         .product-card button:hover { background: #FFA500; transform: translateY(-2px); }
         .error { color: red; text-align: center; margin: 20px; }
+
+        /* Bottom Navigation Bar - Etsy Style */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 10px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .bottom-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: #666;
+            font-size: 12px;
+            padding: 5px 15px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .bottom-nav-item:hover {
+            color: #006400;
+            transform: scale(1.05);
+        }
+
+        .bottom-nav-item.active {
+            color: #006400;
+        }
+
+        .bottom-nav-icon {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+
+        .bottom-nav-badge {
+            position: absolute;
+            top: -2px;
+            right: 8px;
+            background: #ff4444;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: bold;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        /* Add padding to body so content doesn't hide behind bottom nav */
+        body {
+            padding-bottom: 70px;
+        }
+
         @media (max-width: 768px) {
-            body { padding-top: 100px; }
+            body { padding-top: 100px; padding-bottom: 80px; }
             .navbar { padding: 8px; }
             .navbar-top { flex-wrap: wrap; }
+            .delivery-badge { font-size: 12px; padding: 6px 12px; }
             .marketplace-header { padding: 6px 6px 3px; min-height: 100px; }
             .marketplace-header h1 { font-size: 30px; }
             .marketplace-subheader { font-size: 20px; font-weight: 700; }
@@ -440,8 +526,9 @@
             .signup-action .auth-buttons { padding: 10px 20px; font-size: 16px; }
         }
         @media (max-width: 480px) {
-            body { padding-top: 0px; }
+            body { padding-top: 0px; padding-bottom: 80px; }
             .navbar-top { flex-direction: column; align-items: center; gap: 10px; }
+            .delivery-badge { font-size: 11px; padding: 5px 10px; }
             .marketplace-header { padding: 4px 4px 2px; min-height: 80px; }
             .marketplace-header h1 { font-size: 24px; }
             .marketplace-subheader { font-size: 18px; font-weight: 700; }
@@ -454,12 +541,14 @@
     </style>
 </head>
 <body>
-    <img src="{{ url_for('static', filename='A.JPG') }}" alt="" class="background-image">
-
     <div class="navbar">
         <div class="navbar-top">
             <div class="brand-container">
-                <div class="brand"><a href="{{ url_for('index') }}">Zo-Zi</a></div>
+                <div class="brand"><a href="{{ url_for('index') }}"><img src="{{ url_for('static', filename='Z.PNG') }}" alt="Zo-Zi Logo" style="height: 80px; width: auto;"></a></div>
+                <div class="delivery-badge">
+                    <span class="delivery-badge-icon">📍</span>
+                    <span>Delivers Across Jamaica</span>
+                </div>
                 <div class="menu-container">
                     <div class="menu-icon">☰</div>
                     <div class="dropdown-content">
@@ -501,43 +590,24 @@
                     <span class="cart-total">{{ cart_item_count }}</span>
                     <div class="cart-dropdown" id="cartDropdown">
                         <div id="cartItems"></div>
+                        <div class="cart-total-display" id="cartTotal">Total: 0 JMD</div>
                         <a href="{{ url_for('checkout') }}" class="checkout-button">Checkout</a>
                     </div>
                 </div>
                 {% if user %}
-                <div class="chat-widget">
-                    <button class="chat-button" onclick="toggleChat()">
-                        <img src="{{ url_for('static', filename='message-icon.png') }}" alt="Messages" style="width: 30px; height: 30px;" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzMCIgaGVpZ2h0PSIzMCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9ImN1cnJlbnRDb2xvciIgc3Ryb2tlLXdpZHRoPSIyIiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiPjxwYXRoIGQ9Ik0yMSAxNWE5IDkgMCAwIDEtOSA5QTkgOSAwIDAgMSAzIDExVjhhMiAyIDAgMCAxIDItMmgxNGEyIDIgMCAwIDEgMiAydjciPjwvcGF0aD48L3N2Zz4='">
-                        <span class="chat-notification" id="messageBadge">0</span>
-                    </button>
-                    <div class="chat-window" id="chatWindow">
-                        <div class="chat-header">
-                            <div class="default-avatar" id="sellerAvatar"></div>
-                            <div class="chat-info">
-                                <h3 id="sellerName">Select a Seller</h3>
-                                <p id="chatStatus">Select a seller to start chatting</p>
-                            </div>
-                            <button class="chat-close" onclick="closeChat()">×</button>
-                        </div>
-                        <div class="seller-selector">
-                            <select id="sellerSelect" onchange="loadChatMessages()">
-                                <option value="">Select a Seller</option>
-                            </select>
-                        </div>
-                        <div class="chat-messages" id="chatMessages">
-                            <div class="chat-empty">Select a seller to view messages</div>
-                        </div>
-                        <div class="typing-indicator" id="typingIndicator"></div>
-                        <div class="chat-input-area">
-                            <textarea id="chatInput" class="chat-input" placeholder="Type your message..." rows="2"></textarea>
-                            <button class="chat-send-btn" id="chatSendBtn" onclick="sendChatMessage()">➤</button>
-                        </div>
-                    </div>
-                </div>
+                {% include 'message_widget.html' %}
                 {% endif %}
                 <div class="contact-icon" onclick="window.location.href='{{ url_for('contact') }}'">
                     <img src="{{ url_for('static', filename='customer service.png') }}" alt="Customer Service">
                 </div>
+                <a href="tel:8767962601" class="call-icon-container" title="Call Us: 876-796-2601" style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-left: 10px; text-decoration: none; transition: all 0.3s ease;">
+                    <div style="display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%); border-radius: 50%; box-shadow: 0 2px 8px rgba(46, 204, 113, 0.3); transition: all 0.3s ease;">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 0 0-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/>
+                        </svg>
+                    </div>
+                    <span style="font-size: 9px; color: #2ecc71; margin-top: 3px; font-weight: 600; white-space: nowrap;">Call Us</span>
+                </a>
             </div>
         </div>
         <div class="nav-links">
@@ -551,34 +621,38 @@
             <a href="{{ url_for('free') }}">Free</a>
             <a href="{{ url_for('seller_dashboard') }}">Become a Seller</a>
             <a href="{{ url_for('contact') }}">Contact</a>
-            <a href="{{ url_for('cancel_refund') }}">cancel_refund</a>
+            <a href="{{ url_for('cancel_refund') }}">Cancel & Refund</a>
         </div>
     </div>
 
     <div class="marketplace-header">
-        <h1>Yuhzeet  — local stores to Zo-Zi!   Zo-Zi to you!</h1>
+        <h1><span style="color: #F0531F;">!Shop local! Yuh-Zeet!</span></h1>
         <p class="marketplace-subheader">Fast, Local, Low-price</p>
     </div>
 
+    <!-- Hero tiles - Only show for guests (not logged in) -->
+    {% if not user %}
     <div class="hero-container">
         <a href="{{ url_for('handmade') }}" class="hero-tile">
             <img src="{{ url_for('static', filename='wood.PNG') }}" alt="Island Hand-Made">
             <p>Island Hand-Made</p>
         </a>
         <img src="{{ url_for('static', filename='hero1.PNG') }}" alt="Hero Image" class="hero-image">
-        <img src="{{ url_for('static', filename='box1.PNG') }}" alt="Packages Image" class="hero-image">
+        <div id="productCarousel" class="hero-tile product-carousel">
+            <img id="carouselImage" src="" alt="Featured Product" style="width: 100%; height: 100%; object-fit: cover;">
+            <p id="carouselCaption" style="position: absolute; bottom: 10px; width: 100%; margin: 0; font-size: 18px; font-weight: bold; color: white; background: rgba(0, 0, 0, 0.6); padding: 10px;">Loading...</p>
+        </div>
     </div>
 
-    {% if not user %}
-        <div class="signup-action">
-            <button class="auth-buttons" onclick="window.location.href='{{ url_for('signup') }}'">SIGN UP</button>
-        </div>
+    <div class="signup-action">
+        <button class="auth-buttons" onclick="window.location.href='{{ url_for('signup') }}'">SIGN UP</button>
+    </div>
     {% endif %}
 
     <div class="category-section">
         <div class="all-category">
             <div class="category-circle" data-category="All">
-                <img src="{{ url_for('static', filename='jam all.jpg') }}" alt="All" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                <img src="{{ url_for('static', filename='jam all.jpg') }}" alt="All" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
                 <p>All</p>
             </div>
         </div>
@@ -652,13 +726,35 @@
         {% endif %}
         {% for key, product in products.items() %}
             <div class="product-card" data-category="{% if product.category == 'Jewelry' %}Jewelry & Accessories{% elif product.category == 'Home & Kitchen' %}Home Textiles{% else %}{{ product.category }}{% endif %}" data-product-key="{{ key }}">
-                <img src="{{ url_for('static', filename=product.image_url) }}" alt="{{ product.name }}" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                <img src="{{ url_for('static', filename=product.image_url) }}" alt="{{ product.name }}" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
                 <h3>{{ product.name }}</h3>
                 <p>{{ product.description }}</p>
+                {% if product.cod_available %}
+                <div style="background: #27ae60; color: white; padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; margin: 5px 10px; display: inline-block;">
+                    💵 COD
+                </div>
+                {% endif %}
                 <p class="price">{{ product.price }} JMD</p>
                 <p class="rating">
-                    <span class="stars">★★★★★</span>
-                    <span class="sold">(100+ sold)</span>
+                    <span class="stars">
+                        {% set rating = product.avg_rating|default(product.rating|default(5.0)) %}
+                        {% set full_stars = rating|int %}
+                        {% set has_half = (rating - full_stars) >= 0.5 %}
+                        {% for i in range(5) %}
+                            {% if i < full_stars %}
+                                ★
+                            {% elif i == full_stars and has_half %}
+                                <span style="position: relative; display: inline-block;">
+                                    <span style="color: #ddd;">★</span>
+                                    <span style="position: absolute; left: 0; overflow: hidden; width: 50%; color: #000;">★</span>
+                                </span>
+                            {% else %}
+                                <span style="color: #ddd;">★</span>
+                            {% endif %}
+                        {% endfor %}
+                        <span style="font-size: 12px; color: #666; margin-left: 4px;">({{ rating|round(1) }})</span>
+                    </span>
+                    <span class="sold">({{ product.sold }}+ sold)</span>
                 </p>
                 <div class="product-actions">
                     <button onclick="event.stopPropagation(); handleAddToCart('{{ key | replace('\'', '\\\'') }}')">Add to Cart</button>
@@ -709,52 +805,7 @@
 
         // Chat functionality - FIXED VERSION
         const buyerEmail = '{{ user.email if user else "anonymous" | safe }}';
-        let chatOpen = false;
-        let socket;
-        let currentSellerEmail = '';
 
-        function initializeSocket() {
-            if (!window.io) {
-                console.error('Socket.IO not loaded');
-                return;
-            }
-
-            socket = io();
-
-            socket.on('connect', () => {
-                console.log('Connected to Socket.IO');
-            });
-
-            socket.on('disconnect', () => {
-                console.log('Disconnected from Socket.IO');
-            });
-
-            socket.on('receive_message', (data) => {
-                if (data.sender_email === currentSellerEmail || data.receiver_email === buyerEmail) {
-                    displayChatMessage(
-                        data.message,
-                        data.sender_email === buyerEmail,
-                        data.sender_name || data.sender_email,
-                        data.sender_email,
-                        data.timestamp || new Date().toLocaleString()
-                    );
-                    if (!chatOpen) {
-                        showChatNotification();
-                    }
-                    scrollChatToBottom();
-                }
-            });
-
-            socket.on('user_typing', (data) => {
-                if (data.sender_email === currentSellerEmail && data.sender_email !== buyerEmail) {
-                    showTypingIndicator(data.is_typing);
-                }
-            });
-
-            socket.on('connect_error', (error) => {
-                console.error('Socket connection error:', error);
-            });
-        }
 
         async function populateSellerDropdown() {
             if (buyerEmail === 'anonymous') return;
@@ -786,129 +837,8 @@
             }
         }
 
-        function toggleChat() {
-            if (buyerEmail === 'anonymous') {
-                showToast('Login Required', 'Please login to message sellers', 'error');
-                setTimeout(() => {
-                    window.location.href = '/login?next=' + encodeURIComponent(window.location.href);
-                }, 2000);
-                return;
-            }
 
-            const chatWindow = document.getElementById('chatWindow');
-            const chatButton = document.querySelector('.chat-button');
 
-            if (!chatWindow || !chatButton) {
-                console.error('Chat elements not found');
-                return;
-            }
-
-            chatOpen = !chatOpen;
-
-            if (chatOpen) {
-                chatWindow.classList.add('show');
-                const chatInput = document.getElementById('chatInput');
-                if (chatInput) {
-                    setTimeout(() => chatInput.focus(), 300);
-                }
-                populateSellerDropdown();
-                checkNewMessages();
-            } else {
-                chatWindow.classList.remove('show');
-                currentSellerEmail = '';
-            }
-        }
-
-        function closeChat() {
-            chatOpen = false;
-            const chatWindow = document.getElementById('chatWindow');
-            if (chatWindow) {
-                chatWindow.classList.remove('show');
-            }
-            currentSellerEmail = '';
-        }
-
-        async function sendChatMessage() {
-            const input = document.getElementById('chatInput');
-            const sendButton = document.getElementById('chatSendBtn');
-
-            if (!input || !sendButton) {
-                console.error('Chat input elements not found');
-                return;
-            }
-
-            const message = input.value.trim();
-            if (!message || !currentSellerEmail) {
-                showToast('Error', 'Please select a seller and enter a message', 'error');
-                return;
-            }
-
-            sendButton.disabled = true;
-
-            // Optimistically show the message
-            displayChatMessage(message, true, 'You', buyerEmail, new Date().toLocaleString());
-            input.value = '';
-            scrollChatToBottom();
-
-            try {
-                const response = await fetch('/send_message', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken()
-                    },
-                    body: JSON.stringify({
-                        receiver_email: currentSellerEmail,
-                        message: message
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-                }
-
-                const data = await response.json();
-
-                if (data.success) {
-                    // Emit socket event for real-time delivery
-                    if (socket && socket.connected) {
-                        socket.emit('send_message', {
-                            conversation_id: data.conversation_id,
-                            sender_email: buyerEmail,
-                            sender_name: '{{ user.first_name or "Buyer" | safe }}',
-                            receiver_email: currentSellerEmail,
-                            message: message,
-                            timestamp: new Date().toLocaleString()
-                        });
-                    }
-                } else {
-                    showToast('Error', data.message || 'Failed to send message', 'error');
-                }
-            } catch (error) {
-                console.error('Send message error:', error);
-                showToast('Error', 'Network error while sending message', 'error');
-            } finally {
-                sendButton.disabled = false;
-            }
-        }
-
-        function displayChatMessage(text, isSent, senderName, senderEmail, timestamp) {
-            const messagesContainer = document.getElementById('chatMessages');
-            if (!messagesContainer) return;
-
-            const emptyState = messagesContainer.querySelector('.chat-empty');
-            if (emptyState) emptyState.remove();
-
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `chat-message ${isSent ? 'sent' : 'received'}`;
-            messageDiv.innerHTML = `
-                <div class="message-sender">${escapeHTML(senderName)}</div>
-                <div class="message-bubble">${escapeHTML(text)}</div>
-                <div class="message-time">${escapeHTML(timestamp)}</div>
-            `;
-            messagesContainer.appendChild(messageDiv);
-            scrollChatToBottom();
-        }
 
         async function loadChatMessages() {
             const sellerSelect = document.getElementById('sellerSelect');
@@ -1017,49 +947,6 @@
             scrollChatToBottom();
         }
 
-        function scrollChatToBottom() {
-            const messagesContainer = document.getElementById('chatMessages');
-            if (messagesContainer) {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            }
-        }
-
-        function showChatNotification() {
-            const notification = document.getElementById('messageBadge');
-            if (!notification) return;
-
-            let count = parseInt(notification.textContent) || 0;
-            notification.textContent = count + 1;
-            notification.style.display = 'flex';
-        }
-
-        function hideNotification() {
-            const notification = document.getElementById('messageBadge');
-            if (notification) {
-                notification.textContent = '0';
-                notification.style.display = 'none';
-            }
-        }
-
-        async function checkNewMessages() {
-            if (buyerEmail === 'anonymous') return;
-            try {
-                const response = await fetch('/api/unread_messages_count');
-                const data = await response.json();
-                const badge = document.getElementById('messageBadge');
-                if (badge) {
-                    if (data.count > 0) {
-                        badge.textContent = data.count;
-                        badge.style.display = 'block';
-                    } else {
-                        badge.textContent = '0';
-                        badge.style.display = 'none';
-                    }
-                }
-            } catch (error) {
-                console.error('Error checking messages:', error);
-            }
-        }
 
         // Navigate to product page - FIXED VERSION
         function goToProduct(productKey) {
@@ -1205,20 +1092,27 @@
 
         // Update cart dropdown
         function updateCartDropdown(data) {
+            console.log('updateCartDropdown called with data:', data);
             const cartItemsDiv = document.getElementById('cartItems');
-            if (!cartItemsDiv) return;
+            console.log('cartItemsDiv:', cartItemsDiv);
+            if (!cartItemsDiv) {
+                console.error('cartItems div not found!');
+                return;
+            }
 
             cartItemsDiv.innerHTML = '';
             if (!data.cart_items || data.cart_items.length === 0) {
+                console.log('Cart is empty, showing empty message');
                 cartItemsDiv.innerHTML = '<p class="empty-cart">Your cart is empty</p>';
             } else {
+                console.log('Cart has', data.cart_items.length, 'items');
                 data.cart_items.forEach(item => {
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'cart-item';
                     const baseProductKey = item.product_key.split(' (')[0];
                     const productUrl = `/product/${encodeURIComponent(baseProductKey.replace(/ /g, '+'))}`;
                     itemDiv.innerHTML = `
-                        <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.name || item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
+                        <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.name || item.product_key)}" onerror="this.src='/static/product-placeholder.svg'">
                         <div class="cart-item-details">
                             <p><a href="${productUrl}">${escapeHTML(item.name || item.product_key)}</a></p>
                             <p>${item.price} JMD x ${item.quantity}</p>
@@ -1227,6 +1121,7 @@
                     `;
                     cartItemsDiv.appendChild(itemDiv);
                 });
+                console.log('Cart items added to DOM');
             }
         }
 
@@ -1270,7 +1165,7 @@
                 data.forEach(suggestion => {
                     const a = document.createElement('a');
                     a.href = `/product/${suggestion.product_key.replace(/ /g, '+')}`;
-                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/placeholder.jpg'"><span>${escapeHTML(suggestion.name)}</span>`;
+                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/product-placeholder.svg'"><span>${escapeHTML(suggestion.name)}</span>`;
                     suggestionsDiv.appendChild(a);
                 });
                 suggestionsDiv.style.display = data.length ? 'block' : 'none';
@@ -1325,6 +1220,13 @@
                 searchIcon.addEventListener('click', triggerSearch);
             }
 
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', (e) => {
+                if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                    suggestionsDiv.style.display = 'none';
+                }
+            });
+
             // FIXED: Product card click handlers
             const productCards = document.querySelectorAll('.product-card');
             console.log(`Found ${productCards.length} product cards`);
@@ -1354,76 +1256,196 @@
                 }
             });
 
-            // Initialize chat functionality for logged-in users
-            if (buyerEmail !== 'anonymous') {
-                console.log('Initializing chat for user:', buyerEmail);
-                initializeSocket();
-                checkNewMessages();
-
-                const chatInput = document.getElementById('chatInput');
-                if (chatInput) {
-                    let typingTimer;
-                    chatInput.addEventListener('input', () => {
-                        if (socket && buyerEmail !== 'anonymous' && currentSellerEmail) {
-                            socket.emit('typing', {
-                                is_typing: true,
-                                sender_email: buyerEmail,
-                                receiver_email: currentSellerEmail
-                            });
-                            clearTimeout(typingTimer);
-                            typingTimer = setTimeout(() => {
-                                socket.emit('typing', {
-                                    is_typing: false,
-                                    sender_email: buyerEmail,
-                                    receiver_email: currentSellerEmail
-                                });
-                            }, 1000);
-                        }
-                    });
-
-                    chatInput.addEventListener('keypress', (e) => {
-                        if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            sendChatMessage();
-                        }
-                    });
-                }
-            }
+            // Initialize carousel after product cards are set up
+            console.log('Initializing carousel...');
+            initializeCarousel();
 
             console.log('All event handlers set up successfully');
-        });
-
-        // Handle clicks outside chat widget
-        document.addEventListener('click', (e) => {
-            const chatWidget = document.querySelector('.chat-widget');
-            if (chatOpen && !chatWidget.contains(e.target) && !e.target.closest('.chat-button')) {
-                closeChat();
-            }
-        });
-
-        // Handle escape key to close chat
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && chatOpen) {
-                closeChat();
-            }
         });
 
         // Update display when page becomes visible
         document.addEventListener('visibilitychange', function() {
             if (!document.hidden) {
                 updateCartDisplay();
-                if (chatOpen) checkNewMessages();
             }
         });
 
         // Update display when window gains focus
         window.addEventListener('focus', function() {
             updateCartDisplay();
-            if (chatOpen) checkNewMessages();
         });
 
-        // Periodic message check
-        setInterval(checkNewMessages, 30000);
+        // Product Carousel Functionality
+        let carouselProducts = [];
+        let currentCarouselIndex = 0;
+        const CAROUSEL_INTERVAL = 3000; // 3 seconds between rotations
+
+        function initializeCarousel() {
+            console.log('initializeCarousel called');
+
+            // Get all products from the page
+            const productCards = document.querySelectorAll('.product-card');
+            console.log(`Found ${productCards.length} product cards for carousel`);
+
+            const allProducts = Array.from(productCards).map(card => {
+                const img = card.querySelector('img');
+                const title = card.querySelector('h3');
+                const price = card.querySelector('.price');
+                const productKey = card.getAttribute('data-product-key');
+
+                return {
+                    image: img ? img.src : '',
+                    name: title ? title.textContent : 'Product',
+                    price: price ? price.textContent : '',
+                    productKey: productKey,
+                    category: card.getAttribute('data-category')
+                };
+            });
+
+            // Shuffle products for randomness
+            carouselProducts = allProducts.sort(() => Math.random() - 0.5);
+            console.log(`Carousel has ${carouselProducts.length} products`);
+
+            if (carouselProducts.length > 0) {
+                console.log('Starting carousel with first product:', carouselProducts[0].name);
+                updateCarousel();
+                setInterval(rotateCarousel, CAROUSEL_INTERVAL);
+            } else {
+                console.error('No products found for carousel!');
+                document.getElementById('carouselCaption').textContent = 'No products available';
+            }
+        }
+
+        function updateCarousel() {
+            const carousel = document.getElementById('productCarousel');
+            const image = document.getElementById('carouselImage');
+            const caption = document.getElementById('carouselCaption');
+
+            if (carouselProducts.length === 0) return;
+
+            const product = carouselProducts[currentCarouselIndex];
+
+            // Fade out
+            carousel.classList.add('fade-out');
+
+            setTimeout(() => {
+                // Update content
+                image.src = product.image;
+                image.onerror = function() {
+                    this.src = "{{ url_for('static', filename='product-placeholder.svg') }}";
+                };
+                caption.textContent = product.name;
+
+                // Set click handler to navigate to product page
+                carousel.onclick = () => goToProduct(product.productKey);
+
+                // Fade in
+                carousel.classList.remove('fade-out');
+            }, 250);
+        }
+
+        function rotateCarousel() {
+            currentCarouselIndex = (currentCarouselIndex + 1) % carouselProducts.length;
+            updateCarousel();
+        }
+
+        // Initialize carousel after products are loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initializeCarousel);
+        } else {
+            initializeCarousel();
+        }
+
+        // Update bottom nav cart badge
+        function updateBottomNavCartBadge() {
+            fetch('/cart/data', {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const bottomCartBadge = document.getElementById('bottomCartBadge');
+                    if (bottomCartBadge) {
+                        bottomCartBadge.textContent = data.cart_item_count || 0;
+                    }
+                }
+            })
+            .catch(error => console.error('Error updating bottom nav cart badge:', error));
+        }
+
+        // Update on page load
+        document.addEventListener('DOMContentLoaded', updateBottomNavCartBadge);
+
+        // Toggle cart dropdown from bottom nav
+        async function toggleCartDropdown() {
+            const cartDropdown = document.getElementById('cartDropdown');
+            console.log('toggleCartDropdown called, cartDropdown:', cartDropdown);
+
+            if (cartDropdown.style.display === 'block') {
+                console.log('Closing cart dropdown');
+                cartDropdown.style.display = 'none';
+            } else {
+                console.log('Opening cart dropdown');
+                cartDropdown.style.display = 'block';
+                // Fetch and update cart items when opening
+                try {
+                    console.log('Fetching cart data...');
+                    const response = await fetch('/cart/data', {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                    });
+                    const data = await response.json();
+                    console.log('Cart data received:', data);
+                    if (data.success) {
+                        updateCartDropdown(data);
+                        // Update total
+                        const cartTotalDiv = document.getElementById('cartTotal');
+                        if (cartTotalDiv) {
+                            cartTotalDiv.textContent = `Total: ${data.cart_total || 0} JMD`;
+                        }
+                        // Update badge
+                        const cartBadge = document.querySelector('.cart-total');
+                        if (cartBadge) {
+                            cartBadge.textContent = data.cart_item_count || 0;
+                        }
+                        const bottomCartBadge = document.getElementById('bottomCartBadge');
+                        if (bottomCartBadge) {
+                            bottomCartBadge.textContent = data.cart_item_count || 0;
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading cart:', error);
+                }
+            }
+        }
     </script>
+
+    <!-- Bottom Navigation Bar -->
+    <div class="bottom-nav">
+        <a href="{{ url_for('index') }}" class="bottom-nav-item active">
+            <div class="bottom-nav-icon">🏠</div>
+            <div>Home</div>
+        </a>
+
+        <div class="bottom-nav-item" onclick="document.getElementById('search').focus(); window.scrollTo(0,0);">
+            <div class="bottom-nav-icon">🔍</div>
+            <div>Search</div>
+        </div>
+
+        <div class="bottom-nav-item" onclick="toggleCartDropdown()">
+            <div class="bottom-nav-icon">🛒</div>
+            <div>Cart</div>
+            <span class="bottom-nav-badge" id="bottomCartBadge">{{ cart_item_count }}</span>
+        </div>
+
+        <a href="{{ url_for('orders') if user else url_for('login') }}" class="bottom-nav-item">
+            <div class="bottom-nav-icon">📦</div>
+            <div>Orders</div>
+        </a>
+
+        <a href="{{ url_for('profile') if user else url_for('login') }}" class="bottom-nav-item">
+            <div class="bottom-nav-icon">👤</div>
+            <div>Profile</div>
+        </a>
+    </div>
 </body>
 </html>

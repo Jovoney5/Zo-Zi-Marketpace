@@ -48,8 +48,11 @@
         .form-container input, .form-container textarea, .form-container select { width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
         .form-container button { background: #FFD700; padding: 10px 20px; border: none; cursor: pointer; border-radius: 5px; display: block; margin: 20px auto; }
         .form-container button:hover { background: #FFA500; }
-        .image-preview { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
-        .image-preview img { max-width: 100px; height: auto; border-radius: 5px; }
+        .upload-slot { margin-bottom: 15px; }
+        .image-preview { position: relative; display: inline-block; margin-bottom: 10px; }
+        .image-preview img, .image-preview video { max-width: 150px; max-height: 150px; border-radius: 5px; border: 2px solid #ccc; }
+        .remove-image { position: absolute; top: -5px; right: -5px; background: red; color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer; font-size: 16px; font-weight: bold; line-height: 1; }
+        .remove-image:hover { background: darkred; }
         #roi-display { color: #006400; font-weight: bold; margin-top: 5px; }
         .color-size-section { margin-bottom: 15px; }
         .color-size-entry { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; align-items: center; }
@@ -103,13 +106,13 @@
             <button class="auth-buttons" onclick="window.location.href='{{ url_for('signup') }}'">Sign Up</button>
             <div class="profile" onclick="window.location.href='{{ url_for('profile' if user else 'login') }}'" title="{% if user and user.profile_picture %}Change Profile Picture{% elif user %}Add Profile Picture{% else %}Login to add profile{% endif %}">
                 {% if user and user.profile_picture %}
-                    <img src="{{ url_for('static', filename='Uploads/' + user.profile_picture) }}" alt="Profile" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                    <img src="{{ url_for('static', filename='Uploads/' + user.profile_picture) }}" alt="Profile" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
                 {% else %}
                     <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%;">+</span>
                 {% endif %}
             </div>
             <div class="cart-icon">
-                <img src="{{ url_for('static', filename='cart icon 3.png') }}" alt="Cart" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                <img src="{{ url_for('static', filename='cart icon 3.png') }}" alt="Cart" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
                 <span class="cart-total">{{ cart_item_count }}</span>
                 <div class="cart-dropdown" id="cartDropdown">
                     <div id="cartItems"></div>
@@ -117,7 +120,7 @@
                 </div>
             </div>
             <div class="contact-icon" onclick="window.location.href='{{ url_for('contact') }}'">
-                <img src="{{ url_for('static', filename='customer service.png') }}" alt="Customer Service" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                <img src="{{ url_for('static', filename='customer service.png') }}" alt="Customer Service" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
             </div>
         </div>
     </div>
@@ -221,14 +224,117 @@
         </div>
         <button type="button" id="add-color-size">Add Color & Size</button>
 
-        <label>Upload Images (up to 5)</label>
-        {% for i in range(5) %}
-            <input type="file" name="image_{{ i }}" accept=".png, .jpg, .jpeg, .webp" {% if not product %}required{% endif %}>
-            {% if product and i < product.image_urls|length %}
-                <div class="image-preview">
-                    <img src="{{ url_for('static', filename=product.image_urls[i]) }}" alt="Preview" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+        <!-- SHIPPING SECTION -->
+        <div style="margin: 30px 0; padding: 20px; background: #f9f9f9; border-radius: 10px; border: 2px solid #FFD700;">
+            <h3 style="color: #006400; margin-top: 0;">📦 Shipping Options (Westmoreland)</h3>
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                Select your preferred shipping method. The shipping cost will be <strong>automatically added</strong> to your product price.
+            </p>
+
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <!-- Knutsford Express -->
+                <label style="display: flex; align-items: center; padding: 8px 12px; background: white; border-radius: 5px; cursor: pointer; border: 2px solid transparent; transition: all 0.3s;" class="shipping-option">
+                    <input type="radio" name="shipping_method" value="knutsford" data-cost="650" style="margin-right: 8px; cursor: pointer; width: 16px; height: 16px;" required>
+                    <div style="flex: 1;">
+                        <span style="font-weight: bold; color: #006400; font-size: 14px;">🚐 Knutsford Express</span>
+                        <span style="color: #666; font-size: 12px; margin-left: 8px;">1-2 days • Major towns</span>
+                    </div>
+                    <div style="color: #FF6B00; font-weight: bold; font-size: 13px;">+$650</div>
+                </label>
+
+                <!-- Jamaica Post -->
+                <label style="display: flex; align-items: center; padding: 8px 12px; background: white; border-radius: 5px; cursor: pointer; border: 2px solid transparent; transition: all 0.3s;" class="shipping-option">
+                    <input type="radio" name="shipping_method" value="jamaica_post" data-cost="400" style="margin-right: 8px; cursor: pointer; width: 16px; height: 16px;" required>
+                    <div style="flex: 1;">
+                        <span style="font-weight: bold; color: #006400; font-size: 14px;">📮 Jamaica Post</span>
+                        <span style="color: #666; font-size: 12px; margin-left: 8px;">3-5 days • Anywhere in Westmoreland</span>
+                    </div>
+                    <div style="color: #FF6B00; font-weight: bold; font-size: 13px;">+$400</div>
+                </label>
+
+                <!-- Local Delivery -->
+                <label style="display: flex; align-items: center; padding: 8px 12px; background: white; border-radius: 5px; cursor: pointer; border: 2px solid transparent; transition: all 0.3s;" class="shipping-option">
+                    <input type="radio" name="shipping_method" value="local_delivery" data-cost="300" style="margin-right: 8px; cursor: pointer; width: 16px; height: 16px;" required>
+                    <div style="flex: 1;">
+                        <span style="font-weight: bold; color: #006400; font-size: 14px;">🏠 Local Delivery</span>
+                        <span style="color: #666; font-size: 12px; margin-left: 8px;">Same/next day • Savanna-la-Mar only</span>
+                    </div>
+                    <div style="color: #FF6B00; font-weight: bold; font-size: 13px;">+$300</div>
+                </label>
+            </div>
+
+            <div id="price-preview" style="margin-top: 20px; padding: 15px; background: #FFD700; border-radius: 8px; display: none;">
+                <div style="font-size: 14px; color: #333; margin-bottom: 5px;">Final Product Price (with shipping included):</div>
+                <div style="font-size: 24px; font-weight: bold; color: #006400;">
+                    $<span id="final-price">0</span> JMD
                 </div>
-            {% endif %}
+                <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                    Your price: $<span id="base-price">0</span> + Shipping: $<span id="shipping-cost">0</span>
+                </div>
+                <div style="font-size: 12px; color: #006400; margin-top: 8px; font-weight: bold;">
+                    ✅ Buyers will see "FREE SHIPPING" on your product
+                </div>
+            </div>
+        </div>
+
+        <!-- CASH ON DELIVERY SECTION -->
+        {% if user and user.cod_enabled %}
+        <div style="margin: 30px 0; padding: 20px; background: #f0fff4; border-radius: 10px; border: 2px solid #27ae60;">
+            <h3 style="color: #006400; margin-top: 0;">💵 Cash on Delivery Option</h3>
+            <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                Your account has COD (Cash on Delivery) enabled. You can choose to offer this payment option for this product.
+            </p>
+
+            <label style="display: flex; align-items: center; padding: 12px; background: white; border-radius: 8px; cursor: pointer; border: 2px solid #27ae60;">
+                <input type="checkbox" name="cod_available" value="true" style="width: 20px; height: 20px; margin-right: 12px; cursor: pointer;" {% if product and product.cod_available %}checked{% endif %}>
+                <div style="flex: 1;">
+                    <span style="font-weight: bold; color: #27ae60; font-size: 16px;">💵 Accept Cash on Delivery</span>
+                    <div style="color: #666; font-size: 13px; margin-top: 4px;">
+                        Buyers can choose to pay cash when they pick up the product
+                    </div>
+                </div>
+            </label>
+
+            <div style="margin-top: 12px; padding: 10px; background: #fff9e6; border-left: 3px solid #FFD700; font-size: 12px; color: #666;">
+                <strong style="color: #FF6B00;">⚠️ Important:</strong> Make sure you can collect payment at pickup location. Platform fee will be deducted from your next payout.
+            </div>
+        </div>
+        {% endif %}
+
+        <label>Upload Product Media</label>
+        <p style="font-size: 13px; color: #666; margin: 5px 0 10px 0;">
+            📷 <strong>First upload MUST be a photo.</strong> Add up to 5 images/videos total. Videos will autoplay when buyers view them!
+        </p>
+        {% for i in range(5) %}
+            <div class="upload-slot" id="slot-{{ i }}" style="margin-bottom: 15px; padding: 10px; background: #f9f9f9; border-radius: 5px;">
+                <label style="font-weight: bold; color: #006400; display: block; margin-bottom: 5px;">
+                    {% if i == 0 %}
+                        1️⃣ Main Product Photo (Required - Image Only)
+                    {% elif i == 1 %}
+                        2️⃣ Additional Photo/Video (Optional)
+                    {% elif i == 2 %}
+                        3️⃣ Additional Photo/Video (Optional)
+                    {% elif i == 3 %}
+                        4️⃣ Additional Photo/Video (Optional)
+                    {% else %}
+                        5️⃣ Additional Photo/Video (Optional)
+                    {% endif %}
+                </label>
+                {% if product and i < product.image_urls|length %}
+                    <div class="image-preview" id="preview-{{ i }}">
+                        {% if product.image_urls[i].endswith(('.mp4', '.webm', '.mov')) %}
+                            <video src="{{ url_for('static', filename=product.image_urls[i]) }}" muted></video>
+                        {% else %}
+                            <img src="{{ url_for('static', filename=product.image_urls[i]) }}" alt="Preview" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
+                        {% endif %}
+                        <button type="button" class="remove-image" onclick="removeImage({{ i }})">✕</button>
+                    </div>
+                {% endif %}
+                <input type="file" id="file-{{ i }}" name="image_{{ i }}" accept="{% if i == 0 %}.png, .jpg, .jpeg, .webp{% else %}.png, .jpg, .jpeg, .webp, .mp4, .webm, .mov{% endif %}" {% if not product and i == 0 %}required{% endif %} onchange="previewFile({{ i }})">
+                {% if i > 0 %}
+                    <small style="color: #999; font-size: 11px;">Add more photos or videos to showcase your product</small>
+                {% endif %}
+            </div>
         {% endfor %}
 
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -241,6 +347,59 @@
         video.addEventListener("timeupdate", function() {
             if (video.currentTime >= 17) video.currentTime = 0;
         });
+
+        // Remove image/video function
+        function removeImage(index) {
+            const preview = document.getElementById(`preview-${index}`);
+            const fileInput = document.getElementById(`file-${index}`);
+
+            if (preview) {
+                preview.remove();
+            }
+            if (fileInput) {
+                fileInput.value = '';
+                fileInput.required = false;
+            }
+        }
+
+        // Preview file function
+        function previewFile(index) {
+            const fileInput = document.getElementById(`file-${index}`);
+            const file = fileInput.files[0];
+
+            if (file) {
+                // Remove existing preview if any
+                const existingPreview = document.getElementById(`preview-${index}`);
+                if (existingPreview) {
+                    existingPreview.remove();
+                }
+
+                // Create new preview
+                const preview = document.createElement('div');
+                preview.id = `preview-${index}`;
+                preview.className = 'image-preview';
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'remove-image';
+                removeBtn.textContent = '✕';
+                removeBtn.onclick = () => removeImage(index);
+
+                if (file.type.startsWith('video/')) {
+                    const video = document.createElement('video');
+                    video.src = URL.createObjectURL(file);
+                    video.muted = true;
+                    preview.appendChild(video);
+                } else {
+                    const img = document.createElement('img');
+                    img.src = URL.createObjectURL(file);
+                    preview.appendChild(img);
+                }
+
+                preview.appendChild(removeBtn);
+                fileInput.parentElement.insertBefore(preview, fileInput);
+            }
+        }
 
         // Search functionality
         const searchInput = document.getElementById('search');
@@ -325,7 +484,7 @@
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'cart-item';
                     itemDiv.innerHTML = `
-                        <img src="/static/${item.image_url}" alt="${item.product_key}" onerror="this.src='/static/placeholder.jpg'">
+                        <img src="/static/${item.image_url}" alt="${item.product_key}" onerror="this.src='/static/product-placeholder.svg'">
                         <div class="cart-item-details">
                             <p>${item.product_key}</p>
                             <p>${item.price} JMD x ${item.quantity}</p>
@@ -371,6 +530,53 @@
         originalCostInput.addEventListener('input', calculateROI);
         sellingPriceInput.addEventListener('input', calculateROI);
         calculateROI();
+
+        // SHIPPING PRICE CALCULATOR
+        const shippingRadios = document.querySelectorAll('input[name="shipping_method"]');
+        const pricePreview = document.getElementById('price-preview');
+        const finalPriceSpan = document.getElementById('final-price');
+        const basePriceSpan = document.getElementById('base-price');
+        const shippingCostSpan = document.getElementById('shipping-cost');
+
+        function updateShippingPrice() {
+            const sellingPrice = parseFloat(sellingPriceInput.value) || 0;
+            const selectedShipping = document.querySelector('input[name="shipping_method"]:checked');
+
+            if (sellingPrice > 0 && selectedShipping) {
+                const shippingCost = parseFloat(selectedShipping.dataset.cost) || 0;
+                const finalPrice = sellingPrice + shippingCost;
+
+                basePriceSpan.textContent = sellingPrice.toFixed(2);
+                shippingCostSpan.textContent = shippingCost.toFixed(2);
+                finalPriceSpan.textContent = finalPrice.toFixed(2);
+                pricePreview.style.display = 'block';
+            } else {
+                pricePreview.style.display = 'none';
+            }
+        }
+
+        // Update on shipping selection
+        shippingRadios.forEach(radio => {
+            radio.addEventListener('change', updateShippingPrice);
+        });
+
+        // Update when selling price changes
+        sellingPriceInput.addEventListener('input', updateShippingPrice);
+
+        // Add hover effect to shipping options
+        document.querySelectorAll('.shipping-option').forEach(option => {
+            option.addEventListener('mouseenter', function() {
+                this.style.borderColor = '#FFD700';
+                this.style.background = '#fffef7';
+            });
+            option.addEventListener('mouseleave', function() {
+                const radio = this.querySelector('input[type="radio"]');
+                if (!radio.checked) {
+                    this.style.borderColor = 'transparent';
+                    this.style.background = 'white';
+                }
+            });
+        });
 
         // Color and size management
         const colorSizesDiv = document.getElementById('color-sizes');

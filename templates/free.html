@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YAAD - Select Free Gift</title>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Zo-Zi - Select Free Gift</title>
     <style>
         body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f4; }
         video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
@@ -129,7 +130,7 @@
     <div class="navbar">
         <div class="navbar-top">
             <div class="brand-container">
-                <div class="brand"><a href="{{ url_for('index') }}">YAAD</a></div>
+                <div class="brand"><a href="{{ url_for('index') }}">Zo-Zi</a></div>
                 <div class="menu-container">
                     <div class="menu-icon">☰</div>
                     <div class="dropdown-content">
@@ -234,16 +235,12 @@
         {% endif %}
 
         <form method="POST" action="{{ url_for('select_gift') }}">
-            <button type="submit" class="select-button" {{ 'disabled' if (purchase_count | default(0.5)) < 5 }}>CLAIM YUH FREE ITEM!</button>
-            {% if (purchase_count | default(0.5)) < 5 %}
-                <p class="ineligible-message">Yuh nuh eligible fi a free gift right now, mi fren. Shop more to qualify!</p>
-            {% endif %}
-
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div class="gifts-container">
                 {% if gifts %}
                     {% for gift in gifts %}
                         <div class="gift-card">
-                            <img src="{{ url_for('static', filename=gift.image_url) }}" alt="{{ gift.name }}" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                            <img src="{{ url_for('static', filename=gift.image_url) }}" alt="{{ gift.name }}" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
                             <h3>{{ gift.name }}</h3>
                             <p>{{ gift.description }}</p>
                             <p><strong>Category:</strong> {{ gift.category }}</p>
@@ -260,6 +257,15 @@
                     {% endif %}
                 {% endif %}
             </div>
+
+            {% if gifts and (purchase_count | default(0.5)) >= 5 %}
+                <button type="submit" class="select-button" onclick="return validateGiftSelection()">CLAIM YUH FREE ITEM!</button>
+            {% else %}
+                <button type="button" class="select-button" disabled>CLAIM YUH FREE ITEM!</button>
+                {% if (purchase_count | default(0.5)) < 5 %}
+                    <p class="ineligible-message">Yuh nuh eligible fi a free gift right now, mi fren. Shop more to qualify!</p>
+                {% endif %}
+            {% endif %}
         </form>
     </div>
 
@@ -270,6 +276,15 @@
                 video.currentTime = 0;
             }
         });
+
+        function validateGiftSelection() {
+            const selectedGift = document.querySelector('input[name="gift_key"]:checked');
+            if (!selectedGift) {
+                alert('Please select a free gift first, mi fren!');
+                return false;
+            }
+            return true;
+        }
 
         // ADDED: Cart dropdown functionality to match your existing pattern
         async function fetchCartItems() {
@@ -287,7 +302,7 @@
                         const itemDiv = document.createElement('div');
                         itemDiv.className = 'cart-item';
                         itemDiv.innerHTML = `
-                            <img src="/static/${item.image_url}" alt="${item.product_key}" onerror="this.src='/static/placeholder.jpg'">
+                            <img src="/static/${item.image_url}" alt="${item.product_key}" onerror="this.src='/static/product-placeholder.svg'">
                             <div class="cart-item-details">
                                 <p>${item.name || item.product_key}</p>
                                 <p>${item.price} JMD x ${item.quantity}</p>
@@ -308,16 +323,11 @@
 
         async function removeFromCart(productKey) {
             try {
-                const response = await fetch('/update_cart', {
+                const response = await fetch(`/cart/remove/${encodeURIComponent(productKey)}`, {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCSRFToken()
-                    },
-                    body: JSON.stringify({
-                        product_key: productKey,
-                        quantity: 0
-                    })
+                        'Content-Type': 'application/json'
+                    }
                 });
                 const data = await response.json();
                 if (data.success) {
@@ -350,7 +360,7 @@
                 data.forEach(suggestion => {
                     const a = document.createElement('a');
                     a.href = `/product/${suggestion.product_key.replace(/ /g, '+')}`;
-                    a.innerHTML = `<img src="/static/${suggestion.image_url}" alt="${suggestion.name}" onerror="this.src='/static/placeholder.jpg'"><span>${suggestion.name}</span>`;
+                    a.innerHTML = `<img src="/static/${suggestion.image_url}" alt="${suggestion.name}" onerror="this.src='/static/product-placeholder.svg'"><span>${suggestion.name}</span>`;
                     suggestionsDiv.appendChild(a);
                 });
                 suggestionsDiv.style.display = data.length ? 'block' : 'none';

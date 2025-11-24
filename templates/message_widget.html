@@ -1,0 +1,936 @@
+<!-- Universal Messaging Widget for All Users -->
+<style>
+    /* Message Icon Styles */
+    .message-icon-wrapper {
+        margin-left: 15px;
+        cursor: pointer;
+        position: relative;
+        display: inline-block;
+    }
+
+    .message-icon {
+        font-size: 28px;
+        color: #006400;
+        transition: all 0.3s ease;
+    }
+
+    .message-icon:hover {
+        transform: scale(1.1);
+        color: #FFD700;
+    }
+
+    .message-badge {
+        position: absolute;
+        top: -8px;
+        right: -8px;
+        background: #ff4757;
+        color: white;
+        border-radius: 50%;
+        padding: 3px 7px;
+        font-size: 11px;
+        font-weight: bold;
+        min-width: 20px;
+        text-align: center;
+        display: none;
+        animation: pulse 2s infinite;
+    }
+
+    .message-badge.show {
+        display: block;
+    }
+
+    @keyframes pulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+    }
+
+    /* Message Window Styles */
+    .message-window {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        width: 400px;
+        max-height: 600px;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+        display: none;
+        flex-direction: column;
+        z-index: 10000;
+        overflow: hidden;
+    }
+
+    .message-window.show {
+        display: flex;
+        animation: slideUp 0.3s ease;
+    }
+
+    @keyframes slideUp {
+        from {
+            transform: translateY(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    .message-window-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-radius: 15px 15px 0 0;
+    }
+
+    .message-window-title {
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    .message-window-close {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        transition: background 0.3s;
+    }
+
+    .message-window-close:hover {
+        background: rgba(255,255,255,0.2);
+    }
+
+    .conversation-list {
+        max-height: 500px;
+        overflow-y: auto;
+        flex: 1;
+    }
+
+    .conversation-item {
+        padding: 15px 20px;
+        border-bottom: 1px solid #f0f0f0;
+        cursor: pointer;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .conversation-item:hover {
+        background: #f8f9fa;
+    }
+
+    .conversation-item.unread {
+        background: #e3f2fd;
+        border-left: 4px solid #2196f3;
+    }
+
+    .conversation-avatar {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+
+    .conversation-avatar img {
+        width: 100%;
+        height: 100%;
+        border-radius: 50%;
+        object-fit: cover;
+    }
+
+    .conversation-details {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .conversation-name {
+        font-weight: bold;
+        color: #333;
+        margin-bottom: 4px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .conversation-preview {
+        font-size: 13px;
+        color: #666;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .conversation-meta {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 5px;
+        flex-shrink: 0;
+    }
+
+    .conversation-time {
+        font-size: 11px;
+        color: #999;
+    }
+
+    .conversation-unread-badge {
+        background: #ff4757;
+        color: white;
+        border-radius: 12px;
+        padding: 2px 8px;
+        font-size: 11px;
+        font-weight: bold;
+        min-width: 20px;
+        text-align: center;
+    }
+
+    .message-empty-state {
+        padding: 60px 20px;
+        text-align: center;
+        color: #999;
+    }
+
+    .message-empty-icon {
+        font-size: 60px;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+
+    /* Chat View Styles */
+    .chat-view {
+        display: none;
+        flex-direction: column;
+        height: 100%;
+    }
+
+    .chat-view.show {
+        display: flex;
+    }
+
+    .chat-view-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 15px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-radius: 15px 15px 0 0;
+    }
+
+    .chat-back-btn {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 24px;
+        cursor: pointer;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        transition: background 0.3s;
+    }
+
+    .chat-back-btn:hover {
+        background: rgba(255,255,255,0.2);
+    }
+
+    .chat-user-info {
+        flex: 1;
+    }
+
+    .chat-user-name {
+        font-weight: bold;
+        font-size: 16px;
+    }
+
+    .chat-user-status {
+        font-size: 12px;
+        opacity: 0.9;
+    }
+
+    .chat-messages-container {
+        flex: 1;
+        overflow-y: auto;
+        padding: 20px;
+        background: #f8f9fa;
+        max-height: 400px;
+    }
+
+    .chat-message {
+        margin-bottom: 15px;
+        display: flex;
+        gap: 10px;
+    }
+
+    .chat-message.sent {
+        flex-direction: row-reverse;
+    }
+
+    .chat-message-bubble {
+        max-width: 70%;
+        padding: 10px 15px;
+        border-radius: 15px;
+        word-wrap: break-word;
+    }
+
+    .chat-message.received .chat-message-bubble {
+        background: white;
+        color: #333;
+        border-bottom-left-radius: 5px;
+    }
+
+    .chat-message.sent .chat-message-bubble {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-bottom-right-radius: 5px;
+    }
+
+    .chat-message-time {
+        font-size: 11px;
+        color: #999;
+        margin-top: 4px;
+        text-align: right;
+    }
+
+    .chat-message.sent .chat-message-time {
+        text-align: left;
+        color: rgba(255,255,255,0.8);
+    }
+
+    .chat-input-area {
+        padding: 15px;
+        background: white;
+        border-top: 1px solid #e0e0e0;
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+    }
+
+    .chat-input {
+        flex: 1;
+        border: 1px solid #ddd;
+        border-radius: 20px;
+        padding: 10px 15px;
+        resize: none;
+        font-family: Arial, sans-serif;
+        font-size: 14px;
+        max-height: 100px;
+    }
+
+    .chat-input:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+
+    .chat-send-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        cursor: pointer;
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.2s;
+    }
+
+    .chat-send-btn:hover {
+        transform: scale(1.05);
+    }
+
+    .chat-send-btn:active {
+        transform: scale(0.95);
+    }
+
+    .chat-empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #999;
+    }
+
+    @media (max-width: 768px) {
+        .message-window {
+            width: 100%;
+            height: 100%;
+            max-height: 100%;
+            bottom: 0;
+            right: 0;
+            border-radius: 0;
+        }
+
+        .message-window-header,
+        .chat-view-header {
+            border-radius: 0;
+        }
+    }
+</style>
+
+<!-- Message Icon -->
+<div class="message-icon-wrapper" id="messageIconWrapper" onclick="handleMessageIconClick()">
+    <span class="message-icon">💬</span>
+    <span class="message-badge" id="globalMessageBadge">0</span>
+</div>
+
+<!-- Message Window -->
+<div class="message-window" id="messageWindow">
+    <!-- Conversation List View -->
+    <div class="conversation-list-view" id="conversationListView">
+        <div class="message-window-header">
+            <div class="message-window-title">Messages</div>
+            <button class="message-window-close" onclick="toggleMessageWindow()">×</button>
+        </div>
+        <div class="conversation-list" id="conversationList">
+            <div class="message-empty-state">
+                <div class="message-empty-icon">💬</div>
+                <p>No conversations yet</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat View -->
+    <div class="chat-view" id="chatView">
+        <div class="chat-view-header">
+            <button class="chat-back-btn" onclick="backToConversations()">←</button>
+            <div class="chat-user-info">
+                <div class="chat-user-name" id="chatUserName">User</div>
+                <div class="chat-user-status">Active</div>
+            </div>
+        </div>
+        <div class="chat-messages-container" id="chatMessagesContainer">
+            <div class="chat-empty-state">
+                Start a conversation!
+            </div>
+        </div>
+        <div class="chat-input-area">
+            <textarea class="chat-input" id="chatInput" placeholder="Type a message..." rows="1"></textarea>
+            <button class="chat-send-btn" onclick="sendChatMessage()">➤</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global messaging system variables
+let messageWindowOpen = false;
+let currentChatEmail = null;
+let currentConversationId = null;
+let messagingSocket = null;
+const currentUserEmail = {{ (user.email if user else "anonymous") | tojson }};
+
+// Global function to start chat with specific user (callable from other pages)
+window.startChatWith = async function(userEmail, userName) {
+    if (currentUserEmail === 'anonymous') {
+        alert('Please login to message users');
+        return;
+    }
+
+    console.log('Starting chat with:', userEmail, userName);
+
+    // Create/get conversation first
+    try {
+        const response = await fetch('/send_message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({
+                receiver_email: userEmail,
+                message: '' // Just create conversation
+            })
+        });
+
+        const data = await response.json();
+        console.log('Conversation creation response:', data);
+
+        if (data.success && data.conversation_id) {
+            // Open message window if not already open
+            if (!messageWindowOpen) {
+                toggleMessageWindow();
+            }
+
+            // Wait a bit for window to open, then directly open the chat
+            setTimeout(() => {
+                console.log('Opening chat with conversation ID:', data.conversation_id);
+                openChat(userEmail, userName, data.conversation_id);
+            }, 300);
+        } else {
+            console.error('Failed to create conversation:', data.message);
+            alert('Error starting chat: ' + (data.message || 'Unknown error'));
+        }
+    } catch (error) {
+        console.error('Error starting chat:', error);
+        alert('Error starting chat. Please try again.');
+    }
+};
+
+// Initialize messaging system
+function initializeMessaging() {
+    if (currentUserEmail === 'anonymous') return;
+
+    // Wait for Socket.IO to be available
+    if (typeof io === 'undefined') {
+        console.log('Waiting for Socket.IO to load...');
+        setTimeout(initializeMessaging, 100); // Retry after 100ms
+        return;
+    }
+
+    // Initialize Socket.IO
+    if (!messagingSocket) {
+        console.log('Initializing Socket.IO connection...');
+        messagingSocket = io();
+
+        messagingSocket.on('connect', () => {
+            console.log('Messaging system connected');
+        });
+
+        messagingSocket.on('receive_message', (data) => {
+            console.log('New message received:', data);
+
+            // Update badge
+            updateMessageBadge();
+
+            // If chat is open with this person, update the chat
+            if (currentChatEmail === data.sender_email && messageWindowOpen) {
+                displayMessage(data.message, false, data.sender_email, data.timestamp);
+                markMessagesAsRead(currentConversationId);
+            } else {
+                // Show notification
+                showMessageNotification(data);
+            }
+
+            // Refresh conversation list if message window is open
+            if (messageWindowOpen && !document.getElementById('chatView').classList.contains('show')) {
+                loadConversations();
+            }
+        });
+    }
+
+    // Load initial badge count
+    updateMessageBadge();
+
+    // Check for new messages every 30 seconds
+    setInterval(updateMessageBadge, 30000);
+}
+
+// Handle message icon click
+function handleMessageIconClick() {
+    // Check if we should auto-open a specific chat (e.g., on seller store page)
+    const iconWrapper = document.getElementById('messageIconWrapper');
+    const autoOpenEmail = iconWrapper ? iconWrapper.getAttribute('data-auto-open-email') : null;
+    const autoOpenName = iconWrapper ? iconWrapper.getAttribute('data-auto-open-name') : null;
+
+    if (autoOpenEmail && autoOpenName) {
+        // Auto-open chat with specific user
+        window.startChatWith(autoOpenEmail, autoOpenName);
+    } else {
+        // Normal toggle
+        toggleMessageWindow();
+    }
+}
+
+// Toggle message window
+function toggleMessageWindow() {
+    if (currentUserEmail === 'anonymous') {
+        alert('Please login to use messaging');
+        return;
+    }
+
+    messageWindowOpen = !messageWindowOpen;
+    const messageWindow = document.getElementById('messageWindow');
+
+    if (messageWindowOpen) {
+        messageWindow.classList.add('show');
+        loadConversations();
+    } else {
+        messageWindow.classList.remove('show');
+        backToConversations();
+    }
+}
+
+// Load conversations
+async function loadConversations() {
+    try {
+        const response = await fetch('/api/conversations');
+        const data = await response.json();
+
+        const conversationList = document.getElementById('conversationList');
+
+        if (data.success && data.conversations && data.conversations.length > 0) {
+            conversationList.innerHTML = data.conversations.map(conv => `
+                <div class="conversation-item ${conv.unread_count > 0 ? 'unread' : ''}"
+                     data-email="${conv.other_email}"
+                     data-name="${conv.other_name}"
+                     data-conversation-id="${conv.id}">
+                    <div class="conversation-avatar">
+                        ${conv.other_name.charAt(0).toUpperCase()}
+                    </div>
+                    <div class="conversation-details">
+                        <div class="conversation-name">${conv.other_name}</div>
+                        <div class="conversation-preview">${conv.last_message || 'No messages yet'}</div>
+                    </div>
+                    <div class="conversation-meta">
+                        <div class="conversation-time">${formatTime(conv.last_message_at)}</div>
+                        ${conv.unread_count > 0 ? `<div class="conversation-unread-badge">${conv.unread_count}</div>` : ''}
+                    </div>
+                </div>
+            `).join('');
+
+            // Add click event listeners to conversation items
+            document.querySelectorAll('.conversation-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const email = this.getAttribute('data-email');
+                    const name = this.getAttribute('data-name');
+                    const convId = parseInt(this.getAttribute('data-conversation-id'));
+                    console.log('Conversation clicked:', { email, name, convId });
+                    openChat(email, name, convId);
+                });
+            });
+        } else {
+            conversationList.innerHTML = `
+                <div class="message-empty-state">
+                    <div class="message-empty-icon">💬</div>
+                    <p>No conversations yet</p>
+                </div>
+            `;
+        }
+    } catch (error) {
+        console.error('Error loading conversations:', error);
+    }
+}
+
+// Open chat with specific user
+async function openChat(otherEmail, otherName, conversationId) {
+    console.log('=== openChat START ===');
+    console.log('Parameters:', { otherEmail, otherName, conversationId });
+    console.log('Current user email:', currentUserEmail);
+
+    try {
+        currentChatEmail = otherEmail;
+        currentConversationId = conversationId;
+
+        // Show chat view
+        const conversationListView = document.getElementById('conversationListView');
+        const chatView = document.getElementById('chatView');
+        const chatUserName = document.getElementById('chatUserName');
+
+        console.log('Elements found:', {
+            conversationListView: !!conversationListView,
+            chatView: !!chatView,
+            chatUserName: !!chatUserName
+        });
+
+        if (conversationListView) conversationListView.style.display = 'none';
+        if (chatView) chatView.classList.add('show');
+        if (chatUserName) chatUserName.textContent = otherName;
+
+        console.log('About to load messages...');
+        // Load messages
+        await loadChatMessages(otherEmail);
+        console.log('Messages loaded');
+
+        // Mark messages as read
+        console.log('Marking messages as read...');
+        await markMessagesAsRead(conversationId);
+
+        // Update badge
+        console.log('Updating badge...');
+        updateMessageBadge();
+
+        // Join room for real-time updates
+        if (messagingSocket) {
+            console.log('Joining socket room...');
+            messagingSocket.emit('join_conversation', {
+                user1_email: currentUserEmail,
+                user2_email: otherEmail
+            });
+        } else {
+            console.log('No socket connection');
+        }
+
+        console.log('=== openChat COMPLETE ===');
+    } catch (error) {
+        console.error('ERROR in openChat:', error);
+    }
+}
+
+// Load chat messages
+async function loadChatMessages(otherEmail) {
+    console.log('=== loadChatMessages called for:', otherEmail);
+    try {
+        const response = await fetch(`/get_messages/${otherEmail}`);
+        console.log('Messages response status:', response.status);
+
+        const data = await response.json();
+        console.log('Messages data:', data);
+
+        const container = document.getElementById('chatMessagesContainer');
+        console.log('Messages container:', container);
+
+        if (!container) {
+            console.error('Chat messages container not found!');
+            return;
+        }
+
+        if (data.success && data.messages && data.messages.length > 0) {
+            console.log(`Loading ${data.messages.length} messages`);
+            container.innerHTML = data.messages.map(msg => {
+                const isSent = msg.sender_email === currentUserEmail;
+                return `
+                    <div class="chat-message ${isSent ? 'sent' : 'received'}">
+                        <div class="chat-message-bubble">
+                            ${msg.message}
+                            <div class="chat-message-time">${formatTime(msg.timestamp)}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            scrollToBottom();
+            console.log('Messages loaded and displayed');
+        } else {
+            console.log('No messages found, showing empty state');
+            container.innerHTML = `<div class="chat-empty-state">Start a conversation!</div>`;
+        }
+    } catch (error) {
+        console.error('Error loading messages:', error);
+    }
+}
+
+// Send chat message - Make it global
+window.sendChatMessage = async function() {
+    console.log('=== sendChatMessage CALLED ===');
+
+    const input = document.getElementById('chatInput');
+    console.log('Input element:', input);
+
+    if (!input) {
+        console.error('Chat input element not found!');
+        return;
+    }
+
+    const message = input.value.trim();
+    console.log('Message to send:', message);
+    console.log('currentChatEmail:', currentChatEmail);
+    console.log('currentUserEmail:', currentUserEmail);
+
+    if (!message) {
+        console.log('No message to send (empty)');
+        return;
+    }
+
+    if (!currentChatEmail) {
+        console.error('No chat email set - cannot send message');
+        alert('Please select a conversation first');
+        return;
+    }
+
+    try {
+        // Display message immediately in UI
+        console.log('Calling displayMessage...');
+        displayMessage(message, true, currentUserEmail, new Date().toISOString());
+
+        // Clear input
+        input.value = '';
+        console.log('Input cleared');
+
+        // Send to server
+        console.log('Sending to server via /send_message...');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]');
+        console.log('CSRF token element:', csrfToken);
+
+        const response = await fetch('/send_message', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken ? csrfToken.getAttribute('content') : ''
+            },
+            body: JSON.stringify({
+                receiver_email: currentChatEmail,
+                message: message
+            })
+        });
+
+        const data = await response.json();
+        console.log('Server response:', data);
+
+        if (data.success) {
+            console.log('✓ Message saved to database successfully');
+
+            // Emit via socket for real-time delivery
+            if (messagingSocket && messagingSocket.connected) {
+                console.log('Emitting via socket for real-time delivery...');
+                messagingSocket.emit('send_message', {
+                    sender_email: currentUserEmail,
+                    receiver_email: currentChatEmail,
+                    message: message,
+                    timestamp: new Date().toISOString()
+                });
+            } else {
+                console.warn('Socket not connected - message saved but no real-time delivery');
+            }
+        } else {
+            console.error('Failed to send message:', data.message);
+            alert('Failed to send message: ' + data.message);
+        }
+    } catch (error) {
+        console.error('Error sending message:', error);
+        alert('Error sending message. Please try again.');
+    }
+}
+
+// Display message in chat
+function displayMessage(text, isSent, senderEmail, timestamp) {
+    console.log('=== displayMessage CALLED ===');
+    console.log('Text:', text);
+    console.log('isSent:', isSent);
+    console.log('senderEmail:', senderEmail);
+    console.log('timestamp:', timestamp);
+
+    const container = document.getElementById('chatMessagesContainer');
+    console.log('Container element:', container);
+
+    if (!container) {
+        console.error('Chat messages container not found!');
+        return;
+    }
+
+    // Remove empty state if exists
+    const emptyState = container.querySelector('.chat-empty-state');
+    if (emptyState) {
+        console.log('Removing empty state');
+        emptyState.remove();
+    }
+
+    const messageDiv = document.createElement('div');
+    messageDiv.className = `chat-message ${isSent ? 'sent' : 'received'}`;
+    messageDiv.innerHTML = `
+        <div class="chat-message-bubble">
+            ${text}
+            <div class="chat-message-time">${formatTime(timestamp)}</div>
+        </div>
+    `;
+
+    container.appendChild(messageDiv);
+    console.log('Message appended to container');
+
+    scrollToBottom();
+    console.log('Scrolled to bottom');
+}
+
+// Back to conversations list
+function backToConversations() {
+    document.getElementById('conversationListView').style.display = 'block';
+    document.getElementById('chatView').classList.remove('show');
+    currentChatEmail = null;
+    currentConversationId = null;
+
+    // Leave socket room
+    if (messagingSocket && currentChatEmail) {
+        messagingSocket.emit('leave_conversation');
+    }
+}
+
+// Update message badge
+async function updateMessageBadge() {
+    if (currentUserEmail === 'anonymous') return;
+
+    try {
+        const response = await fetch('/api/unread_messages_count');
+        const data = await response.json();
+
+        const badge = document.getElementById('globalMessageBadge');
+        if (data.success && data.count > 0) {
+            badge.textContent = data.count > 99 ? '99+' : data.count;
+            badge.classList.add('show');
+        } else {
+            badge.classList.remove('show');
+        }
+    } catch (error) {
+        console.error('Error updating message badge:', error);
+    }
+}
+
+// Mark messages as read
+async function markMessagesAsRead(conversationId) {
+    if (!conversationId) return;
+
+    try {
+        await fetch('/api/mark_messages_read', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+            },
+            body: JSON.stringify({ conversation_id: conversationId })
+        });
+    } catch (error) {
+        console.error('Error marking messages as read:', error);
+    }
+}
+
+// Show message notification
+function showMessageNotification(data) {
+    // You can implement browser notifications here
+    console.log('New message from:', data.sender_name || data.sender_email);
+}
+
+// Utility functions
+function formatTime(timestamp) {
+    if (!timestamp) return '';
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    return date.toLocaleDateString();
+}
+
+function scrollToBottom() {
+    const container = document.getElementById('chatMessagesContainer');
+    container.scrollTop = container.scrollHeight;
+}
+
+// Handle Enter key in chat input
+document.addEventListener('DOMContentLoaded', () => {
+    const chatInput = document.getElementById('chatInput');
+    if (chatInput) {
+        chatInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+    }
+
+    // Initialize messaging system
+    initializeMessaging();
+});
+</script>

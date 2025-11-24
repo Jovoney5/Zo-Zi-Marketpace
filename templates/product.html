@@ -7,7 +7,6 @@
     <title>Zo-Zi - {{ product.name }}</title>
     <style>
         body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f4; }
-        video { position: fixed; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
 
         /* Toast Notification Styles */
         .toast {
@@ -61,7 +60,19 @@
             opacity: 0.9;
         }
 
-        
+        /* Navbar Styles */
+        .navbar {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 8px 20px;
+            position: fixed;
+            top: 0;
+            width: 100%;
+            z-index: 100;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
         .navbar-top { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1200px; }
         .brand-container { display: flex; align-items: center; }
         .brand a { font-size: 24px; font-weight: bold; color: black; text-decoration: none; }
@@ -105,12 +116,28 @@
         .cart-dropdown .checkout-button:hover { background: #FFA500; }
 
         /* Product Container */
-        .product-container { max-width: 1200px; margin: 20px auto; display: flex; gap: 30px; padding: 20px; background-color: rgba(255, 255, 255, 0.95); border-radius: 15px; position: relative; z-index: 1; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .product-container { max-width: 1200px; margin: 85px auto 20px auto; display: flex; gap: 30px; padding: 20px; background-color: rgba(255, 255, 255, 0.95); border-radius: 15px; position: relative; z-index: 1; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
 
         /* Enhanced Image Gallery */
-        .product-images { flex: 1; max-width: 500px; }
-        .image-gallery { position: relative; }
-        .main-image-container { position: relative; overflow: hidden; border-radius: 15px; background: white; padding: 10px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        .product-images {
+            flex: 1;
+            max-width: 500px;
+            min-width: 500px;
+        }
+        .image-gallery {
+            position: relative;
+            max-width: 500px;
+        }
+        .main-image-container {
+            position: relative;
+            overflow: hidden;
+            border-radius: 15px;
+            background: white;
+            padding: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            max-width: 500px;
+            max-height: 650px;
+        }
         .main-image {
             width: 100%;
             max-height: 600px;
@@ -120,6 +147,18 @@
             transition: transform 0.3s ease;
             cursor: zoom-in;
             background: #f8f9fa;
+        }
+
+        /* VIDEO FIX: Make videos stay within the product image container like photos */
+        .main-image-container video {
+            width: 100%;
+            max-height: 600px;
+            min-height: 300px;
+            object-fit: contain;
+            border-radius: 10px;
+            background: #f8f9fa;
+            display: block;
+            position: relative;
         }
         .main-image.portrait { height: 600px; }
         .main-image.landscape { height: 400px; }
@@ -163,6 +202,56 @@
             box-shadow: 0 8px 15px rgba(255, 215, 0, 0.3);
         }
 
+        /* Video Thumbnail Styles */
+        .video-thumbnail {
+            width: 100%;
+            height: 80px;
+            border: 3px solid transparent;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            background: #000;
+        }
+        .video-thumbnail video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .video-thumbnail .play-icon {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            pointer-events: none;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+        .video-thumbnail:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            border-color: #FFD700;
+        }
+
+        /* Main Video Styles - Match image styling exactly */
+        #main-video {
+            width: 100%;
+            max-width: 480px;
+            max-height: 600px;
+            min-height: 300px;
+            object-fit: contain;
+            border-radius: 10px;
+            background: #000;
+            display: block;
+            height: 500px; /* Default to square like images */
+            margin: 0 auto;
+            position: relative;
+        }
+        #main-video.portrait { height: 600px; }
+        #main-video.landscape { height: 400px; }
+        #main-video.square { height: 500px; }
+
         /* Image indicator dots */
         .image-indicators { display: flex; justify-content: center; gap: 8px; margin-top: 15px; }
         .indicator-dot { width: 12px; height: 12px; border-radius: 50%; background: #ddd; cursor: pointer; transition: all 0.3s ease; }
@@ -173,6 +262,25 @@
         .product-details { flex: 1; padding: 20px 0; }
         .product-header { border-bottom: 2px solid #f0f0f0; padding-bottom: 20px; margin-bottom: 20px; }
         .seller-badge { display: inline-block; background: linear-gradient(135deg, #006400, #228B22); color: white; padding: 8px 15px; border-radius: 20px; font-size: 14px; font-weight: bold; margin-bottom: 15px; }
+
+        .verified-badge-inline {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+            box-shadow: 0 2px 6px rgba(102, 126, 234, 0.3);
+        }
+
+        .verified-badge-inline svg {
+            width: 14px;
+            height: 14px;
+        }
 
 
 
@@ -217,6 +325,51 @@
             fill: white;
         }
         .like-count { font-size: 14px; color: white; font-weight: bold; }
+
+        /* TikTok-style heart splash animation */
+        @keyframes heartSplash {
+            0% {
+                transform: scale(0);
+                opacity: 1;
+            }
+            50% {
+                transform: scale(1.5);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(2.5);
+                opacity: 0;
+            }
+        }
+
+        @keyframes heartPop {
+            0% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.3);
+            }
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        .heart-splash {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            z-index: 1000;
+        }
+
+        .heart-splash svg {
+            width: 100px;
+            height: 100px;
+            fill: #ff2d55;
+            filter: drop-shadow(0 0 10px rgba(255, 45, 85, 0.8));
+            animation: heartSplash 0.6s ease-out forwards;
+        }
 
         /* Product Title and Price */
         .product-details h1 { color: #006400; font-size: 32px; margin: 20px 0; font-weight: bold; line-height: 1.2; }
@@ -446,9 +599,129 @@
         .reviews-header { border-bottom: 2px solid #f0f0f0; padding-bottom: 15px; margin-bottom: 20px; }
         .reviews-title { font-size: 24px; color: #333; margin-bottom: 10px; }
 
+        /* Star Rating */
+        .star-rating {
+            display: flex;
+            gap: 5px;
+            font-size: 32px;
+            cursor: pointer;
+        }
+        .star-rating .star {
+            color: #ddd;
+            transition: color 0.2s ease;
+        }
+        .star-rating .star:hover,
+        .star-rating .star.active {
+            color: #FFD700;
+        }
+
+        .review-item {
+            padding: 20px;
+            border-bottom: 1px solid #f0f0f0;
+            margin-bottom: 15px;
+        }
+        .review-item:last-child {
+            border-bottom: none;
+        }
+        .review-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .reviewer-name {
+            font-weight: bold;
+            color: #333;
+        }
+        .review-date {
+            color: #999;
+            font-size: 13px;
+        }
+        .review-stars {
+            color: #FFD700;
+            font-size: 16px;
+        }
+        .review-text {
+            color: #666;
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+        .verified-purchase-badge {
+            display: inline-block;
+            background: #4CAF50;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 5px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+
+        /* Bottom Navigation Bar - Etsy Style */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: white;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 10px 0;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .bottom-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            color: #666;
+            font-size: 12px;
+            padding: 5px 15px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .bottom-nav-item:hover {
+            color: #006400;
+            transform: scale(1.05);
+        }
+
+        .bottom-nav-item.active {
+            color: #006400;
+        }
+
+        .bottom-nav-icon {
+            font-size: 24px;
+            margin-bottom: 4px;
+        }
+
+        .bottom-nav-badge {
+            position: absolute;
+            top: -2px;
+            right: 8px;
+            background: #ff4444;
+            color: white;
+            border-radius: 50%;
+            padding: 2px 6px;
+            font-size: 10px;
+            font-weight: bold;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        /* Add padding to body so content doesn't hide behind bottom nav */
+        body {
+            padding-bottom: 70px;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
-            body { padding-top: 120px; }
+            body { padding-top: 120px; padding-bottom: 80px; }
             .product-container {
                 flex-direction: column;
                 padding: 15px;
@@ -470,7 +743,7 @@
         }
 
         @media (max-width: 480px) {
-            body { padding-top: 140px; }
+            body { padding-top: 140px; padding-bottom: 80px; }
             .product-details h1 { font-size: 24px; }
             .price { font-size: 24px; }
             .thumbnail-container {
@@ -517,13 +790,13 @@
                 <button class="auth-buttons" onclick="window.location.href='{{ url_for('signup') }}'">Sign Up</button>
                 <div class="profile" onclick="window.location.href='{{ url_for('profile' if user else 'login') }}'" title="{% if user and user.profile_picture %}Change Profile Picture{% elif user %}Add Profile Picture{% else %}Login to add profile{% endif %}">
                     {% if user and user.profile_picture %}
-                        <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                        <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
                     {% else %}
                         <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%;">+</span>
                     {% endif %}
                 </div>
                 <div class="cart-icon">
-                    <img src="{{ url_for('static', filename='cart icon 3.png') }}" alt="Cart" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                    <img src="{{ url_for('static', filename='cart icon 3.png') }}" alt="Cart" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
                     <span class="cart-total">{{ cart_item_count }}</span>
                     <div class="cart-dropdown" id="cartDropdown">
                         <div id="cartItems"></div>
@@ -532,7 +805,7 @@
                     </div>
                 </div>
                 <div class="contact-icon" onclick="window.location.href='{{ url_for('contact') }}'">
-                    <img src="{{ url_for('static', filename='customer service.png') }}" alt="Customer Service" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                    <img src="{{ url_for('static', filename='customer service.png') }}" alt="Customer Service" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
                 </div>
             </div>
         </div>
@@ -555,17 +828,30 @@
         <div class="product-images">
             <div class="image-gallery">
                 <div class="main-image-container">
-                    <img id="main-image" src="{{ url_for('static', filename=product.image_url) }}" alt="{{ product.name }}" class="main-image" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                    <img id="main-image" src="{{ url_for('static', filename=product.image_url) }}" alt="{{ product.name }}" class="main-image" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
+                    <video id="main-video" style="display: none;" muted loop playsinline autoplay controls></video>
                     <div class="image-zoom" onclick="zoomImage()">🔍</div>
                 </div>
 
                 <div class="thumbnail-container">
                     {% if product.image_urls %}
                         {% for img_url in product.image_urls[:5] %}
-                            <img src="{{ url_for('static', filename=img_url) }}" alt="{{ product.name }}"
-                                 class="thumbnail" data-full="{{ url_for('static', filename=img_url) }}"
-                                 data-index="{{ loop.index0 }}"
-                                 onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                            {% if img_url.endswith(('.mp4', '.webm', '.mov')) %}
+                                {# It's a video #}
+                                <div class="thumbnail video-thumbnail" data-type="video" data-video="{{ url_for('static', filename=img_url) }}" data-index="{{ loop.index0 }}">
+                                    <video muted preload="metadata">
+                                        <source src="{{ url_for('static', filename=img_url) }}#t=0.1" type="video/mp4">
+                                    </video>
+                                    <div class="play-icon">▶️</div>
+                                </div>
+                            {% else %}
+                                {# It's an image #}
+                                <img src="{{ url_for('static', filename=img_url) }}" alt="{{ product.name }}"
+                                     class="thumbnail" data-full="{{ url_for('static', filename=img_url) }}"
+                                     data-type="image"
+                                     data-index="{{ loop.index0 }}"
+                                     onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
+                            {% endif %}
                         {% endfor %}
                     {% endif %}
                 </div>
@@ -585,6 +871,14 @@
                 <div class="seller-badge">
                     <button class="visit-store-btn-product" onclick="window.location.href='{{ url_for('seller_store', seller_email=product.seller_email) }}'">🛍️ Visit Store</button>
                     🏪 Sold by: {{ seller.business_name or 'Zo-Zi Seller' }}
+                    {% if seller.verification_status == 'approved' %}
+                    <span class="verified-badge-inline">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                        </svg>
+                        Verified
+                    </span>
+                    {% endif %}
                 </div>
 
 
@@ -599,23 +893,21 @@
             </div>
         </div>
 
-        {% if product.sold and product.sold > 0 %}
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 20px; color: #ff6b6b;">❤️</span>
-                <div>
-                    <div style="font-weight: bold; color: #006400; font-size: 16px;">{{ product.likes or 0 }} likes</div>
-                    <div style="color: #666; font-size: 14px;">Customer favorites</div>
-                </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 20px; color: #ff6b6b;">❤️</span>
+            <div>
+                <div id="trustBadgeLikes" style="font-weight: bold; color: #006400; font-size: 16px;">{{ product.likes or 0 }} likes</div>
+                <div style="color: #666; font-size: 14px;">Customer favorites</div>
             </div>
+        </div>
 
-            <div style="display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 20px; color: #17a2b8;">👁️</span>
-                <div>
-                    <div style="font-weight: bold; color: #006400; font-size: 16px;">{{ product.clicks or 0 }} views</div>
-                    <div style="color: #666; font-size: 14px;">Product interest</div>
-                </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 20px; color: #17a2b8;">👁️</span>
+            <div>
+                <div style="font-weight: bold; color: #006400; font-size: 16px;">{{ product.clicks or 0 }} views</div>
+                <div style="color: #666; font-size: 14px;">Product interest</div>
             </div>
-        {% endif %}
+        </div>
     </div>
 
     {% if product.sold and product.sold >= 10 %}
@@ -633,15 +925,38 @@
     {% endif %}
 </div>
 
-                <div class="like-container {{ 'liked' if user_liked else '' }}" onclick="toggleLike('{{ product.product_key | replace('\'', '\\\'') }}')">
+                <div class="like-container {{ 'liked' if user_liked else '' }}" onclick="toggleLike('{{ product.product_key | replace('\'', '\\\'') }}', this)" style="position: relative;">
                     <svg class="heart-icon {{ 'liked' if user_liked else '' }}" width="20" height="20" viewBox="0 0 24 24" stroke-width="2">
                         <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
                     </svg>
-                    <span class="like-count">{{ product.likes | default(0) }} Likes</span>
+                    <span class="like-count" id="likeCount">{{ product.likes | default(0) }} Likes</span>
                 </div>
             </div>
 
                 <h1>{{ product.name }}</h1>
+
+                <!-- Product Rating Display -->
+                <div style="margin: 10px 0; display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 20px; color: #FFD700;">
+                        {% set rating = avg_product_rating|default(product.rating|default(5.0)) %}
+                        {% set full_stars = rating|int %}
+                        {% set has_half = (rating - full_stars) >= 0.5 %}
+                        {% for i in range(5) %}
+                            {% if i < full_stars %}
+                                ★
+                            {% elif i == full_stars and has_half %}
+                                <span style="position: relative; display: inline-block;">
+                                    <span style="color: #ddd;">★</span>
+                                    <span style="position: absolute; left: 0; overflow: hidden; width: 50%; color: #FFD700;">★</span>
+                                </span>
+                            {% else %}
+                                <span style="color: #ddd;">★</span>
+                            {% endif %}
+                        {% endfor %}
+                    </span>
+                    <span style="font-size: 16px; color: #666; font-weight: bold;">{{ rating|round(1) }}</span>
+                    <span style="font-size: 14px; color: #999;">({{ product_review_count }} review{{ 's' if product_review_count != 1 else '' }})</span>
+                </div>
 
             <div class="options">
                 <div class="option-group">
@@ -672,55 +987,17 @@
                 </div>
             </div>
 
-
-
-                <div class="rating-section">
-                    <div class="rating-display">
-                        <div class="stars">
-                            {% if avg_rating is defined and avg_rating > 0 %}
-                                {% for i in range(5) %}
-                                    {% if i < avg_rating|round(0, 'floor') %}
-                                        <span class="star">★</span>
-                                    {% else %}
-                                        <span class="star" style="color: #ddd;">☆</span>
-                                    {% endif %}
-                                {% endfor %}
-                            {% else %}
-                                <span style="color: #ddd;">☆☆☆☆☆</span>
-                            {% endif %}
-                        </div>
-                        <span class="rating-text">
-                            {% if avg_rating is defined and avg_rating > 0 %}
-                                {{ avg_rating|round(1) }}/5
-                            {% else %}
-                                No ratings yet
-                            {% endif %}
-                        </span>
-                        <span class="rating-count">({{ rating_count or 0 }} reviews)</span>
-                    </div>
-
-                    {% if user and not user.is_seller and user.email != product.seller_email %}
-                        <div class="rating-form">
-                            <label for="rating">Rate this seller:</label>
-                            <select id="rating" name="rating" class="option-select" style="width: 150px; margin-left: 10px;">
-                                <option value="" disabled selected>Select rating</option>
-                                <option value="1">1 ★</option>
-                                <option value="2">2 ★★</option>
-                                <option value="3">3 ★★★</option>
-                                <option value="4">4 ★★★★</option>
-                                <option value="5">5 ★★★★★</option>
-                            </select>
-                            <button type="button" onclick="submitRating('{{ product.seller_email }}')" style="margin-left: 10px; padding: 8px 15px; background: #006400; color: white; border: none; border-radius: 5px; cursor: pointer;">Submit</button>
-                        </div>
-                    {% endif %}
-                </div>
-
-
-
-
             <div class="price-section">
                 <div class="price-label">Price</div>
                 <div class="price">${{ product.price }} JMD</div>
+                <div style="background: #FFD700; color: #006400; padding: 8px 12px; border-radius: 5px; font-weight: bold; margin-top: 10px; display: inline-block;">
+                    ✅ FREE SHIPPING INCLUDED
+                </div>
+                {% if product.cod_available %}
+                <div style="background: #27ae60; color: white; padding: 8px 12px; border-radius: 5px; font-weight: bold; margin-top: 10px; display: inline-block; margin-left: 8px;">
+                    💵 CASH ON DELIVERY AVAILABLE
+                </div>
+                {% endif %}
             </div>
 
             <div class="shipping-info">
@@ -730,11 +1007,21 @@
                 </div>
                 <div class="shipping-detail">
                     <span class="shipping-icon">⏱️</span>
-                    Estimated Delivery: 3–5 Business Days 🇯🇲
+                    {% if product.shipping_method == 'knutsford' %}
+                        Knutsford Express • 1-2 Business Days 🇯🇲
+                    {% elif product.shipping_method == 'jamaica_post' %}
+                        Jamaica Post • 3-5 Business Days 🇯🇲
+                    {% elif product.shipping_method == 'local_delivery' %}
+                        Zo-Zi Local Delivery • Same/Next Day 🇯🇲
+                    {% elif product.shipping_method %}
+                        {{ product.shipping_method|title|replace('_', ' ') }} • 3-5 Business Days 🇯🇲
+                    {% else %}
+                        Standard Shipping • 3-5 Business Days 🇯🇲
+                    {% endif %}
                 </div>
                 <div class="shipping-detail">
                     <span class="shipping-icon">📦</span>
-                    Free shipping on orders over $5000 JMD
+                    No additional shipping charges • Price includes delivery
                 </div>
             </div>
 
@@ -746,22 +1033,93 @@
             <div class="product-features">
                 <div class="features-title">✨ Product Features</div>
                 <div class="features-list">
+                    {% set features_map = {
+                        'Sports & Outdoors': [
+                            {'icon': '💪', 'text': 'Durable Build'},
+                            {'icon': '🏋️', 'text': 'Professional Grade'},
+                            {'icon': '🔄', 'text': 'Easy Returns'},
+                            {'icon': '✅', 'text': 'Quality Tested'}
+                        ],
+                        'Electronics': [
+                            {'icon': '⚡', 'text': 'Fast Performance'},
+                            {'icon': '🔋', 'text': 'Long Battery Life'},
+                            {'icon': '🛡️', 'text': 'Warranty Included'},
+                            {'icon': '📦', 'text': 'Original Packaging'}
+                        ],
+                        'Beauty & Health': [
+                            {'icon': '✨', 'text': 'Dermatologist Tested'},
+                            {'icon': '🌿', 'text': 'Natural Ingredients'},
+                            {'icon': '🔄', 'text': 'Easy Returns'},
+                            {'icon': '💚', 'text': 'Skin-Friendly'}
+                        ],
+                        'Home & Kitchen': [
+                            {'icon': '🏠', 'text': 'Home Essential'},
+                            {'icon': '💎', 'text': 'Premium Quality'},
+                            {'icon': '🔄', 'text': 'Easy Returns'},
+                            {'icon': '🛡️', 'text': 'Long Lasting'}
+                        ],
+                        'Jewelry': [
+                            {'icon': '💎', 'text': 'Genuine Materials'},
+                            {'icon': '✨', 'text': 'Elegant Design'},
+                            {'icon': '📦', 'text': 'Gift Ready'},
+                            {'icon': '🔄', 'text': 'Easy Returns'}
+                        ],
+                        'Men Clothing': [
+                            {'icon': '👔', 'text': 'Premium Fabric'},
+                            {'icon': '🎯', 'text': 'Perfect Fit'},
+                            {'icon': '🔄', 'text': 'Easy Returns'},
+                            {'icon': '💎', 'text': 'Quality Stitching'}
+                        ],
+                        'Women Clothing': [
+                            {'icon': '👗', 'text': 'Premium Fabric'},
+                            {'icon': '🎯', 'text': 'Perfect Fit'},
+                            {'icon': '🔄', 'text': 'Easy Returns'},
+                            {'icon': '✨', 'text': 'Stylish Design'}
+                        ],
+                        'Kids': [
+                            {'icon': '👶', 'text': 'Child Safe'},
+                            {'icon': '🌈', 'text': 'Fun & Colorful'},
+                            {'icon': '🔄', 'text': 'Easy Returns'},
+                            {'icon': '🛡️', 'text': 'Durable'}
+                        ],
+                        'Baby & Maternity': [
+                            {'icon': '👶', 'text': 'Baby Safe'},
+                            {'icon': '🌿', 'text': 'Gentle Materials'},
+                            {'icon': '🔄', 'text': 'Easy Returns'},
+                            {'icon': '💚', 'text': 'Hypoallergenic'}
+                        ],
+                        'Shoes': [
+                            {'icon': '👟', 'text': 'Comfortable Fit'},
+                            {'icon': '💪', 'text': 'Durable Sole'},
+                            {'icon': '🔄', 'text': 'Easy Returns'},
+                            {'icon': '✨', 'text': 'Stylish Design'}
+                        ],
+                        'Beachwear': [
+                            {'icon': '🏖️', 'text': 'Quick Dry'},
+                            {'icon': '☀️', 'text': 'UV Protection'},
+                            {'icon': '🔄', 'text': 'Easy Returns'},
+                            {'icon': '💎', 'text': 'Premium Fabric'}
+                        ],
+                        'Underwear & Sleepwear': [
+                            {'icon': '🛌', 'text': 'Soft & Comfortable'},
+                            {'icon': '💨', 'text': 'Breathable Fabric'},
+                            {'icon': '🔄', 'text': 'Easy Returns'},
+                            {'icon': '🎯', 'text': 'Perfect Fit'}
+                        ]
+                    } %}
+                    {% set default_features = [
+                        {'icon': '🛡️', 'text': 'Quality Guaranteed'},
+                        {'icon': '🔄', 'text': 'Easy Returns'},
+                        {'icon': '💎', 'text': 'Premium Materials'},
+                        {'icon': '✅', 'text': 'Authentic Product'}
+                    ] %}
+                    {% set product_features = features_map.get(product.category, default_features) %}
+                    {% for feature in product_features %}
                     <div class="feature-item">
-                        <span class="feature-icon">🛡️</span>
-                        <span>Quality Guaranteed</span>
+                        <span class="feature-icon">{{ feature.icon }}</span>
+                        <span>{{ feature.text }}</span>
                     </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">🔄</span>
-                        <span>Easy Returns</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">💎</span>
-                        <span>Premium Materials</span>
-                    </div>
-                    <div class="feature-item">
-                        <span class="feature-icon">🎯</span>
-                        <span>Perfect Fit</span>
-                    </div>
+                    {% endfor %}
                 </div>
             </div>
 
@@ -801,9 +1159,67 @@
         <div class="reviews-header">
             <h3 class="reviews-title">💬 Customer Reviews</h3>
         </div>
-        <div style="text-align: center; color: #666; padding: 20px;">
-            <p>📝 Be the first to review this product!</p>
-            <p>Your feedback helps other customers make informed decisions.</p>
+
+        {% if user and user.email != product.seller_email %}
+        <!-- Review Submission Form -->
+        <div style="background: #f8f9fa; padding: 20px; border-radius: 10px; margin-bottom: 25px;">
+            <h4 style="margin-bottom: 15px; color: #333;">Write a Review</h4>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #555;">Your Rating:</label>
+                <div class="star-rating" id="reviewStarRating">
+                    <span class="star" data-rating="1">★</span>
+                    <span class="star" data-rating="2">★</span>
+                    <span class="star" data-rating="3">★</span>
+                    <span class="star" data-rating="4">★</span>
+                    <span class="star" data-rating="5">★</span>
+                </div>
+                <input type="hidden" id="selectedRating" value="0">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 8px; font-weight: bold; color: #555;">Your Review:</label>
+                <textarea id="reviewText" rows="4" placeholder="Share your experience with this product..." style="width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; font-family: inherit; font-size: 14px; resize: vertical;"></textarea>
+            </div>
+            <button onclick="submitProductReview()" style="background: linear-gradient(135deg, #667eea, #764ba2); color: white; padding: 12px 30px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 14px;">
+                Submit Review
+            </button>
+            <div id="reviewMessage" style="margin-top: 10px; font-weight: bold;"></div>
+        </div>
+        {% elif not user %}
+        <div style="text-align: center; padding: 20px; background: #f8f9fa; border-radius: 10px; margin-bottom: 25px;">
+            <p style="color: #666; margin-bottom: 10px;">Please <a href="{{ url_for('login') }}" style="color: #667eea; font-weight: bold;">login</a> to write a review</p>
+        </div>
+        {% endif %}
+
+        <!-- Reviews Display -->
+        <div id="reviewsContainer">
+            {% if product_reviews and product_reviews|length > 0 %}
+                {% for review in product_reviews %}
+                <div class="review-item">
+                    <div class="review-header">
+                        <div>
+                            <span class="reviewer-name">{{ review.first_name }} {{ review.last_name }}</span>
+                            {% if review.is_verified_purchase %}
+                            <span style="color: #27ae60; font-size: 12px; margin-left: 5px;">✓ Verified Purchase</span>
+                            {% endif %}
+                        </div>
+                        <span class="review-date">{{ review.created_at|default('Recently') }}</span>
+                    </div>
+                    <div class="review-stars">
+                        {% for i in range(1, 6) %}
+                            <span style="color: {% if i <= review.rating %}#FFD700{% else %}#ddd{% endif %};">★</span>
+                        {% endfor %}
+                    </div>
+                    {% if review.review_text %}
+                    <div class="review-text">{{ review.review_text }}</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+            <div style="text-align: center; color: #666; padding: 20px;">
+                <p>📝 Be the first to review this product!</p>
+                <p>Your feedback helps other customers make informed decisions.</p>
+            </div>
+            {% endif %}
         </div>
     </div>
 
@@ -815,7 +1231,7 @@
                     <div class="related-item">
                         <img src="{{ url_for('static', filename=related.image_url) }}" alt="{{ related.name }}"
                              onclick="window.location.href='{{ url_for('product', product_key=related.product_key|replace(' ', '+')) }}'"
-                             onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                             onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
                         <div class="related-item-info">
                             <div class="related-item-name">{{ related.name }}</div>
                             <div class="related-item-price">${{ related.price }} JMD</div>
@@ -866,6 +1282,11 @@
                     const cartBadge = document.querySelector('.cart-total');
                     if (cartBadge) {
                         cartBadge.textContent = data.cart_item_count || 0;
+                    }
+                    // Update bottom nav cart badge
+                    const bottomCartBadge = document.getElementById('bottomCartBadge');
+                    if (bottomCartBadge) {
+                        bottomCartBadge.textContent = data.cart_item_count || 0;
                     }
                 }
             } catch (error) {
@@ -926,13 +1347,13 @@
             }
         }
         setInterval(loopVideo, 100);
-        video.addEventListener("play", () => setInterval(loopVideo, 100));
 
-        // Enhanced image gallery functionality with automatic aspect ratio detection
+        // Enhanced image gallery functionality with automatic aspect ratio detection AND VIDEO SUPPORT
         let currentImageIndex = 0;
-        const thumbnails = document.querySelectorAll('.thumbnail');
+        const thumbnails = document.querySelectorAll('.thumbnail, .video-thumbnail');
         const indicators = document.querySelectorAll('.indicator-dot');
         const mainImage = document.getElementById('main-image');
+        const mainVideo = document.getElementById('main-video');
 
         // Function to detect image aspect ratio and adjust container
         function adjustImageContainer(img) {
@@ -964,6 +1385,27 @@
             image.src = img.src;
         }
 
+        // Function to detect video aspect ratio and adjust styling
+        function adjustVideoContainer(video) {
+            video.addEventListener('loadedmetadata', function() {
+                const aspectRatio = this.videoWidth / this.videoHeight;
+
+                // Remove existing aspect ratio classes
+                mainVideo.classList.remove('portrait', 'landscape', 'square');
+
+                if (aspectRatio < 0.8) {
+                    // Portrait video (taller than wide)
+                    mainVideo.classList.add('portrait');
+                } else if (aspectRatio > 1.3) {
+                    // Landscape video (wider than tall)
+                    mainVideo.classList.add('landscape');
+                } else {
+                    // Square-ish video
+                    mainVideo.classList.add('square');
+                }
+            }, { once: true });
+        }
+
         // Initialize gallery
         function initializeGallery() {
             if (thumbnails.length > 0) {
@@ -976,14 +1418,58 @@
             }
         }
 
-        // Switch image function with aspect ratio detection
+        // Switch image/video function with aspect ratio detection and INSTANT AUTOPLAY
         function switchImage(index) {
             currentImageIndex = index;
 
-            // Update main image
-            if (thumbnails[index]) {
-                mainImage.src = thumbnails[index].dataset.full;
-                // Adjust container after image loads
+            const selectedThumbnail = thumbnails[index];
+            if (!selectedThumbnail) return;
+
+            const mediaType = selectedThumbnail.dataset.type;
+
+            if (mediaType === 'video') {
+                // SHOW VIDEO, HIDE IMAGE
+                mainImage.style.display = 'none';
+                mainVideo.style.display = 'block';
+
+                // Set video source properly
+                const videoSrc = selectedThumbnail.dataset.video;
+
+                // Clear existing sources
+                mainVideo.innerHTML = '';
+
+                // Add new source
+                const source = document.createElement('source');
+                source.src = videoSrc;
+                source.type = 'video/mp4';
+                mainVideo.appendChild(source);
+
+                // Adjust video container based on aspect ratio
+                adjustVideoContainer(mainVideo);
+
+                // Load and AUTOPLAY the video
+                mainVideo.load();
+
+                // Attempt to play the video automatically
+                const playPromise = mainVideo.play();
+
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        // Autoplay started successfully
+                        console.log('Video autoplaying');
+                    }).catch(error => {
+                        // Autoplay was prevented - this shouldn't happen since video is muted
+                        console.log('Autoplay prevented:', error);
+                    });
+                }
+            } else {
+                // SHOW IMAGE, HIDE VIDEO
+                mainVideo.style.display = 'none';
+                mainVideo.pause();
+                mainImage.style.display = 'block';
+
+                // Update image
+                mainImage.src = selectedThumbnail.dataset.full;
                 mainImage.onload = function() {
                     adjustImageContainer(this);
                 };
@@ -1052,7 +1538,7 @@
                 data.forEach(suggestion => {
                     const a = document.createElement('a');
                     a.href = `/product/${suggestion.product_key.replace(/ /g, '+')}`;
-                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/placeholder.jpg'"><span>${escapeHTML(suggestion.name)}</span>`;
+                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/product-placeholder.svg'"><span>${escapeHTML(suggestion.name)}</span>`;
                     suggestionsDiv.appendChild(a);
                 });
                 suggestionsDiv.style.display = data.length ? 'block' : 'none';
@@ -1138,14 +1624,39 @@
             }
         }
 
-        // Toggle like with CSRF protection
-        async function toggleLike(productKey) {
+        // Create TikTok-style heart splash animation
+        function createHeartSplash(container) {
+            const splash = document.createElement('div');
+            splash.className = 'heart-splash';
+            splash.innerHTML = `
+                <svg viewBox="0 0 24 24">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path>
+                </svg>
+            `;
+            container.appendChild(splash);
+
+            // Remove splash after animation completes
+            setTimeout(() => {
+                splash.remove();
+            }, 600);
+        }
+
+        // Toggle like with CSRF protection and real-time updates
+        async function toggleLike(productKey, containerElement) {
             {% if not user %}
                 showToast('Login Required', 'Please log in to like this product!', 'error');
                 return;
             {% endif %}
 
-            const container = document.querySelector('.like-container');
+            const container = containerElement || document.querySelector('.like-container');
+            const likeIcon = container.querySelector('.heart-icon');
+
+            // FIX: Use the id directly for more reliable selection
+            const likeCountElement = document.getElementById('likeCount');
+
+            // Disable button during request to prevent double-clicks
+            container.style.pointerEvents = 'none';
+
             try {
                 const response = await fetch(`/toggle_like/${encodeURIComponent(productKey)}`, {
                     method: 'POST',
@@ -1155,15 +1666,46 @@
                     }
                 });
                 const data = await response.json();
+
                 if (data.success) {
-                    container.classList.toggle('liked', data.liked);
-                    const likeIcon = container.querySelector('.heart-icon');
-                    const likeCount = container.querySelector('.like-count');
+                    // Update UI immediately with returned data
+                    const isLiked = data.liked;
 
-                    likeIcon.classList.toggle('liked', data.liked);
-                    likeCount.textContent = `${data.likes} Likes`;
+                    // Update classes for styling
+                    if (isLiked) {
+                        container.classList.add('liked');
+                        likeIcon.classList.add('liked');
+                    } else {
+                        container.classList.remove('liked');
+                        likeIcon.classList.remove('liked');
+                    }
 
-                    if (data.liked) {
+                    // FIX: Update like count in real-time - this is the key fix!
+                    if (likeCountElement) {
+                        likeCountElement.textContent = `${data.likes} Likes`;
+                        // Add a subtle animation to draw attention to the change
+                        likeCountElement.style.transition = 'transform 0.3s ease';
+                        likeCountElement.style.transform = 'scale(1.2)';
+                        setTimeout(() => {
+                            likeCountElement.style.transform = 'scale(1)';
+                        }, 300);
+                    }
+
+                    // Also update the trust badge "Customer favorites" section
+                    const trustBadgeLikes = document.getElementById('trustBadgeLikes');
+                    if (trustBadgeLikes) {
+                        trustBadgeLikes.textContent = `${data.likes} likes`;
+                        // Add same animation
+                        trustBadgeLikes.style.transition = 'transform 0.3s ease';
+                        trustBadgeLikes.style.transform = 'scale(1.2)';
+                        setTimeout(() => {
+                            trustBadgeLikes.style.transform = 'scale(1)';
+                        }, 300);
+                    }
+
+                    // Show splash animation only when liking (not unliking)
+                    if (isLiked) {
+                        createHeartSplash(container);
                         showToast('Liked! ❤️', 'Added to your favorites');
                     } else {
                         showToast('Unliked', 'Removed from favorites');
@@ -1174,6 +1716,11 @@
             } catch (error) {
                 console.error('Toggle like error:', error);
                 showToast('Error', 'Unable to toggle like. Please try again later.', 'error');
+            } finally {
+                // Re-enable button
+                setTimeout(() => {
+                    container.style.pointerEvents = 'auto';
+                }, 300);
             }
         }
 
@@ -1225,6 +1772,11 @@
                         cartBadge.style.animation = 'bounce 0.5s ease-in-out';
                         setTimeout(() => cartBadge.style.animation = '', 500);
                     }
+                    // Update bottom nav cart badge
+                    const bottomCartBadge = document.getElementById('bottomCartBadge');
+                    if (bottomCartBadge) {
+                        bottomCartBadge.textContent = data.cart_item_count || 0;
+                    }
 
                     showToast('Added to Cart! 🛒', 'Product successfully added to your cart');
 
@@ -1268,6 +1820,11 @@
                 const data = await response.json();
                 if (data.success) {
                     document.querySelector('.cart-total').textContent = data.cart_item_count || 0;
+                    // Update bottom nav cart badge
+                    const bottomCartBadge = document.getElementById('bottomCartBadge');
+                    if (bottomCartBadge) {
+                        bottomCartBadge.textContent = data.cart_item_count || 0;
+                    }
                     await debouncedUpdateCartDropdown(true);
                     showToast('Item Removed', 'Item removed from cart');
                 } else {
@@ -1312,7 +1869,7 @@
                             const itemDiv = document.createElement('div');
                             itemDiv.className = 'cart-item';
                             itemDiv.innerHTML = `
-                                <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
+                                <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.product_key)}" onerror="this.src='/static/product-placeholder.svg'">
                                 <div class="cart-item-details">
                                     <p><a href="/product/${encodeURIComponent(item.product_key.replace(/ /g, '+'))}">${escapeHTML(item.product_key)}</a></p>
                                     <p>${item.price} JMD x ${item.quantity}</p>
@@ -1323,6 +1880,11 @@
                         });
                         cartTotalDiv.textContent = `Total: ${data.cart_total || 0} JMD`;
                         cartTotalBadge.textContent = data.cart_item_count || 0;
+                    }
+                    // Also update bottom nav badge
+                    const bottomCartBadge = document.getElementById('bottomCartBadge');
+                    if (bottomCartBadge) {
+                        bottomCartBadge.textContent = data.cart_item_count || 0;
                     }
                     if (keepOpen) {
                         cartDropdown.style.display = 'block';
@@ -1364,11 +1926,152 @@
             }
         });
 
+        // Star rating interaction
+        document.addEventListener('DOMContentLoaded', function() {
+            const stars = document.querySelectorAll('#reviewStarRating .star');
+            const ratingInput = document.getElementById('selectedRating');
+
+            stars.forEach(star => {
+                star.addEventListener('click', function() {
+                    const rating = this.getAttribute('data-rating');
+                    ratingInput.value = rating;
+
+                    // Update star display
+                    stars.forEach(s => {
+                        if (parseInt(s.getAttribute('data-rating')) <= parseInt(rating)) {
+                            s.classList.add('active');
+                        } else {
+                            s.classList.remove('active');
+                        }
+                    });
+                });
+
+                star.addEventListener('mouseenter', function() {
+                    const rating = this.getAttribute('data-rating');
+                    stars.forEach(s => {
+                        if (parseInt(s.getAttribute('data-rating')) <= parseInt(rating)) {
+                            s.style.color = '#FFD700';
+                        } else {
+                            s.style.color = '#ddd';
+                        }
+                    });
+                });
+            });
+
+            document.getElementById('reviewStarRating').addEventListener('mouseleave', function() {
+                const currentRating = ratingInput.value;
+                stars.forEach(s => {
+                    if (parseInt(s.getAttribute('data-rating')) <= parseInt(currentRating)) {
+                        s.style.color = '#FFD700';
+                    } else {
+                        s.style.color = '#ddd';
+                    }
+                });
+            });
+
+        });
+
+        async function submitProductReview() {
+            const rating = document.getElementById('selectedRating').value;
+            const reviewText = document.getElementById('reviewText').value.trim();
+            const messageDiv = document.getElementById('reviewMessage');
+
+            if (!rating || rating == '0') {
+                messageDiv.style.color = 'red';
+                messageDiv.textContent = 'Please select a rating';
+                return;
+            }
+
+            try {
+                const response = await fetch('/submit_product_review', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({
+                        product_key: '{{ product.product_key }}',
+                        rating: parseInt(rating),
+                        review_text: reviewText
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    messageDiv.style.color = 'green';
+                    messageDiv.textContent = data.message;
+                    document.getElementById('reviewText').value = '';
+                    document.getElementById('selectedRating').value = '0';
+                    document.querySelectorAll('#reviewStarRating .star').forEach(s => s.classList.remove('active'));
+
+                    // Reload page to show new review
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    messageDiv.style.color = 'red';
+                    messageDiv.textContent = data.message;
+                }
+            } catch (error) {
+                messageDiv.style.color = 'red';
+                messageDiv.textContent = 'Error submitting review';
+                console.error('Error:', error);
+            }
+        }
+
+        async function loadProductReviews() {
+            // Reviews are already loaded in the template, no need to reload
+            // This function is kept for future dynamic loading if needed
+        }
+
         // Initialize everything when page loads
         window.onload = function() {
             initializeGallery();
             debouncedUpdateCartDropdown();
         };
+
+        // Toggle cart dropdown from bottom nav
+        function toggleBottomCartDropdown() {
+            const cartDropdown = document.getElementById('cartDropdown');
+
+            if (cartDropdown.style.display === 'block') {
+                cartDropdown.style.display = 'none';
+            } else {
+                cartDropdown.style.display = 'block';
+                // Update cart items when opening
+                updateCartDropdown(true);
+            }
+        }
     </script>
+
+    <!-- Bottom Navigation Bar -->
+    <div class="bottom-nav">
+        <a href="{{ url_for('index') }}" class="bottom-nav-item">
+            <div class="bottom-nav-icon">🏠</div>
+            <div>Home</div>
+        </a>
+
+        <div class="bottom-nav-item" onclick="document.getElementById('search').focus(); window.scrollTo(0,0);">
+            <div class="bottom-nav-icon">🔍</div>
+            <div>Search</div>
+        </div>
+
+        <div class="bottom-nav-item" onclick="toggleBottomCartDropdown()">
+            <div class="bottom-nav-icon">🛒</div>
+            <div>Cart</div>
+            <span class="bottom-nav-badge" id="bottomCartBadge">{{ cart_item_count }}</span>
+        </div>
+
+        <a href="{{ url_for('orders') if user else url_for('login') }}" class="bottom-nav-item">
+            <div class="bottom-nav-icon">📦</div>
+            <div>Orders</div>
+        </a>
+
+        <div class="bottom-nav-item {% if user_liked %}active{% endif %}" onclick="toggleLike('{{ product.product_key | replace('\'', '\\\'') }}', document.querySelector('.like-container'))">
+            <div class="bottom-nav-icon">❤️</div>
+            <div>Favorite</div>
+        </div>
+    </div>
 </body>
 </html>

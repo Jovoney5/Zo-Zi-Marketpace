@@ -1117,10 +1117,10 @@
                     <div class="items-list">
                         ${order.items.map(item => `
                             <div class="item-row">
-                                <img src="/static/${item.image_url || 'placeholder.jpg'}"
+                                <img src="/static/${item.image_url || 'product-placeholder.svg'}"
                                      alt="${item.product_name}"
                                      class="item-image"
-                                     onerror="this.src='/static/placeholder.jpg';">
+                                     onerror="this.src='/static/product-placeholder.svg';">
                                 <div>
                                     <div><strong>${item.product_name || item.product_key}</strong></div>
                                     <div>Qty: ${item.quantity} × ${parseFloat(item.price || 0).toFixed(2)} = ${parseFloat((item.price || 0) * (item.quantity || 0)).toFixed(2)} JMD</div>
@@ -1483,7 +1483,7 @@
             }
 
             try {
-                const response = await fetch('/agent/verifications/approve', {
+                const response = await fetch('/admin/verifications/approve', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -1523,7 +1523,7 @@
             }
 
             try {
-                const response = await fetch('/agent/verifications/reject', {
+                const response = await fetch('/admin/verifications/reject', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',

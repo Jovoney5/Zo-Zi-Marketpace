@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Checkout - Zo-Zi</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <style>
         body {
             margin: 0;
@@ -67,6 +66,112 @@
         .toast-message {
             font-size: 14px;
             opacity: 0.9;
+        }
+
+        /* Modern Confirmation Modal */
+        .confirmation-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(5px);
+            z-index: 10001;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+
+        .confirmation-modal.show {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(30px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 40px 50px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            animation: slideUp 0.3s ease-out;
+        }
+
+        .modal-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+            animation: bounce 0.6s ease-in-out;
+        }
+
+        .modal-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 15px;
+        }
+
+        .modal-message {
+            font-size: 16px;
+            color: #666;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .modal-btn {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: Arial, sans-serif;
+        }
+
+        .modal-btn-cancel {
+            background: #f0f0f0;
+            color: #666;
+        }
+
+        .modal-btn-cancel:hover {
+            background: #e0e0e0;
+            transform: translateY(-2px);
+        }
+
+        .modal-btn-continue {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+        }
+
+        .modal-btn-continue:hover {
+            background: linear-gradient(135deg, #20c997, #28a745);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
         }
 
         .navbar {
@@ -284,6 +389,19 @@
             background-color: #dc3545;
             color: white;
             transform: scale(1.1);
+        }
+        .quantity-input {
+            width: 60px;
+            padding: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            text-align: center;
+            font-size: 14px;
+            margin: 0 5px;
+        }
+        .quantity-input:focus {
+            outline: none;
+            border-color: #007bff;
         }
         .form-details {
             background: white;
@@ -567,14 +685,11 @@
         }
 
         .transfer-detail {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding: 10px;
+            margin-bottom: 20px;
+            padding: 15px;
             background: white;
-            border-radius: 5px;
-            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            border: 2px solid #dee2e6;
         }
 
         .transfer-detail:last-child {
@@ -582,19 +697,52 @@
         }
 
         .transfer-detail label {
+            display: block;
             font-weight: bold;
             color: #495057;
-            margin: 0;
+            margin: 0 0 10px 0;
+            font-size: 14px;
         }
 
         .transfer-detail-value {
             display: flex;
             align-items: center;
+            justify-content: space-between;
             gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .transfer-detail-value span {
             font-family: monospace;
-            font-size: 16px;
+            font-size: 18px;
             font-weight: bold;
             color: #28a745;
+            word-break: break-all;
+            flex: 1;
+            min-width: 0;
+        }
+
+        @media (max-width: 480px) {
+            .transfer-detail {
+                padding: 12px;
+            }
+
+            .transfer-detail-value {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+
+            .transfer-detail-value span {
+                font-size: 16px;
+                text-align: center;
+            }
+
+            .copy-btn {
+                width: 100%;
+                padding: 10px;
+                font-size: 14px;
+            }
         }
 
         .copy-btn {
@@ -718,12 +866,119 @@
                 width: 100%;
             }
         }
+
+        /* Payment Options Styling */
+        .payment-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin: 15px 0;
+        }
+
+        .payment-option {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: white;
+            position: relative;
+        }
+
+        .payment-option:hover {
+            border-color: #28a745;
+            background: #f8fff9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(40, 167, 69, 0.15);
+        }
+
+        .payment-option input[type="radio"] {
+            width: 20px;
+            height: 20px;
+            margin-right: 15px;
+            cursor: pointer;
+            accent-color: #28a745;
+        }
+
+        .payment-option input[type="radio"]:checked ~ .payment-content {
+            color: #28a745;
+        }
+
+        .payment-option:has(input[type="radio"]:checked) {
+            border-color: #28a745;
+            background: #f0fff4;
+            box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1);
+        }
+
+        .payment-content {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex: 1;
+        }
+
+        .payment-icon {
+            font-size: 32px;
+            line-height: 1;
+        }
+
+        .payment-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .payment-info strong {
+            font-size: 16px;
+            color: #333;
+        }
+
+        .payment-info small {
+            font-size: 13px;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        /* WhatsApp specific styling */
+        .payment-option.whatsapp-option:hover {
+            border-color: #25D366;
+            background: linear-gradient(135deg, rgba(37, 211, 102, 0.05), rgba(18, 140, 126, 0.05));
+        }
+
+        .payment-option.whatsapp-option:has(input[type="radio"]:checked) {
+            border-color: #25D366;
+            background: linear-gradient(135deg, rgba(37, 211, 102, 0.1), rgba(18, 140, 126, 0.1));
+            box-shadow: 0 0 0 3px rgba(37, 211, 102, 0.1);
+        }
+
+        .payment-option.whatsapp-option input[type="radio"] {
+            accent-color: #25D366;
+        }
+
+        @media (max-width: 768px) {
+            .payment-option {
+                padding: 14px;
+            }
+
+            .payment-icon {
+                font-size: 28px;
+            }
+
+            .payment-info strong {
+                font-size: 15px;
+            }
+
+            .payment-info small {
+                font-size: 12px;
+            }
+        }
     </style>
 </head>
 <body>
-    <video id="bgVideo" autoplay muted loop class="background-video">
-        <source src="{{ url_for('static', filename='flag_vid.webm') }}" type="video/webm">
-    </video>
+    <!-- Background video removed due to corrupted file -->
+    <div class="background-replacement" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #006400, #228B22); z-index: -1; opacity: 0.1;"></div>
 
     <nav class="navbar">
         <div>
@@ -744,7 +999,7 @@
         </div>
         <div class="profile" onclick="window.location.href='{{ url_for('profile' if user else 'login') }}'" title="{% if user and user.profile_picture %}Change Profile Picture{% elif user %}Add Profile Picture{% else %}Login to add profile{% endif %}">
             {% if user and user.profile_picture %}
-                <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
             {% else %}
                 <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%; text-align: center;">+</span>
             {% endif %}
@@ -790,11 +1045,44 @@
                 <h2>📦 Order Summary</h2>
                 {% for item in cart_items %}
                     <div class="cart-item">
-                        <img src="{{ url_for('static', filename=item.image_url) }}" alt="{{ item.name or item.product_key }}" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                        <img src="{{ url_for('static', filename=item.image_url) }}" alt="{{ item.name or item.product_key }}" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
                         <div class="cart-item-details">
                             {% set base_product_key = item.product_key.split(' (')[0] %}
                             <p><a href="{{ url_for('product', product_key=base_product_key|replace(' ', '+')) }}">{{ item.name or item.product_key }}</a></p>
-                            <p><strong>${{ item.price }} JMD</strong> × {{ item.quantity }}</p>
+                            <p><strong>${{ item.price }} JMD</strong> ×
+                                <input type="number"
+                                       min="1"
+                                       max="{{ item.stock or 99 }}"
+                                       value="{{ item.quantity }}"
+                                       class="quantity-input"
+                                       data-product-key="{{ item.product_key | safe }}"
+                                       onchange="updateQuantity('{{ item.product_key | safe }}', this.value)">
+                            </p>
+                            {% if item.shipping_method == 'knutsford' %}
+                                <div style="margin: 8px 0;">
+                                    <span style="display: inline-block; background: linear-gradient(135deg, #FFD700, #FFA500); color: #000; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; box-shadow: 0 2px 5px rgba(255,165,0,0.3);">
+                                        🚛 Knutsford Express - FREE SHIPPING
+                                    </span>
+                                </div>
+                            {% elif item.shipping_method == 'jamaica_post' %}
+                                <div style="margin: 8px 0;">
+                                    <span style="display: inline-block; background: linear-gradient(135deg, #28a745, #20c997); color: white; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; box-shadow: 0 2px 5px rgba(40,167,69,0.3);">
+                                        📮 Jamaica Post - FREE SHIPPING
+                                    </span>
+                                </div>
+                            {% elif item.shipping_method == 'local_delivery' %}
+                                <div style="margin: 8px 0;">
+                                    <span style="display: inline-block; background: linear-gradient(135deg, #dc3545, #c82333); color: white; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; box-shadow: 0 2px 5px rgba(220,53,69,0.3);">
+                                        🏍️ Local Delivery - FREE SHIPPING
+                                    </span>
+                                </div>
+                            {% else %}
+                                <div style="margin: 8px 0;">
+                                    <span style="display: inline-block; background: linear-gradient(135deg, #6c757d, #5a6268); color: white; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: bold; box-shadow: 0 2px 5px rgba(108,117,125,0.3);">
+                                        📦 Standard Shipping - FREE
+                                    </span>
+                                </div>
+                            {% endif %}
                         </div>
                         <span class="remove-item" onclick="removeFromCart('{{ item.product_key | safe }}')">×</span>
                     </div>
@@ -802,15 +1090,13 @@
 
                 <div class="total-section">
                     <p><span>Subtotal:</span> <span>${{ cart_total }} JMD</span></p>
+                    <small style="color: #666; font-size: 12px; display: block; margin: -5px 0 10px 0;">✓ Shipping included in product prices</small>
                     {% if discount %}
                         <p><span>Discount Applied:</span> <span>-${{ discount }} JMD</span></p>
                     {% endif %}
-                    <p><span>Shipping Fee:</span> <span id="shippingFeeDisplay">$500 JMD</span></p>
-                    <p><span>Handling Fee (5%):</span> <span id="handlingFee">{% if cart_total %}${{ (cart_total * 0.05)|round(2) }}{% else %}$0.00{% endif %} JMD</span></p>
-                    <p class="final-total"><span>Total:</span> <span id="total">{% if cart_total %}${{ (cart_total + 500 + (cart_total * 0.05))|round(2) }}{% else %}$0.00{% endif %} JMD</span></p>
-                    {% if discount %}
-                        <p class="final-total"><span>Final Total:</span> <span id="adjustedTotal">{% if cart_total %}${{ (cart_total - discount + 500 + (cart_total * 0.05))|round(2) }}{% else %}$0.00{% endif %} JMD</span></p>
-                    {% endif %}
+                    <p><span>Platform Handling Fee (5%):</span> <span id="handlingFee">{% if cart_total %}${{ (cart_total * 0.05)|round(2) }}{% else %}$0.00{% endif %} JMD</span></p>
+                    <p class="final-total" style="margin-top: 15px; padding-top: 15px; border-top: 2px solid #000;"><span>TOTAL:</span> <span id="finalTotal">{% if cart_total %}${{ (cart_total * 1.05)|round(2) }}{% else %}$0.00{% endif %} JMD</span></p>
+                    <small style="color: #666; font-size: 12px; display: block; margin-top: 5px; text-align: center;">Final amount will update based on payment method selected</small>
                 </div>
             </div>
 
@@ -855,33 +1141,48 @@
                             <option value="" disabled selected>Select a post office</option>
                         </select>
 
-                        <label>🚚 Shipping Options</label>
-                        <div class="shipping-option" onclick="selectShipping('regular', this)">
-                            <input type="radio" name="shipping_option" value="regular" onchange="updateShipping('regular', 500)">
-                            <label>
-                                <strong>Regular Shipping - $500 JMD</strong><br>
-                                <small>Delivery in 3-5 business days</small>
-                            </label>
-                        </div>
-                        <div class="shipping-option" onclick="selectShipping('overnight', this)">
-                            <input type="radio" name="shipping_option" value="overnight" onchange="updateShipping('overnight', 1200)">
-                            <label>
-                                <strong>Overnight Shipping - $1200 JMD</strong><br>
-                                <small>Next business day delivery</small>
-                            </label>
-                        </div>
+                        <label>💳 Payment Method</label>
+                        <p class="note" style="margin: -5px 0 10px 0; color: #666; font-size: 13px;">✓ Shipping already included in product prices</p>
 
-                        <label for="guest_payment_method">💳 Payment Method <span class="required">*</span></label>
-                        <select id="guest_payment_method" name="payment_method" required onchange="handlePaymentMethodChange('guest')">
-                            <option value="" disabled selected>Select a payment method</option>
-                            <option value="lynk">🏦 Lynk Digital Wallet (FREE! 0% fees) 🇯🇲</option>
-                            <option value="skrill">💰 Skrill</option>
-                            <option value="cash_on_delivery">💵 Cash on Delivery</option>
-                            <option value="bank_transfer">🏦 Bank Transfer</option>
-                        </select>
+                        <div class="payment-options">
+                            {% if cod_available %}
+                            <label class="payment-option">
+                                <input type="radio" name="payment_method" value="cod" checked onchange="updatePaymentTotal(); handlePaymentMethodChange('guest');">
+                                <div class="payment-content">
+                                    <span class="payment-icon">💵</span>
+                                    <div class="payment-info">
+                                        <strong>Cash on Delivery</strong>
+                                        <small>Pay when you receive your order at the post office</small>
+                                    </div>
+                                </div>
+                            </label>
+                            {% endif %}
+
+                            <label class="payment-option" style="border-color: #28a745;">
+                                <input type="radio" name="payment_method" value="lynk" {% if not cod_available %}checked{% endif %} onchange="updatePaymentTotal(); handlePaymentMethodChange('guest');">
+                                <div class="payment-content">
+                                    <span class="payment-icon">📱</span>
+                                    <div class="payment-info">
+                                        <strong>Lynk Digital Wallet</strong>
+                                        <small>🇯🇲 Jamaica's #1 Digital Wallet • 100% FREE • Instant</small>
+                                    </div>
+                                </div>
+                            </label>
+
+                            <label class="payment-option whatsapp-option">
+                                <input type="radio" name="payment_method" value="whatsapp" onchange="updatePaymentTotal(); handlePaymentMethodChange('guest');">
+                                <div class="payment-content">
+                                    <span class="payment-icon">💬</span>
+                                    <div class="payment-info">
+                                        <strong>WhatsApp Pay</strong>
+                                        <small>Pay via WhatsApp • Mobile money • Bank transfer</small>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
 
                         <!-- Lynk Payment Section for Guest -->
-                        <div id="guestLynkSection" class="lynk-payment-section">
+                        <div id="guestLynkSection" class="lynk-payment-section" style="display: none;">
                             <div class="lynk-header">
                                 <h3>🏦 Pay with Lynk - Jamaica's #1 Digital Wallet</h3>
                                 <div class="lynk-benefits">
@@ -907,10 +1208,11 @@
                                 <div class="transfer-detail">
                                     <label>Send Money To:</label>
                                     <div class="transfer-detail-value">
-                                        <span>@zozi-marketplace</span>
-                                        <button type="button" class="copy-btn" onclick="copyToClipboard('@zozi-marketplace')">📋 Copy</button>
+                                        <span>Zo-Zi.com</span>
+                                        <button type="button" class="copy-btn" onclick="copyToClipboard('Zo-Zi.com')">📋 Copy</button>
                                     </div>
                                 </div>
+                                <p style="font-size: 12px; color: #666; margin: -10px 0 15px 0; padding-left: 15px; font-style: italic;">💡 Tip: Search "zo-zi.com" in Lynk (case doesn't matter)</p>
                                 <div class="transfer-detail">
                                     <label>Amount to Send:</label>
                                     <div class="transfer-detail-value">
@@ -938,6 +1240,56 @@
                                 <p class="lynk-note">
                                     💡 <strong>Don't have Lynk?</strong> Download it for FREE and get J$100 bonus!
                                     <a href="#" onclick="showLynkDownloadInfo()" class="download-lynk">📱 Get Lynk FREE</a>
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- WhatsApp Payment Section for Guest -->
+                        <div id="guestWhatsAppSection" class="lynk-payment-section" style="display: none;">
+                            <div class="lynk-header" style="background: linear-gradient(135deg, #25D366, #128C7E);">
+                                <h3>💬 Pay with WhatsApp</h3>
+                                <div class="lynk-benefits">
+                                    <span class="benefit">✅ 100% FREE</span>
+                                    <span class="benefit">⚡ Instant</span>
+                                    <span class="benefit">🔒 Secure</span>
+                                    <span class="benefit">💰 No Gateway Fees</span>
+                                </div>
+                            </div>
+
+                            <div class="lynk-instructions" style="background: linear-gradient(135deg, #d4f8e8, #e8f5e9);">
+                                <h4>💡 How to Pay with WhatsApp:</h4>
+                                <ol>
+                                    <li>Click the green "Pay with WhatsApp" button below</li>
+                                    <li>Send payment via WhatsApp Pay, mobile money, or bank transfer</li>
+                                    <li>Send us your payment confirmation screenshot</li>
+                                    <li>We'll verify and confirm your order within minutes!</li>
+                                </ol>
+                            </div>
+
+                            <div class="transfer-details">
+                                <h4 style="color: #25D366; margin-bottom: 15px;">💸 Payment Details:</h4>
+                                <div class="transfer-detail">
+                                    <label>Total Amount:</label>
+                                    <div class="transfer-detail-value">
+                                        <span style="font-size: 24px; font-weight: bold; color: #25D366;">J$<span id="guestWhatsAppAmount">{{ (cart_total - (discount or 0))|round(2) }}</span></span>
+                                    </div>
+                                </div>
+                                <div class="transfer-detail">
+                                    <label>Your Order Reference:</label>
+                                    <div class="transfer-detail-value">
+                                        <span>ORDER-{{ session.get('temp_order_id', 'TEMP' ~ range(1000, 9999)|random) }}</span>
+                                        <button type="button" class="copy-btn" onclick="copyToClipboard('ORDER-{{ session.get('temp_order_id', 'TEMP' ~ range(1000, 9999)|random) }}')">📋 Copy</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="button" class="lynk-pay-btn" style="background: linear-gradient(135deg, #25D366, #128C7E); font-size: 18px; padding: 18px;" onclick="openWhatsAppPayment('guest')">
+                                💬 Pay with WhatsApp Now - J$<span id="guestWhatsAppBtnAmount">{{ (cart_total - (discount or 0))|round(2) }}</span>
+                            </button>
+
+                            <div class="lynk-footer">
+                                <p class="lynk-note">
+                                    ✅ Your order will be confirmed once we receive your payment!
                                 </p>
                             </div>
                         </div>
@@ -1008,38 +1360,53 @@
                         <p class="note">📍 Delivery will be made to this parish</p>
 
                         <label for="post_office">🏤 Post Office</label>
-                        <select id="postOffice" name="post_office" required disabled>
+                        <select id="post_office" name="post_office" required disabled>
                             <option value="" disabled selected>Select a post office</option>
                         </select>
                         <p class="note">📦 Pick up your order at this location</p>
 
-                        <label>🚚 Shipping Options</label>
-                        <div class="shipping-option" onclick="selectShipping('regular', this)">
-                            <input type="radio" name="shipping_option" value="regular" onchange="updateShipping('regular', 500)">
-                            <label>
-                                <strong>Regular Shipping - $500 JMD</strong><br>
-                                <small>Delivery in 3-5 business days</small>
-                            </label>
-                        </div>
-                        <div class="shipping-option" onclick="selectShipping('overnight', this)">
-                            <input type="radio" name="shipping_option" value="overnight" onchange="updateShipping('overnight', 1200)">
-                            <label>
-                                <strong>Overnight Shipping - $1200 JMD</strong><br>
-                                <small>Next business day delivery</small>
-                            </label>
-                        </div>
+                        <label>💳 Payment Method</label>
+                        <p class="note" style="margin: -5px 0 10px 0; color: #666; font-size: 13px;">✓ Shipping already included in product prices</p>
 
-                        <label for="payment_method">💳 Payment Method</label>
-                        <select id="payment_method" name="payment_method" required onchange="handlePaymentMethodChange('user')">
-                            <option value="" disabled selected>Select a payment method</option>
-                            <option value="lynk">🏦 Lynk Digital Wallet (FREE! 0% fees) 🇯🇲</option>
-                            <option value="skrill">💰 Skrill</option>
-                            <option value="cash_on_delivery">💵 Cash on Delivery</option>
-                            <option value="bank_transfer">🏦 Bank Transfer</option>
-                        </select>
+                        <div class="payment-options">
+                            {% if cod_available %}
+                            <label class="payment-option">
+                                <input type="radio" name="payment_method" value="cod" checked onchange="updatePaymentTotal(); handlePaymentMethodChange('user');">
+                                <div class="payment-content">
+                                    <span class="payment-icon">💵</span>
+                                    <div class="payment-info">
+                                        <strong>Cash on Delivery</strong>
+                                        <small>Pay when you receive your order at the post office</small>
+                                    </div>
+                                </div>
+                            </label>
+                            {% endif %}
+
+                            <label class="payment-option" style="border-color: #28a745;">
+                                <input type="radio" name="payment_method" value="lynk" {% if not cod_available %}checked{% endif %} onchange="updatePaymentTotal(); handlePaymentMethodChange('user');">
+                                <div class="payment-content">
+                                    <span class="payment-icon">📱</span>
+                                    <div class="payment-info">
+                                        <strong>Lynk Digital Wallet</strong>
+                                        <small>🇯🇲 Jamaica's #1 Digital Wallet • 100% FREE • Instant</small>
+                                    </div>
+                                </div>
+                            </label>
+
+                            <label class="payment-option whatsapp-option">
+                                <input type="radio" name="payment_method" value="whatsapp" onchange="updatePaymentTotal(); handlePaymentMethodChange('user');">
+                                <div class="payment-content">
+                                    <span class="payment-icon">💬</span>
+                                    <div class="payment-info">
+                                        <strong>WhatsApp Pay</strong>
+                                        <small>Pay via WhatsApp • Mobile money • Bank transfer</small>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
 
                         <!-- Lynk Payment Section for User -->
-                        <div id="userLynkSection" class="lynk-payment-section">
+                        <div id="userLynkSection" class="lynk-payment-section" style="display: none;">
                             <div class="lynk-header">
                                 <h3>🏦 Pay with Lynk - Jamaica's #1 Digital Wallet</h3>
                                 <div class="lynk-benefits">
@@ -1065,10 +1432,11 @@
                                 <div class="transfer-detail">
                                     <label>Send Money To:</label>
                                     <div class="transfer-detail-value">
-                                        <span>@zozi-marketplace</span>
-                                        <button type="button" class="copy-btn" onclick="copyToClipboard('@zozi-marketplace')">📋 Copy</button>
+                                        <span>Zo-Zi.com</span>
+                                        <button type="button" class="copy-btn" onclick="copyToClipboard('Zo-Zi.com')">📋 Copy</button>
                                     </div>
                                 </div>
+                                <p style="font-size: 12px; color: #666; margin: -10px 0 15px 0; padding-left: 15px; font-style: italic;">💡 Tip: Search "zo-zi.com" in Lynk (case doesn't matter)</p>
                                 <div class="transfer-detail">
                                     <label>Amount to Send:</label>
                                     <div class="transfer-detail-value">
@@ -1090,6 +1458,50 @@
 
                             <button type="button" class="lynk-pay-btn" onclick="verifyLynkPayment('user')">
                                 ✅ Verify Payment & Complete Order
+                            </button>
+                        </div>
+
+                        <!-- WhatsApp Payment Section for User -->
+                        <div id="userWhatsAppSection" class="lynk-payment-section" style="display: none;">
+                            <div class="lynk-header" style="background: linear-gradient(135deg, #25D366, #128C7E);">
+                                <h3>💬 Pay with WhatsApp</h3>
+                                <div class="lynk-benefits">
+                                    <span class="benefit">✅ 100% FREE</span>
+                                    <span class="benefit">⚡ Instant</span>
+                                    <span class="benefit">🔒 Secure</span>
+                                    <span class="benefit">💰 No Gateway Fees</span>
+                                </div>
+                            </div>
+
+                            <div class="lynk-instructions" style="background: linear-gradient(135deg, #d4f8e8, #e8f5e9);">
+                                <h4>💡 How to Pay with WhatsApp:</h4>
+                                <ol>
+                                    <li>Click the green "Pay with WhatsApp" button below</li>
+                                    <li>Send payment via WhatsApp Pay, mobile money, or bank transfer</li>
+                                    <li>Send us your payment confirmation screenshot</li>
+                                    <li>We'll verify and confirm your order within minutes!</li>
+                                </ol>
+                            </div>
+
+                            <div class="transfer-details">
+                                <h4 style="color: #25D366; margin-bottom: 15px;">💸 Payment Details:</h4>
+                                <div class="transfer-detail">
+                                    <label>Total Amount:</label>
+                                    <div class="transfer-detail-value">
+                                        <span style="font-size: 24px; font-weight: bold; color: #25D366;">J$<span id="userWhatsAppAmount">{{ (cart_total - (discount or 0))|round(2) }}</span></span>
+                                    </div>
+                                </div>
+                                <div class="transfer-detail">
+                                    <label>Your Order Reference:</label>
+                                    <div class="transfer-detail-value">
+                                        <span>ORDER-{{ session.get('temp_order_id', 'TEMP' ~ range(1000, 9999)|random) }}</span>
+                                        <button type="button" class="copy-btn" onclick="copyToClipboard('ORDER-{{ session.get('temp_order_id', 'TEMP' ~ range(1000, 9999)|random) }}')">📋 Copy</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <button type="button" class="lynk-pay-btn" style="background: linear-gradient(135deg, #25D366, #128C7E); font-size: 18px; padding: 18px;" onclick="openWhatsAppPayment('user')">
+                                💬 Pay with WhatsApp Now - J$<span id="userWhatsAppBtnAmount">{{ (cart_total - (discount or 0))|round(2) }}</span>
                             </button>
 
                             <div class="lynk-footer">
@@ -1157,16 +1569,29 @@
 
         // Handle payment method change
         function handlePaymentMethodChange(userType) {
-            const paymentSelect = document.getElementById(userType === 'guest' ? 'guest_payment_method' : 'payment_method');
+            // Get the selected payment method radio button
+            const paymentRadio = document.querySelector(`input[name="payment_method"]:checked`);
             const lynkSection = document.getElementById(userType + 'LynkSection');
+            const whatsappSection = document.getElementById(userType + 'WhatsAppSection');
             const submitBtn = document.getElementById(userType === 'guest' ? 'guestSubmitBtn' : 'placeOrderBtn');
 
-            if (paymentSelect.value === 'lynk') {
+            if (!paymentRadio) return; // No payment method selected yet
+
+            const paymentValue = paymentRadio.value;
+
+            if (paymentValue === 'lynk') {
                 lynkSection.style.display = 'block';
+                if (whatsappSection) whatsappSection.style.display = 'none';
                 submitBtn.style.display = 'none'; // Hide normal submit when Lynk is selected
                 showToast('Lynk Selected', 'Complete the Lynk transfer details below to proceed!', 'success');
+            } else if (paymentValue === 'whatsapp') {
+                if (whatsappSection) whatsappSection.style.display = 'block';
+                lynkSection.style.display = 'none';
+                submitBtn.style.display = 'none'; // Hide normal submit when WhatsApp is selected
+                showToast('WhatsApp Pay Selected', 'Click the WhatsApp button below to complete payment!', 'success');
             } else {
                 lynkSection.style.display = 'none';
+                if (whatsappSection) whatsappSection.style.display = 'none';
                 submitBtn.style.display = 'block'; // Show normal submit for other methods
             }
 
@@ -1217,6 +1642,57 @@
         }
 
         // Verify Lynk payment
+        // WHATSAPP PAYMENT FUNCTION
+        function openWhatsAppPayment(userType) {
+            // Get cart total
+            const cartTotal = {{ (cart_total - (discount or 0))|round(2) }};
+            const orderRef = 'ORDER-{{ session.get('temp_order_id', 'TEMP' ~ range(1000, 9999)|random) }}';
+
+            // Get user info for the message
+            let userName = 'Customer';
+            if (userType === 'guest') {
+                userName = document.getElementById('guest_first_name')?.value || 'Customer';
+            } else {
+                userName = '{{ user.first_name if user else 'Customer' }}';
+            }
+
+            // Your WhatsApp business number (configured in .env file)
+            const whatsappNumber = '{{ config.get("WHATSAPP_BUSINESS_NUMBER", "1876XXXXXXX") }}'; // Format: country code + number (no + or spaces)
+
+            // Pre-filled message
+            const message = `Hi! I want to complete payment for my Zo-Zi order.\n\n` +
+                          `Order Reference: ${orderRef}\n` +
+                          `Total Amount: J$${cartTotal.toFixed(2)}\n` +
+                          `Name: ${userName}\n\n` +
+                          `I'm ready to send payment. What are your payment details?`;
+
+            // Encode message for URL
+            const encodedMessage = encodeURIComponent(message);
+
+            // Create WhatsApp URL
+            const whatsappURL = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
+
+            // Open WhatsApp in new tab
+            window.open(whatsappURL, '_blank');
+
+            // Show confirmation toast
+            showToast('WhatsApp Opened!', 'Complete your payment in WhatsApp and send us confirmation', 'success');
+
+            // Submit the order form after a delay (so order is created)
+            setTimeout(() => {
+                // Mark as WhatsApp payment pending
+                const form = document.getElementById(userType === 'guest' ? 'guestCheckoutForm' : 'checkoutForm');
+                const hiddenInput = document.createElement('input');
+                hiddenInput.type = 'hidden';
+                hiddenInput.name = 'whatsapp_payment';
+                hiddenInput.value = 'pending';
+                form.appendChild(hiddenInput);
+
+                // Submit the form to create order
+                form.submit();
+            }, 2000);
+        }
+
         function verifyLynkPayment(userType) {
             const transactionRefInput = document.getElementById(userType + 'TransactionRef');
             const transactionRef = transactionRefInput.value.trim();
@@ -1325,16 +1801,51 @@
         }
         {% endif %}
 
-        // Initialize video loop
-        const video = document.getElementById("bgVideo");
-        function loopVideo() {
-            if (video.currentTime >= 17) {
-                video.currentTime = 0;
-                video.play().catch(() => {});
+        // Video loop removed - background video was replaced with CSS gradient
+
+        // Update quantity
+        async function updateQuantity(productKey, newQuantity) {
+            newQuantity = parseInt(newQuantity);
+
+            if (newQuantity < 1) {
+                showToast('Invalid Quantity', 'Quantity must be at least 1', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/update_cart', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCSRFToken()
+                    },
+                    body: JSON.stringify({
+                        product_key: productKey,
+                        quantity: newQuantity
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                if (data.success) {
+                    document.querySelector('.cart-total').textContent = data.cart_item_count || 0;
+                    await updateCartDisplay();
+                    updateCartSummary(data);
+                    showToast('Quantity Updated', `Updated to ${newQuantity} item(s)`);
+
+                    // Update Lynk amounts after cart change
+                    updateLynkAmounts();
+                } else {
+                    showToast('Error', data.message || 'Failed to update quantity.', 'error');
+                }
+            } catch (error) {
+                console.error('Update quantity error:', error);
+                showToast('Error', 'Network error while updating quantity.', 'error');
             }
         }
-        setInterval(loopVideo, 100);
-        video.addEventListener("play", () => setInterval(loopVideo, 100));
 
         // Cart removal
         async function removeFromCart(productKey) {
@@ -1396,10 +1907,18 @@
                 const productUrl = `/product/${encodeURIComponent(baseProductKey.replace(/ /g, '+'))}`;
 
                 itemDiv.innerHTML = `
-                    <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.name || item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
+                    <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.name || item.product_key)}" onerror="this.src='/static/product-placeholder.svg'">
                     <div class="cart-item-details">
                         <p><a href="${productUrl}">${escapeHTML(item.name || item.product_key)}</a></p>
-                        <p><strong>${item.price} JMD</strong> × ${item.quantity}</p>
+                        <p><strong>${item.price} JMD</strong> ×
+                            <input type="number"
+                                   min="1"
+                                   max="${item.stock || 99}"
+                                   value="${item.quantity}"
+                                   class="quantity-input"
+                                   data-product-key="${escapeHTML(item.product_key)}"
+                                   onchange="updateQuantity('${escapeHTML(item.product_key)}', this.value)">
+                        </p>
                     </div>
                     <span class="remove-item" onclick="removeFromCart('${escapeHTML(item.product_key)}')">×</span>
                 `;
@@ -1498,7 +2017,7 @@
                     const productUrl = `/product/${encodeURIComponent(baseProductKey.replace(/ /g, '+'))}`;
 
                     itemDiv.innerHTML = `
-                        <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.name || item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
+                        <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.name || item.product_key)}" onerror="this.src='/static/product-placeholder.svg'">
                         <div class="cart-item-details">
                             <p><a href="${productUrl}">${escapeHTML(item.name || item.product_key)}</a></p>
                             <p>${item.price} JMD × ${item.quantity}</p>
@@ -1517,23 +2036,24 @@
         // Cart dropdown toggle
         const cartIcon = document.querySelector('.cart-icon');
         const cartDropdown = document.getElementById('cartDropdown');
-        cartIcon.addEventListener('click', (e) => {
-            e.stopPropagation();
-            cartDropdown.style.display = cartDropdown.style.display === 'block' ? 'none' : 'block';
-            if (cartDropdown.style.display === 'block') {
-                updateCartDisplay();
-            }
-        });
 
-        document.addEventListener('click', (e) => {
-            if (!cartIcon.contains(e.target) && !cartDropdown.contains(e.target)) {
-                cartDropdown.style.display = 'none';
-            }
-        });
+        if (cartIcon && cartDropdown) {
+            cartIcon.addEventListener('click', (e) => {
+                e.stopPropagation();
+                cartDropdown.style.display = cartDropdown.style.display === 'block' ? 'none' : 'block';
+                if (cartDropdown.style.display === 'block') {
+                    updateCartDisplay();
+                }
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!cartIcon.contains(e.target) && !cartDropdown.contains(e.target)) {
+                    cartDropdown.style.display = 'none';
+                }
+            });
+        }
 
         // Parish and post office handling for all forms
-        const parishSelects = document.querySelectorAll('#parish, #guest_parish');
-        const postOfficeSelects = document.querySelectorAll('#postOffice, #guest_post_office');
         const parishPostOffices = {{ parish_post_offices | tojson }};
 
         function updatePostOfficeOptions(parishSelect, postOfficeSelect) {
@@ -1552,61 +2072,73 @@
             }
         }
 
-        // Set up parish change listeners
-        parishSelects.forEach((parishSelect, index) => {
-            parishSelect.addEventListener('change', () => {
-                updatePostOfficeOptions(parishSelect, postOfficeSelects[index]);
+        // Initialize parish/post office functionality when DOM is ready
+        document.addEventListener('DOMContentLoaded', function() {
+            const parishSelects = document.querySelectorAll('#parish, #guest_parish');
+            const postOfficeSelects = document.querySelectorAll('#post_office, #guest_post_office');
+
+            // Set up parish change listeners
+            parishSelects.forEach((parishSelect, index) => {
+                if (parishSelect && postOfficeSelects[index]) {
+                    parishSelect.addEventListener('change', () => {
+                        updatePostOfficeOptions(parishSelect, postOfficeSelects[index]);
+                    });
+                }
+            });
+
+            // Initialize post office options if parish is already selected
+            parishSelects.forEach((parishSelect, index) => {
+                if (parishSelect && parishSelect.value && postOfficeSelects[index]) {
+                    updatePostOfficeOptions(parishSelect, postOfficeSelects[index]);
+                }
             });
         });
 
-        // Shipping option selection
-        function selectShipping(option, element) {
-            // Remove selected class from all shipping options
-            document.querySelectorAll('.shipping-option').forEach(opt => {
-                opt.classList.remove('selected');
+        // Update payment method totals
+        function updatePaymentTotal() {
+            const cartTotal = {{ cart_total or 0 }};
+            const platformFee = cartTotal * 0.05;
+            const totalBeforePayment = cartTotal + platformFee;
+
+            // Get selected payment method (from RIGHT side form)
+            const selected = document.querySelector('input[name="payment_method"]:checked');
+            if (!selected) return;
+
+            const method = selected.value;
+            let finalTotal = totalBeforePayment;
+            let gatewayFee = 0;
+
+            // Highlight selected payment option
+            document.querySelectorAll('.payment-option').forEach(opt => {
+                opt.style.borderColor = '#e9ecef';
+                opt.style.backgroundColor = '#fff';
             });
+            selected.closest('.payment-option').style.borderColor = '#28a745';
+            selected.closest('.payment-option').style.backgroundColor = '#f0fff4';
 
-            // Add selected class to clicked option
-            element.classList.add('selected');
+            if (method === 'wipay') {
+                gatewayFee = totalBeforePayment * 0.04;
+                finalTotal = totalBeforePayment * 1.04;
+            } else if (method === 'lynk') {
+                gatewayFee = totalBeforePayment * 0.01;
+                finalTotal = totalBeforePayment * 1.01;
+            }
 
-            // Check the radio button
-            const radio = element.querySelector('input[type="radio"]');
-            radio.checked = true;
-
-            // Update shipping costs
-            const fee = option === 'overnight' ? 1200 : 500;
-            updateShipping(option, fee);
+            // Update final total display on LEFT side
+            document.getElementById('finalTotal').textContent = '$' + finalTotal.toFixed(2) + ' JMD';
         }
 
-        // Update shipping costs
-        function updateShipping(option, fee) {
-            const subtotal = {{ cart_total or 0 }};
-            const tax = (subtotal * 0.05).toFixed(2);
-            const discount = {{ discount or 0 }};
-            const total = (subtotal + fee + parseFloat(tax)).toFixed(2);
-            const adjustedTotal = (subtotal + fee + parseFloat(tax) - discount).toFixed(2);
-
-            // Update display elements
-            const shippingFeeDisplay = document.getElementById('shippingFeeDisplay');
-            const handlingFeeDisplay = document.getElementById('handlingFee');
-            const totalDisplay = document.getElementById('total');
-            const adjustedTotalDisplay = document.getElementById('adjustedTotal');
-
-            if (shippingFeeDisplay) shippingFeeDisplay.textContent = `${fee} JMD`;
-            if (handlingFeeDisplay) handlingFeeDisplay.textContent = `${tax} JMD`;
-            if (totalDisplay) totalDisplay.textContent = `${total} JMD`;
-            if (adjustedTotalDisplay) adjustedTotalDisplay.textContent = `${adjustedTotal} JMD`;
-
-            // Update Lynk amounts when shipping changes
-            updateLynkAmounts();
-        }
+        // Initialize payment total on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updatePaymentTotal();
+        });
 
         // Form validation
         function validateGuestForm() {
             const requiredFields = [
                 'guest_first_name', 'guest_last_name', 'guest_email',
                 'guest_phone', 'guest_address', 'guest_parish',
-                'guest_post_office', 'guest_payment_method'
+                'guest_post_office'
             ];
 
             let isValid = true;
@@ -1630,10 +2162,10 @@
                 isValid = false;
             }
 
-            // Check shipping option
-            const shippingOption = document.querySelector('input[name="shipping_option"]:checked');
-            if (!shippingOption) {
-                showToast('Shipping Required', 'Please select a shipping option.', 'error');
+            // Check payment method
+            const paymentMethod = document.querySelector('input[name="payment_method"]:checked');
+            if (!paymentMethod) {
+                showToast('Payment Required', 'Please select a payment method.', 'error');
                 isValid = false;
             }
 
@@ -1641,7 +2173,7 @@
         }
 
         function validateUserForm() {
-            const requiredFields = ['full_name', 'phone_number', 'address', 'parish', 'postOffice', 'payment_method'];
+            const requiredFields = ['full_name', 'phone_number', 'address', 'parish', 'post_office', 'payment_method'];
             let isValid = true;
 
             requiredFields.forEach(fieldId => {
@@ -1665,8 +2197,24 @@
 
         // Simple form validation before submission
         document.getElementById('guestCheckoutForm')?.addEventListener('submit', function(e) {
+            // Get selected payment method
+            const paymentMethod = document.querySelector('input[name="payment_method"]:checked')?.value;
+
+            // Cash on Delivery confirmation with modern modal
+            if (paymentMethod === 'cod') {
+                e.preventDefault();
+                const form = this;
+                showCODConfirmation(function(confirmed) {
+                    if (confirmed) {
+                        // User clicked Continue - submit the form
+                        form.submit();
+                    }
+                    // If not confirmed, do nothing (stay on page)
+                });
+                return;
+            }
+
             // Only validate if not using Lynk payment (Lynk uses its own verification)
-            const paymentMethod = document.getElementById('guest_payment_method').value;
             if (paymentMethod !== 'lynk') {
                 if (!validateGuestForm()) {
                     e.preventDefault();
@@ -1674,12 +2222,29 @@
                     return;
                 }
             }
-            // Let the browser handle the form submission naturally
+
+            // Let the browser handle the form submission naturally for other payment methods
         });
 
         document.getElementById('userCheckoutForm')?.addEventListener('submit', function(e) {
+            // Get selected payment method
+            const paymentMethod = document.querySelector('input[name="payment_method"]:checked')?.value;
+
+            // Cash on Delivery confirmation with modern modal
+            if (paymentMethod === 'cod') {
+                e.preventDefault();
+                const form = this;
+                showCODConfirmation(function(confirmed) {
+                    if (confirmed) {
+                        // User clicked Continue - submit the form
+                        form.submit();
+                    }
+                    // If not confirmed, do nothing (stay on page)
+                });
+                return;
+            }
+
             // Only validate if not using Lynk payment (Lynk uses its own verification)
-            const paymentMethod = document.getElementById('payment_method').value;
             if (paymentMethod !== 'lynk') {
                 if (!validateUserForm()) {
                     e.preventDefault();
@@ -1687,8 +2252,24 @@
                     return;
                 }
             }
-            // Let the browser handle the form submission naturally
+
+            // Let the browser handle the form submission naturally for other payment methods
         });
+
+        // Shipping functions
+        function updateShipping(method, cost) {
+            // This function is called but shipping is already included in product prices
+            // Kept for compatibility
+        }
+
+        function selectShipping(method, element) {
+            // Remove selected class from all options
+            document.querySelectorAll('.shipping-option').forEach(opt => {
+                opt.classList.remove('selected');
+            });
+            // Add selected class to clicked option
+            element.classList.add('selected');
+        }
 
         // Initialize page
         window.onload = function() {
@@ -1698,7 +2279,7 @@
             const regularShippingInputs = document.querySelectorAll('input[value="regular"]');
             regularShippingInputs.forEach(input => {
                 input.checked = true;
-                input.closest('.shipping-option').classList.add('selected');
+                input.closest('.shipping-option')?.classList.add('selected');
             });
             updateShipping('regular', 500);
 
@@ -1711,12 +2292,7 @@
                 });
             });
 
-            // Initialize post office options
-            parishSelects.forEach((parishSelect, index) => {
-                if (parishSelect.value) {
-                    updatePostOfficeOptions(parishSelect, postOfficeSelects[index]);
-                }
-            });
+            // Post office initialization moved to DOMContentLoaded event
 
             // Initialize Lynk amounts
             updateLynkAmounts();
@@ -1752,6 +2328,50 @@
                 });
             });
         });
+
+        // Modern Confirmation Modal Functions
+        function showCODConfirmation(callback) {
+            const modal = document.getElementById('codConfirmationModal');
+            modal.classList.add('show');
+
+            // Store callback for later use
+            window.codConfirmCallback = callback;
+        }
+
+        function hideCODModal() {
+            const modal = document.getElementById('codConfirmationModal');
+            modal.classList.remove('show');
+        }
+
+        function confirmCODOrder() {
+            hideCODModal();
+            if (window.codConfirmCallback) {
+                window.codConfirmCallback(true);
+            }
+        }
+
+        function cancelCODOrder() {
+            hideCODModal();
+            if (window.codConfirmCallback) {
+                window.codConfirmCallback(false);
+            }
+        }
     </script>
+
+    <!-- Cash on Delivery Confirmation Modal -->
+    <div id="codConfirmationModal" class="confirmation-modal">
+        <div class="modal-content">
+            <div class="modal-icon">📞</div>
+            <div class="modal-title">Cash on Delivery Selected</div>
+            <div class="modal-message">
+                We will call you to confirm your order and delivery details.<br><br>
+                Would you like to proceed with this payment method?
+            </div>
+            <div class="modal-buttons">
+                <button class="modal-btn modal-btn-cancel" onclick="cancelCODOrder()">Cancel</button>
+                <button class="modal-btn modal-btn-continue" onclick="confirmCODOrder()">Continue</button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>

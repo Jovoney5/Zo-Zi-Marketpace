@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Order Confirmation - Zo-Zi</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <style>
         body {
             margin: 0;
@@ -401,7 +400,7 @@
         </div>
         <div class="profile" onclick="window.location.href='{{ url_for('profile' if user else 'login') }}'" title="{% if user and user.profile_picture %}Change Profile Picture{% elif user %}Add Profile Picture{% else %}Login to add profile{% endif %}">
             {% if user and user.profile_picture %}
-                <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                <img src="{{ url_for('static', filename=user.profile_picture) }}" alt="Profile" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
             {% else %}
                 <span style="font-size: 20px; color: white; line-height: 40px; background: gray; display: block; border-radius: 50%; text-align: center;">+</span>
             {% endif %}
@@ -473,21 +472,21 @@
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Subtotal:</span>
-                    <span class="detail-value">${{ '{:.2f}'.format(order.total_amount - order.shipping_fee - order.tax + order.discount) }} JMD</span>
+                    <span class="detail-value">${{ '{:.2f}'.format(order.total_amount - (order.shipping_fee | default(0)) - (order.tax | default(0)) + (order.discount | default(0))) }} JMD</span>
                 </div>
                 {% if order.discount > 0 %}
                 <div class="detail-row">
                     <span class="detail-label">Discount Applied:</span>
-                    <span class="detail-value" style="color: #28a745;">-${{ '{:.2f}'.format(order.discount) }} JMD</span>
+                    <span class="detail-value" style="color: #28a745;">-${{ '{:.2f}'.format(order.discount | default(0)) }} JMD</span>
                 </div>
                 {% endif %}
                 <div class="detail-row">
                     <span class="detail-label">Shipping Fee:</span>
-                    <span class="detail-value">${{ '{:.2f}'.format(order.shipping_fee) }} JMD</span>
+                    <span class="detail-value">${{ '{:.2f}'.format(order.shipping_fee | default(0)) }} JMD</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Tax (5%):</span>
-                    <span class="detail-value">${{ '{:.2f}'.format(order.tax) }} JMD</span>
+                    <span class="detail-value">${{ '{:.2f}'.format(order.tax | default(0)) }} JMD</span>
                 </div>
                 <div class="detail-row">
                     <span class="detail-label">Total Amount:</span>
@@ -499,7 +498,7 @@
                 <h3>📦 Items Ordered ({{ items|length }} item{{ 's' if items|length != 1 else '' }})</h3>
                 {% for item in items %}
                     <div class="item">
-                        <img src="{{ url_for('static', filename=item.image_url) }}" alt="{{ item.name or item.product_key }}" onerror="this.src='{{ url_for('static', filename='placeholder.jpg') }}'">
+                        <img src="{{ url_for('static', filename=item.image_url) }}" alt="{{ item.name or item.product_key }}" onerror="this.src='{{ url_for('static', filename='product-placeholder.svg') }}'">
                         <div class="item-details">
                             <div class="item-name">{{ item.name or item.product_key }}</div>
                             <div class="item-price">

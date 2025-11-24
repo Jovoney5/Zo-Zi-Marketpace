@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Customer Service - Zo-Zi</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <style>
         body { margin: 0; font-family: Arial, sans-serif; background: #f4f4f4; padding-top: 80px; position: relative; }
         .navbar { display: flex; flex-direction: column; align-items: center; background: rgba(255, 255, 255, 0.5); padding: 10px 20px; position: fixed; top: 0; width: 100%; z-index: 10; }
@@ -291,7 +290,7 @@
                             const itemDiv = document.createElement('div');
                             itemDiv.className = 'cart-item';
                             itemDiv.innerHTML = `
-                                <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
+                                <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.product_key)}" onerror="this.src='/static/product-placeholder.svg'">
                                 <div class="cart-item-details">
                                     <p><a href="/product/${encodeURIComponent(item.product_key.replace(/ /g, '+'))}">${escapeHTML(item.product_key)}</a></p>
                                     <p>${item.price} JMD x ${item.quantity}</p>
@@ -386,7 +385,7 @@
                 data.forEach(suggestion => {
                     const a = document.createElement('a');
                     a.href = `/product/${suggestion.product_key.replace(/ /g, '+')}`;
-                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/placeholder.jpg'"><span>${escapeHTML(suggestion.name)}</span>`;
+                    a.innerHTML = `<img src="/static/${escapeHTML(suggestion.image_url)}" alt="${escapeHTML(suggestion.name)}" onerror="this.src='/static/product-placeholder.svg'"><span>${escapeHTML(suggestion.name)}</span>`;
                     suggestionsDiv.appendChild(a);
                 });
                 suggestionsDiv.style.display = data.length ? 'block' : 'none';
@@ -420,7 +419,13 @@
             messagesDiv.scrollTop = messagesDiv.scrollHeight;
         };
 
-        document.getElementById('respond-form').addEventListener('submit', sendAgentResponse);
+        // Wait for DOM to be ready before adding event listener
+        const respondForm = document.getElementById('respond-form');
+        if (respondForm) {
+            respondForm.addEventListener('submit', sendAgentResponse);
+        } else {
+            console.error('respond-form element not found');
+        }
     </script>
 </body>
 </html>

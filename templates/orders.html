@@ -563,13 +563,17 @@
                         <!-- Debug: Show image URL in console -->
                         <script>console.log('Image URL for {{ item.product_name }}:', '{{ item.image_url }}');</script>
 
-                        <!-- Fixed image display with multiple fallbacks -->
-                        <img src="{{ url_for('static', filename=item.image_url) }}"
-                             alt="{{ item.product_name }}"
-                             onerror="this.onerror=null;
-                                     this.src='{{ url_for('static', filename='placeholder.jpg') }}';
-                                     console.log('Image failed to load:', '{{ item.image_url }}');"
-                             onload="console.log('Image loaded successfully:', '{{ item.image_url }}');">
+                        <!-- Enhanced image display with better fallback handling -->
+                        {% if item.image_url and item.image_url != 'None' and item.image_url != '' %}
+                            <img src="{{ url_for('static', filename=item.image_url) }}"
+                                 alt="{{ item.product_name }}"
+                                 onerror="this.onerror=null; this.src='{{ url_for('static', filename='product-placeholder.svg') }}';"
+                                 style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">
+                        {% else %}
+                            <img src="{{ url_for('static', filename='product-placeholder.svg') }}"
+                                 alt="{{ item.product_name }}"
+                                 style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; background: #f8f9fa;">
+                        {% endif %}
 
                         <div style="flex: 1;">
                             <div class="item-name">{{ item.product_name }}</div>
@@ -747,7 +751,7 @@
                     const baseProductKey = item.product_key.split(' (')[0];
                     const productUrl = `/product/${encodeURIComponent(baseProductKey.replace(/ /g, '+'))}`;
                     itemDiv.innerHTML = `
-                        <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.name || item.product_key)}" onerror="this.src='/static/placeholder.jpg'">
+                        <img src="/static/${escapeHTML(item.image_url)}" alt="${escapeHTML(item.name || item.product_key)}" onerror="this.src='/static/product-placeholder.svg'">
                         <div class="cart-item-details">
                             <p><a href="${productUrl}">${escapeHTML(item.name || item.product_key)}</a></p>
                             <p>${item.price} JMD x ${item.quantity}</p>

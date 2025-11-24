@@ -713,6 +713,505 @@
                 display: block;
             }
         }
+
+        /* Customer Chats Styles */
+        .chat-interface {
+            display: flex;
+            gap: 20px;
+            min-height: 500px;
+        }
+
+        .conversation-item {
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .conversation-item:hover {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            transform: translateX(5px);
+        }
+
+        .conversation-item.active {
+            background: linear-gradient(135deg, #006400, #228B22);
+            color: white;
+        }
+
+        .conversation-item h5 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .conversation-item p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .message-item {
+            margin: 10px 0;
+            padding: 12px 16px;
+            border-radius: 18px;
+            max-width: 70%;
+            animation: messageSlideIn 0.3s ease;
+        }
+
+        .message-item.user {
+            background: linear-gradient(135deg, #006400, #228B22);
+            color: white;
+            margin-left: auto;
+            border-bottom-right-radius: 5px;
+        }
+
+        .message-item.support {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #333;
+            margin-right: auto;
+            border-bottom-left-radius: 5px;
+        }
+
+        .message-time {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-top: 5px;
+            display: block;
+        }
+
+        @keyframes messageSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Chat responsive updates */
+        @media (max-width: 1200px) {
+            .chat-interface {
+                flex-direction: column;
+            }
+
+            .conversations-panel, .chat-viewer {
+                width: 100% !important;
+                padding: 10px !important;
+            }
+        }
+
+        /* User Details Modal Styles */
+        .user-modal {
+            display: none;
+            position: fixed;
+            z-index: 10000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.7);
+            animation: fadeIn 0.3s ease;
+        }
+
+        .user-modal-content {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            margin: 2% auto;
+            padding: 0;
+            border-radius: 20px;
+            width: 90%;
+            max-width: 1200px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideDown 0.4s ease;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .user-modal-header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 20px 20px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .user-modal-header h2 {
+            margin: 0;
+            font-size: 28px;
+            color: #FFD700;
+        }
+
+        .close-modal {
+            color: #FFD700;
+            font-size: 35px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            line-height: 1;
+        }
+
+        .close-modal:hover {
+            color: #FFA500;
+            transform: rotate(90deg);
+        }
+
+        .user-modal-body {
+            padding: 30px;
+        }
+
+        .user-info-section {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid #FFD700;
+        }
+
+        .user-info-section h3 {
+            color: #2c3e50;
+            font-size: 22px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
+
+        .info-item {
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .info-label {
+            font-weight: 600;
+            color: #7f8c8d;
+            font-size: 12px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .info-value {
+            color: #2c3e50;
+            font-size: 16px;
+            font-weight: 500;
+        }
+
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .product-card-modal {
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .product-card-modal:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .product-card-modal.flagged {
+            border: 2px solid #e74c3c;
+        }
+
+        .product-card-modal img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .product-card-modal .product-info {
+            padding: 15px;
+        }
+
+        .product-card-modal .product-name {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .product-card-modal .product-price {
+            color: #27ae60;
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 5px;
+        }
+
+        .product-card-modal .product-stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 10px;
+        }
+
+        .flagged-overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(231, 76, 60, 0.95);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+            box-shadow: 0 2px 8px rgba(231, 76, 60, 0.4);
+            z-index: 10;
+        }
+
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .stat-card .stat-value {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .stat-label {
+            font-size: 12px;
+            opacity: 0.9;
+            text-transform: uppercase;
+        }
+
+        .product-revenue {
+            font-size: 14px;
+            color: #27ae60;
+            font-weight: 600;
+            margin-top: 5px;
+        }
+
+        .orders-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .orders-table th {
+            background: #2c3e50;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .orders-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .orders-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .flag-section {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .flag-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #e74c3c;
+        }
+
+        .flag-type {
+            font-weight: bold;
+            color: #e74c3c;
+            text-transform: uppercase;
+            font-size: 14px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 15px;
+            justify-content: flex-end;
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #e0e0e0;
+        }
+
+        .modal-btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .modal-btn-flag {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+        }
+
+        .modal-btn-flag:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.4);
+        }
+
+        .modal-btn-unflag {
+            background: linear-gradient(135deg, #27ae60, #229954);
+            color: white;
+        }
+
+        .modal-btn-unflag:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.4);
+        }
+
+        .modal-btn-close {
+            background: linear-gradient(135deg, #95a5a6, #7f8c8d);
+            color: white;
+        }
+
+        .modal-btn-close:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(149, 165, 166, 0.4);
+        }
+
+        .modal-btn-primary {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+        }
+
+        .modal-btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+
+        .no-data-message {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+            font-size: 16px;
+        }
+
+        .badge-large {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .badge-seller {
+            background: linear-gradient(135deg, #FFD700, #FFA500);
+            color: #2c3e50;
+        }
+
+        .badge-buyer {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+        }
+
+        /* Toggle Switch for COD Access */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+            cursor: pointer;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background: linear-gradient(135deg, #27ae60, #229954);
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(26px);
+        }
+
+        .toggle-switch:hover .toggle-slider {
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+        }
     </style>
 </head>
 <body>
@@ -761,6 +1260,11 @@
                 <li class="nav-item">
                     <a href="#demographics" class="nav-link" data-section="demographics">
                         <i>📈</i> Demographics
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#chats" class="nav-link" data-section="chats">
+                        <i>💬</i> Customer Chats
                     </a>
                 </li>
                 <li class="nav-item">
@@ -1031,7 +1535,14 @@
                     <div class="section-header">
                         <div class="section-title">All Platform Users</div>
                         <div class="section-controls">
-                            <input type="text" class="search-box" placeholder="Search users by name, email, phone..." id="userSearch">
+                            <input type="text" class="search-box" placeholder="Search users by name, email, phone..." id="usersSearch">
+                            <select class="filter-select" id="userSortFilter">
+                                <option value="default">Default</option>
+                                <option value="most_sales">Most Sales (Revenue)</option>
+                                <option value="top_sellers">Top Sellers (Products)</option>
+                                <option value="top_buyers">Top Buyers (Spent)</option>
+                                <option value="most_orders">Most Orders</option>
+                            </select>
                             <select class="filter-select" id="userTypeFilter">
                                 <option value="">All Users</option>
                                 <option value="buyer">Buyers Only</option>
@@ -1067,14 +1578,15 @@
                                     <th>Type</th>
                                     <th>Orders</th>
                                     <th>Products</th>
-                                    <th>Total Spent</th>
+                                    <th>Buyer Spent</th>
+                                    <th>Seller Revenue</th>
                                     <th>Status</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="usersTableBody">
                                 <tr>
-                                    <td colspan="9" class="loading">
+                                    <td colspan="10" class="loading">
                                         <div class="spinner"></div>
                                         Loading users...
                                     </td>
@@ -1142,12 +1654,13 @@
                                     <th>Revenue</th>
                                     <th>Rating</th>
                                     <th>Status</th>
+                                    <th>COD Access</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="sellersTableBody">
                                 <tr>
-                                    <td colspan="9" class="loading">
+                                    <td colspan="10" class="loading">
                                         <div class="spinner"></div>
                                         Loading sellers...
                                     </td>
@@ -1301,12 +1814,13 @@
                                     <th>Payment</th>
                                     <th>Date</th>
                                     <th>Status</th>
+                                    <th>Payment Verified</th>
                                     <th>Actions</th>
                                 </tr>
                             </thead>
                             <tbody id="ordersTableBody">
                                 <tr>
-                                    <td colspan="9" class="loading">
+                                    <td colspan="10" class="loading">
                                         <div class="spinner"></div>
                                         Loading orders...
                                     </td>
@@ -1402,6 +1916,85 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Pending Seller Payouts Section -->
+                <div class="data-section" style="margin-top: 40px;">
+                    <div class="section-header">
+                        <div class="section-title">💸 Pending Seller Payouts</div>
+                        <div class="section-controls">
+                            <button class="btn-refresh" onclick="loadPendingPayouts()">
+                                <span>🔄</span> Refresh
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Seller Info</th>
+                                    <th>Payment Method</th>
+                                    <th>Account Details</th>
+                                    <th>Amount Requested</th>
+                                    <th>Fee</th>
+                                    <th>Net Payout</th>
+                                    <th>Processing Time</th>
+                                    <th>Request Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payoutsTableBody">
+                                <tr>
+                                    <td colspan="9" class="loading">
+                                        <div class="spinner"></div>
+                                        Loading pending payouts...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="payout-summary" id="payoutSummary" style="margin-top: 20px; padding: 20px; background: #f8f9fa; border-radius: 10px; display: none;">
+                        <h4 style="margin-bottom: 10px;">📊 Payout Summary</h4>
+                        <p><strong>Total Pending Requests:</strong> <span id="totalPendingCount">0</span></p>
+                        <p><strong>Total Amount:</strong> J$<span id="totalPendingAmount">0.00</span></p>
+                    </div>
+                </div>
+
+                <!-- Payout History Section -->
+                <div class="data-section" style="margin-top: 40px;">
+                    <div class="section-header">
+                        <div class="section-title">📜 Payout History</div>
+                        <div class="section-controls">
+                            <select class="filter-select" id="payoutStatusFilter" onchange="loadPayoutHistory()">
+                                <option value="all">All Status</option>
+                                <option value="completed">Completed</option>
+                                <option value="failed">Failed</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Seller</th>
+                                    <th>Method</th>
+                                    <th>Amount</th>
+                                    <th>Net Payout</th>
+                                    <th>Status</th>
+                                    <th>Requested</th>
+                                    <th>Completed</th>
+                                </tr>
+                            </thead>
+                            <tbody id="payoutHistoryTableBody">
+                                <tr>
+                                    <td colspan="7" class="loading">
+                                        <div class="spinner"></div>
+                                        Loading payout history...
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
             </div>
 
             <!-- Demographics Section -->
@@ -1458,6 +2051,51 @@
                         </div>
                         <div class="chart-content">
                             <canvas id="growthTrendsChart" height="300"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Customer Chats Section -->
+            <div id="chats" class="section">
+                <div class="content-header">
+                    <h2>💬 Customer Chats</h2>
+                    <p>Monitor and manage customer support conversations</p>
+                </div>
+                <div class="data-section">
+                    <div class="section-header">
+                        <h3>🇯🇲 Active Support Conversations</h3>
+                        <div class="search-container">
+                            <input type="text" id="chatSearch" placeholder="Search conversations..." style="padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; width: 300px;">
+                            <button onclick="loadChats()" style="padding: 8px 16px; background: #FFD700; border: none; border-radius: 8px; margin-left: 10px; cursor: pointer;">🔄 Refresh</button>
+                        </div>
+                    </div>
+                    <div id="chatsContainer" style="background: white; border-radius: 15px; padding: 20px; box-shadow: 0 5px 20px rgba(0,0,0,0.1);">
+                        <div class="chat-interface">
+                            <div class="conversations-panel" style="width: 40%; border-right: 2px solid #FFD700; padding-right: 20px;">
+                                <h4 style="color: #006400; margin-bottom: 15px;">🗨️ Conversations</h4>
+                                <div id="conversationsList" style="max-height: 500px; overflow-y: auto;">
+                                    <div class="loading-state" style="text-align: center; padding: 40px; color: #666;">
+                                        Loading conversations...
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="chat-viewer" style="width: 60%; padding-left: 20px;">
+                                <h4 style="color: #006400; margin-bottom: 15px;">💭 Chat Messages</h4>
+                                <div id="chatMessages" style="height: 400px; border: 2px solid #FFD700; border-radius: 10px; padding: 15px; overflow-y: auto; background: linear-gradient(to bottom, #E6F3FF, #F0F8FF);">
+                                    <div class="no-chat-selected" style="text-align: center; padding: 100px 20px; color: #666;">
+                                        <div style="font-size: 48px; margin-bottom: 20px;">🇯🇲</div>
+                                        <h3>Select a conversation</h3>
+                                        <p>Choose a chat from the left to view messages</p>
+                                    </div>
+                                </div>
+                                <div class="admin-reply-section" id="replySection" style="display: none; margin-top: 15px;">
+                                    <div style="display: flex; gap: 10px;">
+                                        <input type="text" id="adminReply" placeholder="Type your response..." style="flex: 1; padding: 12px; border: 2px solid #FFD700; border-radius: 8px; font-size: 14px;">
+                                        <button onclick="sendAdminReply()" style="padding: 12px 20px; background: linear-gradient(135deg, #006400, #228B22); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer;">Send 🚀</button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2223,10 +2861,14 @@ async function loadUsers() {
         <td>${user.order_count || 0}</td>
         <td>${user.products_listed || 0}</td>
         <td>J$${(user.total_spent || 0).toFixed(2)}</td>
+        <td><strong style="color: #27ae60;">J$${(user.seller_revenue || 0).toFixed(2)}</strong></td>
         <td><span class="badge ${statusBadge}">${status}</span></td>
         <td>
             <button class="btn btn-primary" onclick="viewUser('${user.email}')">View</button>
-            <button class="btn btn-warning" onclick="flagUser('${user.email}')">Flag</button>
+            ${user.flag_count > 0
+                ? `<button class="btn btn-success" onclick="unflagUser('${user.email}')">Unflag</button>`
+                : `<button class="btn btn-warning" onclick="flagUser('${user.email}')">Flag</button>`
+            }
         </td>
     `;
     return row;
@@ -2253,6 +2895,10 @@ async function loadUsers() {
                         tbody.appendChild(row);
                     });
                     console.log(`Loaded ${response.products.length} products`);
+
+                    // Create charts after products are loaded
+                    createProductCategoryChart(response.products);
+                    createBestSellingChart(response.products);
                 } else {
                     tbody.innerHTML = '<tr><td colspan="10" class="empty-state"><div class="icon">📦</div><h3>No products yet</h3><p>Products will appear here as sellers add them</p></td></tr>';
                 }
@@ -2260,6 +2906,115 @@ async function loadUsers() {
                 console.error('Error loading products:', error);
                 tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#e74c3c;">Error loading products</td></tr>';
             }
+        }
+
+        // Create Products by Category Chart
+        function createProductCategoryChart(products) {
+            if (!products || products.length === 0) return;
+
+            // Group products by category
+            const categoryCount = {};
+            products.forEach(product => {
+                const category = product.category || 'Uncategorized';
+                categoryCount[category] = (categoryCount[category] || 0) + 1;
+            });
+
+            const categories = Object.keys(categoryCount);
+            const counts = Object.values(categoryCount);
+
+            createChart('productsCategoryChart', 'doughnut', {
+                labels: categories,
+                datasets: [{
+                    data: counts,
+                    backgroundColor: generateColors(categories.length),
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            }, {
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: {
+                            font: { size: 12 },
+                            padding: 15
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = ((value / total) * 100).toFixed(1);
+                                return `${label}: ${value} products (${percentage}%)`;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Create Best Selling Products Chart (Top 10)
+        function createBestSellingChart(products) {
+            if (!products || products.length === 0) return;
+
+            // Sort products by sold quantity and get top 10
+            const sortedProducts = [...products]
+                .filter(p => (p.sold || 0) > 0)
+                .sort((a, b) => (b.sold || 0) - (a.sold || 0))
+                .slice(0, 10);
+
+            if (sortedProducts.length === 0) {
+                // Show message if no sales data
+                const ctx = document.getElementById('bestSellingChart')?.getContext('2d');
+                if (ctx) {
+                    if (charts['bestSellingChart']) {
+                        charts['bestSellingChart'].destroy();
+                    }
+                }
+                return;
+            }
+
+            const labels = sortedProducts.map(p => {
+                const name = p.name || 'Unknown Product';
+                return name.length > 20 ? name.substring(0, 20) + '...' : name;
+            });
+            const salesData = sortedProducts.map(p => p.sold || 0);
+
+            createChart('bestSellingChart', 'bar', {
+                labels: labels,
+                datasets: [{
+                    label: 'Units Sold',
+                    data: salesData,
+                    backgroundColor: 'rgba(39, 174, 96, 0.8)',
+                    borderColor: 'rgba(39, 174, 96, 1)',
+                    borderWidth: 2
+                }]
+            }, {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Sold: ${context.parsed.x} units`;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            });
         }
 
         function createProductRow(product) {
@@ -2278,7 +3033,7 @@ async function loadUsers() {
                     <div style="display: flex; align-items: center; gap: 10px;">
                         <img src="/static/${product.image_url}" alt="${product.name}"
                              style="width: 50px; height: 50px; object-fit: cover; border-radius: 5px;"
-                             onerror="this.src='/static/placeholder.jpg'">
+                             onerror="this.src='/static/product-placeholder.svg'">
                         <div>
                             <strong>${product.name}</strong>
                             <div style="font-size: 12px; color: #666;">Key: ${product.product_key}</div>
@@ -2298,7 +3053,7 @@ async function loadUsers() {
                 <td><span class="badge ${statusClass}">${status}</span></td>
                 <td>
                     <button class="btn btn-primary" onclick="viewProduct('${product.product_key}')">View</button>
-                    <button class="btn btn-warning" onclick="editProduct('${product.product_key}')">Edit</button>
+                    <button class="btn btn-warning" onclick="flagProduct('${product.product_key}', '${product.seller_email}')">Flag</button>
                 </td>
             `;
             return row;
@@ -2309,7 +3064,7 @@ async function loadSellers() {
     const tbody = document.getElementById('sellersTableBody');
     if (!tbody) return;
 
-    tbody.innerHTML = '<tr><td colspan="9" class="loading"><div class="spinner"></div>Loading sellers...</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="loading"><div class="spinner"></div>Loading sellers...</td></tr>';
 
     try {
         // 🎯 Call the dedicated sellers endpoint (not users)
@@ -2323,11 +3078,11 @@ async function loadSellers() {
             });
             console.log(`Loaded ${response.sellers.length} sellers`);
         } else {
-            tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><div class="icon">🏪</div><h3>No sellers yet</h3><p>Sellers will appear here as they register</p></td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="empty-state"><div class="icon">🏪</div><h3>No sellers yet</h3><p>Sellers will appear here as they register</p></td></tr>';
         }
     } catch (error) {
         console.error('Error loading sellers:', error);
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#e74c3c;">Error loading sellers</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#e74c3c;">Error loading sellers</td></tr>';
     }
 }
 
@@ -2345,15 +3100,28 @@ async function loadSellers() {
                 </td>
                 <td>${seller.business_address || seller.parish || 'N/A'}</td>
                 <td>${seller.products_listed || 0}</td>
-                <td>0</td>
-                <td>J$${(seller.total_spent || 0).toFixed(2)}</td>
+                <td><strong>${seller.total_sales || 0}</strong></td>
+                <td><strong style="color: #27ae60;">J$${(seller.total_revenue || 0).toFixed(2)}</strong></td>
                 <td>
                     <div style="display: flex; align-items: center;">
-                        <span style="color: #ddd;">☆☆☆☆☆</span>
-                        <span style="margin-left: 5px; font-size: 12px; color: #666;">(0)</span>
+                        ${seller.avg_rating > 0 ?
+                            `<span style="color: #FFD700;">${'★'.repeat(Math.round(seller.avg_rating))}${'☆'.repeat(5 - Math.round(seller.avg_rating))}</span>` :
+                            `<span style="color: #ddd;">☆☆☆☆☆</span>`
+                        }
+                        <span style="margin-left: 5px; font-size: 12px; color: #666;">(${seller.rating_count || 0})</span>
                     </div>
                 </td>
                 <td><span class="badge ${seller.flag_count > 0 ? 'inactive' : 'active'}">${seller.flag_count > 0 ? 'Flagged' : 'Active'}</span></td>
+                <td>
+                    <label class="toggle-switch" title="${seller.cod_enabled ? 'Disable COD for this seller' : 'Enable COD for this seller'}">
+                        <input type="checkbox" ${seller.cod_enabled ? 'checked' : ''}
+                               onchange="toggleCOD('${seller.email}', this.checked)">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <div style="font-size: 11px; color: ${seller.cod_enabled ? '#27ae60' : '#95a5a6'}; margin-top: 4px;">
+                        ${seller.cod_enabled ? '💵 Enabled' : '🚫 Disabled'}
+                    </div>
+                </td>
                 <td>
                     <button class="btn btn-primary" onclick="viewSeller('${seller.email}')">View</button>
                     <button class="btn btn-warning" onclick="flagSeller('${seller.email}')">Flag</button>
@@ -2380,11 +3148,11 @@ async function loadSellers() {
                     });
                     console.log(`Loaded ${response.orders.length} orders`);
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><div class="icon">🛒</div><h3>No orders yet</h3><p>Orders will appear here as customers make purchases</p></td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="10" class="empty-state"><div class="icon">🛒</div><h3>No orders yet</h3><p>Orders will appear here as customers make purchases</p></td></tr>';
                 }
             } catch (error) {
                 console.error('Error loading orders:', error);
-                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#e74c3c;">Error loading orders</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; color:#e74c3c;">Error loading orders</td></tr>';
             }
         }
 
@@ -2405,6 +3173,22 @@ async function loadSellers() {
                 'refunded': 'cancelled'
             }[order.status] || 'pending';
 
+            // Payment verification badge
+            const paymentVerifiedBadge = order.payment_verified
+                ? '<span class="badge completed" style="background: #27ae60;">✓ Verified</span>'
+                : (order.payment_method === 'lynk' || order.payment_method === 'whatsapp')
+                    ? '<span class="badge pending" style="background: #f39c12;">⏳ Pending</span>'
+                    : '<span class="badge" style="background: #95a5a6;">N/A</span>';
+
+            // Payment method display with Lynk reference
+            let paymentMethodDisplay = order.payment_method || 'N/A';
+            if (order.payment_method === 'lynk' && order.lynk_reference) {
+                paymentMethodDisplay = `
+                    <div><strong>Lynk</strong></div>
+                    <div style="font-size: 11px; color: #666;">Ref: ${order.lynk_reference}</div>
+                `;
+            }
+
             row.innerHTML = `
                 <td>
                     <div><strong>#${order.order_id.substring(0, 8)}</strong></div>
@@ -2417,12 +3201,17 @@ async function loadSellers() {
                 <td>${order.parish || 'N/A'}</td>
                 <td>${order.item_count || 0} items</td>
                 <td>J$${order.total}</td>
-                <td>${order.payment_method || 'N/A'}</td>
+                <td>${paymentMethodDisplay}</td>
                 <td>${orderDate}</td>
                 <td><span class="badge ${statusClass}">${order.status || 'pending'}</span></td>
+                <td>${paymentVerifiedBadge}</td>
                 <td>
                     <button class="btn btn-primary" onclick="viewOrder('${order.order_id}')">View</button>
                     <button class="btn btn-warning" onclick="updateOrderStatus('${order.order_id}')">Update</button>
+                    ${!order.payment_verified && (order.payment_method === 'lynk' || order.payment_method === 'whatsapp')
+                        ? `<button class="btn" style="background: #27ae60; color: white;" onclick="verifyPayment('${order.order_id}', true)">✓ Verify</button>
+                           <button class="btn" style="background: #e74c3c; color: white;" onclick="verifyPayment('${order.order_id}', false)">✗ Reject</button>`
+                        : ''}
                 </td>
             `;
             return row;
@@ -2626,29 +3415,306 @@ async function loadSellers() {
             window.open(`/product/${encodeURIComponent(productKey.replace(/ /g, '+'))}`, '_blank');
         }
 
-        async function editProduct(productKey) {
-            showNotification(`Edit product: ${productKey}`, 'info');
+        async function flagProduct(productKey, sellerEmail) {
+            const reason = prompt(`Why are you flagging product "${productKey}"?`);
+            if (!reason || reason.trim() === '') {
+                return;
+            }
+
+            if (!confirm(`Flag this product?\nSeller: ${sellerEmail}\nReason: ${reason}\n\nThis will flag the seller and hide ALL their product images.`)) {
+                return;
+            }
+
+            // Flag the seller (which hides all their products)
+            await flagUser(sellerEmail);
         }
 
         async function viewSeller(email) {
-            window.open(`/seller/${email}`, '_blank');
+            const modal = document.getElementById('sellerModal');
+            const modalBody = document.getElementById('sellerModalBody');
+            const modalTitle = document.getElementById('modalSellerName');
+
+            // Show modal with loading state
+            modal.style.display = 'block';
+            modalBody.innerHTML = '<div class="loading"><div class="spinner"></div>Loading seller details...</div>';
+            modalTitle.textContent = 'Loading...';
+
+            try {
+                const response = await apiCall(`/admin/api/seller/${encodeURIComponent(email)}`);
+
+                if (response.success) {
+                    displaySellerDetails(response.seller);
+                } else {
+                    modalBody.innerHTML = `
+                        <div class="no-data-message">
+                            <h3>❌ Error Loading Seller</h3>
+                            <p>${response.message || 'Unable to load seller details'}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading seller details:', error);
+                modalBody.innerHTML = `
+                    <div class="no-data-message">
+                        <h3>❌ Error</h3>
+                        <p>Failed to load seller details. Please try again.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displaySellerDetails(seller) {
+            const modalTitle = document.getElementById('modalSellerName');
+            const modalBody = document.getElementById('sellerModalBody');
+
+            modalTitle.innerHTML = `${seller.business_name || seller.first_name + ' ' + seller.last_name} <span class="badge-large badge-seller">🏪 Seller</span>`;
+
+            let html = `
+                <div class="user-info-section">
+                    <h3>📊 Seller Statistics</h3>
+                    <div class="stats-summary">
+                        <div class="stat-card">
+                            <div class="stat-value">${seller.products_listed || 0}</div>
+                            <div class="stat-label">Products Listed</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${seller.total_sales || 0}</div>
+                            <div class="stat-label">Total Sales</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">J$${(seller.total_revenue || 0).toFixed(2)}</div>
+                            <div class="stat-label">Total Revenue</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value">${seller.avg_rating > 0 ? seller.avg_rating.toFixed(1) : '0.0'} ⭐</div>
+                            <div class="stat-label">Rating (${seller.rating_count || 0})</div>
+                        </div>
+                    </div>
+                </div>
+
+                ${seller.flag_count > 0 ? `
+                <div class="flag-section">
+                    <h3 style="color: #e74c3c;">⚠️ This seller has ${seller.flag_count} active flag(s)</h3>
+                    <p>Product images are hidden from public view.</p>
+                </div>
+                ` : ''}
+
+                <div class="user-info-section">
+                    <h3>📋 Seller Information</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Email</div>
+                            <div class="info-value">${seller.email}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Full Name</div>
+                            <div class="info-value">${seller.first_name || ''} ${seller.last_name || ''}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Business Name</div>
+                            <div class="info-value">${seller.business_name || 'N/A'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Phone Number</div>
+                            <div class="info-value">${seller.phone_number || 'N/A'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Parish</div>
+                            <div class="info-value">${seller.parish || 'N/A'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Business Address</div>
+                            <div class="info-value">${seller.business_address || 'N/A'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Verification Status</div>
+                            <div class="info-value">${seller.verification_status === 'verified' ? '✅ Verified' : seller.verification_status === 'pending' ? '⏳ Pending' : '❌ Not Verified'}</div>
+                        </div>
+                        ${seller.verification_date ? `
+                        <div class="info-item">
+                            <div class="info-label">Verified On</div>
+                            <div class="info-value">${new Date(seller.verification_date).toLocaleDateString()}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                </div>
+
+                ${seller.business_description ? `
+                <div class="user-info-section">
+                    <h3>📝 Business Description</h3>
+                    <p>${seller.business_description}</p>
+                </div>
+                ` : ''}
+
+                <div class="modal-actions">
+                    <button class="modal-btn modal-btn-primary" onclick="window.open('/seller/${seller.email}', '_blank')">🏪 Visit Store</button>
+                    ${seller.flag_count > 0 ?
+                        `<button class="modal-btn modal-btn-unflag" onclick="unflagSellerFromModal('${seller.email}')">✓ Unflag Seller</button>` :
+                        `<button class="modal-btn modal-btn-flag" onclick="flagSellerFromModal('${seller.email}')">⚠ Flag Seller</button>`
+                    }
+                    <button class="modal-btn modal-btn-close" onclick="closeSellerModal()">Close</button>
+                </div>
+            `;
+
+            modalBody.innerHTML = html;
         }
 
         async function flagSeller(email) {
-            const reason = prompt('Enter reason for flagging seller:');
-            if (reason) {
-                showNotification(`Seller ${email} flagged: ${reason}`, 'warning');
+            const reason = prompt('Why are you flagging this seller?');
+            if (!reason || reason.trim() === '') return;
+
+            if (!confirm(`Flag ${email} for: ${reason}?\n\nThis will hide all their product images.`)) return;
+
+            try {
+                const response = await apiCall('/admin/api/flag_user', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        user_email: email,
+                        flag_type: 'suspended',
+                        reason: reason,
+                        expires_days: null
+                    })
+                });
+
+                if (response.success) {
+                    showNotification(`Seller flagged - all product images hidden`, 'success');
+                    await loadSellers();
+                } else {
+                    showNotification(`Failed: ${response.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error flagging seller:', error);
+                showNotification('Error flagging seller', 'error');
+            }
+        }
+
+        async function flagSellerFromModal(email) {
+            await flagSeller(email);
+            await viewSeller(email);
+        }
+
+        async function unflagSellerFromModal(email) {
+            if (!confirm(`Remove all flags from ${email}?\n\nTheir products will become visible again.`)) return;
+
+            try {
+                const response = await apiCall('/admin/api/unflag_user', {
+                    method: 'POST',
+                    body: JSON.stringify({ user_email: email })
+                });
+
+                if (response.success) {
+                    showNotification(`Seller unflagged - products now visible`, 'success');
+                    await viewSeller(email);
+                    await loadSellers();
+                } else {
+                    showNotification(`Failed: ${response.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error unflagging seller:', error);
+                showNotification('Error unflagging seller', 'error');
+            }
+        }
+
+        function closeSellerModal() {
+            document.getElementById('sellerModal').style.display = 'none';
+        }
+
+        // Toggle COD access for a seller
+        async function toggleCOD(email, enabled) {
+            try {
+                const response = await apiCall('/admin/api/toggle_cod', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        seller_email: email,
+                        cod_enabled: enabled
+                    })
+                });
+
+                if (response.success) {
+                    showNotification(
+                        `💵 COD ${enabled ? 'enabled' : 'disabled'} for ${email}`,
+                        'success'
+                    );
+                    await loadSellers(); // Reload to reflect changes
+                } else {
+                    showNotification(`Failed: ${response.message}`, 'error');
+                    // Revert the toggle if failed
+                    await loadSellers();
+                }
+            } catch (error) {
+                console.error('Error toggling COD:', error);
+                showNotification('Error updating COD access', 'error');
+                // Revert the toggle if failed
+                await loadSellers();
             }
         }
 
         async function viewOrder(orderId) {
-            showNotification(`Viewing order: ${orderId}`, 'info');
+            // Open order tracking page in new tab
+            window.open(`/track_order?order_id=${orderId}`, '_blank');
         }
 
         async function updateOrderStatus(orderId) {
-            const newStatus = prompt('Enter new status (pending, confirmed, shipped, delivered, cancelled):');
-            if (newStatus) {
-                showNotification(`Order ${orderId} status updated to: ${newStatus}`, 'success');
+            const newStatus = prompt('Update order status to:\n\npending | confirmed | shipped | delivered | cancelled');
+            if (!newStatus) return;
+
+            const validStatuses = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
+            if (!validStatuses.includes(newStatus.toLowerCase())) {
+                showNotification('Invalid status. Use: pending, confirmed, shipped, delivered, or cancelled', 'error');
+                return;
+            }
+
+            if (!confirm(`Change order ${orderId.substring(0, 8)} to: ${newStatus}?`)) {
+                return;
+            }
+
+            try {
+                const response = await apiCall('/admin/api/update_order_status', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        order_id: orderId,
+                        status: newStatus.toLowerCase()
+                    })
+                });
+
+                if (response.success) {
+                    showNotification(`Order status updated to: ${newStatus}`, 'success');
+                    await loadOrders();
+                } else {
+                    showNotification(`Failed: ${response.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error updating order status:', error);
+                showNotification('Error updating order status', 'error');
+            }
+        }
+
+        async function verifyPayment(orderId, verified) {
+            const action = verified ? 'verify' : 'reject';
+            const shortId = orderId.substring(0, 8);
+
+            if (!confirm(`${verified ? '✓ Verify' : '✗ Reject'} payment for order ${shortId}?\n\n${verified ? 'This will mark the payment as verified and change status to confirmed.' : 'This will reject the payment and keep status as pending_payment.'}`)) {
+                return;
+            }
+
+            try {
+                const response = await apiCall('/admin/verify_lynk_payment', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        order_id: orderId,
+                        verified: verified
+                    })
+                });
+
+                if (response.success) {
+                    showNotification(`Payment ${verified ? 'verified' : 'rejected'} successfully!`, 'success');
+                    await loadOrders();
+                } else {
+                    showNotification(`Failed: ${response.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error verifying payment:', error);
+                showNotification('Error verifying payment', 'error');
             }
         }
 
@@ -2703,6 +3769,832 @@ async function loadSellers() {
 
         // Setup search filters after DOM load
         document.addEventListener('DOMContentLoaded', setupSearchFilters);
+
+        // Customer Chat Functions
+        let selectedConversation = null;
+
+        function loadChats() {
+            console.log('Loading chats...');
+
+            // Simulate loading conversations from the database
+            fetch('/admin/api/conversations')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayConversations(data.conversations);
+                    } else {
+                        console.error('Failed to load conversations');
+                        displayNoConversations();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading conversations:', error);
+                    displayNoConversations();
+                });
+        }
+
+        function displayConversations(conversations) {
+            const container = document.getElementById('conversationsList');
+
+            if (!conversations || conversations.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #666;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">📭</div>
+                        <h4>No conversations yet</h4>
+                        <p>Customer chats will appear here</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = conversations.map(conv => `
+                <div class="conversation-item" onclick="selectConversation('${conv.session_id}', '${conv.user_email}')">
+                    <h5>🇯🇲 ${conv.user_email}</h5>
+                    <p>Last active: ${formatTime(conv.last_message_time)}</p>
+                    <p>Messages: ${conv.message_count}</p>
+                    ${conv.unread_count > 0 ? `<span style="background: #e74c3c; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px;">${conv.unread_count} new</span>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function displayNoConversations() {
+            const container = document.getElementById('conversationsList');
+            container.innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #666;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">🔌</div>
+                    <h4>Connection Issue</h4>
+                    <p>Unable to load conversations</p>
+                    <button onclick="loadChats()" style="padding: 8px 16px; background: #FFD700; border: none; border-radius: 8px; margin-top: 10px; cursor: pointer;">🔄 Retry</button>
+                </div>
+            `;
+        }
+
+        function selectConversation(sessionId, userEmail) {
+            selectedConversation = { sessionId, userEmail };
+
+            // Update UI
+            document.querySelectorAll('.conversation-item').forEach(item => item.classList.remove('active'));
+            event.target.closest('.conversation-item').classList.add('active');
+
+            // Load messages for this conversation
+            loadMessages(sessionId);
+
+            // Show reply section
+            document.getElementById('replySection').style.display = 'block';
+        }
+
+        function loadMessages(sessionId) {
+            fetch(`/admin/api/conversation/${sessionId}/messages`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        displayMessages(data.messages);
+                    } else {
+                        console.error('Failed to load messages');
+                        displayNoMessages();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading messages:', error);
+                    displayNoMessages();
+                });
+        }
+
+        function displayMessages(messages) {
+            const container = document.getElementById('chatMessages');
+
+            if (!messages || messages.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 100px 20px; color: #666;">
+                        <div style="font-size: 48px; margin-bottom: 20px;">💬</div>
+                        <h3>No messages yet</h3>
+                        <p>Start the conversation by sending a message</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = messages.map(msg => `
+                <div class="message-item ${msg.sender}">
+                    ${escapeHtml(msg.message)}
+                    <span class="message-time">${formatTime(msg.timestamp)}</span>
+                </div>
+            `).join('');
+
+            // Scroll to bottom
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function displayNoMessages() {
+            const container = document.getElementById('chatMessages');
+            container.innerHTML = `
+                <div style="text-align: center; padding: 100px 20px; color: #666;">
+                    <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
+                    <h3>Error loading messages</h3>
+                    <p>Unable to fetch conversation messages</p>
+                </div>
+            `;
+        }
+
+        function sendAdminReply() {
+            if (!selectedConversation) {
+                alert('Please select a conversation first');
+                return;
+            }
+
+            const replyInput = document.getElementById('adminReply');
+            const message = replyInput.value.trim();
+
+            if (!message) {
+                alert('Please enter a message');
+                return;
+            }
+
+            // Send the reply
+            fetch('/admin/api/send_reply', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify({
+                    session_id: selectedConversation.sessionId,
+                    user_email: selectedConversation.userEmail,
+                    message: message
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    replyInput.value = '';
+                    loadMessages(selectedConversation.sessionId);
+                    loadChats(); // Refresh conversation list
+                } else {
+                    alert('Failed to send message: ' + (data.message || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error sending reply:', error);
+                alert('Error sending message');
+            });
+        }
+
+        function formatTime(timestamp) {
+            if (!timestamp) return 'Unknown';
+            const date = new Date(timestamp);
+            return date.toLocaleString('en-US', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load chats when the chats section becomes active
+        document.addEventListener('DOMContentLoaded', function() {
+            // If chats section is shown, load conversations
+            const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                    const chatsSection = document.getElementById('chats');
+                    if (chatsSection && chatsSection.style.display !== 'none' &&
+                        chatsSection.classList.contains('active') ||
+                        window.location.hash === '#chats') {
+                        loadChats();
+                    }
+                });
+            });
+
+            // Auto-load chats if directly accessing #chats
+            if (window.location.hash === '#chats') {
+                setTimeout(loadChats, 1000);
+            }
+        });
+
+        // USER MANAGEMENT FUNCTIONS - View User Details Modal
+        let currentUserEmail = null;
+
+        async function viewUser(email) {
+            currentUserEmail = email;
+            const modal = document.getElementById('userModal');
+            const modalBody = document.getElementById('userModalBody');
+            const modalTitle = document.getElementById('modalUserName');
+
+            // Show modal with loading state
+            modal.style.display = 'block';
+            modalBody.innerHTML = '<div class="loading"><div class="spinner"></div>Loading user details...</div>';
+            modalTitle.textContent = 'Loading...';
+
+            try {
+                const response = await apiCall(`/admin/api/user_details/${encodeURIComponent(email)}`);
+
+                if (response.success) {
+                    displayUserDetails(response);
+                } else {
+                    modalBody.innerHTML = `
+                        <div class="no-data-message">
+                            <h3>❌ Error Loading User</h3>
+                            <p>${response.message || 'Unable to load user details'}</p>
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                console.error('Error loading user details:', error);
+                modalBody.innerHTML = `
+                    <div class="no-data-message">
+                        <h3>❌ Error</h3>
+                        <p>Failed to load user details. Please try again.</p>
+                    </div>
+                `;
+            }
+        }
+
+        function displayUserDetails(data) {
+            const user = data.user;
+            const flags = data.flags || [];
+            const orders = data.orders || [];
+            const products = data.products || [];
+
+            const modalTitle = document.getElementById('modalUserName');
+            const modalBody = document.getElementById('userModalBody');
+
+            // Update modal title
+            modalTitle.innerHTML = `${user.first_name || ''} ${user.last_name || ''} <span class="badge-large ${user.is_seller ? 'badge-seller' : 'badge-buyer'}">${user.is_seller ? '🏪 Seller' : '👤 Buyer'}</span>`;
+
+            let html = '';
+
+            // Show flags if any
+            if (flags.length > 0) {
+                html += `
+                    <div class="flag-section">
+                        <h3 style="color: #e74c3c; margin-bottom: 15px;">⚠️ Active Flags (${flags.length})</h3>
+                        <div style="background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #e74c3c;">
+                            <strong style="color: #e74c3c;">🚫 All product images are currently hidden from public view</strong>
+                        </div>
+                        ${flags.map(flag => `
+                            <div class="flag-item">
+                                <div class="flag-type">${flag.flag_type || 'Warning'}</div>
+                                <div style="margin: 8px 0;"><strong>Reason:</strong> ${flag.reason || 'N/A'}</div>
+                                <div style="font-size: 12px; color: #666;">
+                                    <strong>Flagged by:</strong> ${flag.flagged_by || 'Admin'} on ${flag.flag_date ? new Date(flag.flag_date).toLocaleString() : 'Unknown'}
+                                </div>
+                                ${flag.expires_at ? `<div style="font-size: 12px; color: #666;"><strong>Expires:</strong> ${new Date(flag.expires_at).toLocaleString()}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+
+            // Calculate statistics
+            const totalOrderValue = orders.reduce((sum, order) => sum + (parseFloat(order.total) || 0), 0);
+            const totalProductRevenue = products.reduce((sum, product) => sum + ((product.sold || 0) * (product.price || 0)), 0);
+            const totalStock = products.reduce((sum, product) => sum + (product.amount || 0), 0);
+            const totalSold = products.reduce((sum, product) => sum + (product.sold || 0), 0);
+
+            // Statistics Summary
+            if (user.is_seller && products.length > 0) {
+                html += `
+                    <div class="user-info-section">
+                        <h3>📊 Seller Statistics</h3>
+                        <div class="stats-summary">
+                            <div class="stat-card">
+                                <div class="stat-value">${products.length}</div>
+                                <div class="stat-label">Products Listed</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value">${totalSold}</div>
+                                <div class="stat-label">Total Items Sold</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value">${totalStock}</div>
+                                <div class="stat-label">Current Stock</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value">J$${totalProductRevenue.toFixed(2)}</div>
+                                <div class="stat-label">Total Revenue</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (!user.is_seller && orders.length > 0) {
+                html += `
+                    <div class="user-info-section">
+                        <h3>📊 Buyer Statistics</h3>
+                        <div class="stats-summary">
+                            <div class="stat-card">
+                                <div class="stat-value">${orders.length}</div>
+                                <div class="stat-label">Total Orders</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value">J$${totalOrderValue.toFixed(2)}</div>
+                                <div class="stat-label">Total Spent</div>
+                            </div>
+                            <div class="stat-card">
+                                <div class="stat-value">J$${(totalOrderValue / orders.length).toFixed(2)}</div>
+                                <div class="stat-label">Avg Order Value</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // Personal Information Section
+            html += `
+                <div class="user-info-section">
+                    <h3>📋 Personal Information</h3>
+                    <div class="info-grid">
+                        <div class="info-item">
+                            <div class="info-label">Email</div>
+                            <div class="info-value">${user.email}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Full Name</div>
+                            <div class="info-value">${user.first_name || ''} ${user.last_name || ''}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Phone Number</div>
+                            <div class="info-value">${user.phone_number || 'N/A'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">WhatsApp Number</div>
+                            <div class="info-value">${user.whatsapp_number || 'N/A'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Parish</div>
+                            <div class="info-value">${user.parish || 'N/A'}</div>
+                        </div>
+                        <div class="info-item">
+                            <div class="info-label">Account Created</div>
+                            <div class="info-value">${user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}</div>
+                        </div>
+                        ${user.is_seller ? `
+                            <div class="info-item">
+                                <div class="info-label">Business Name</div>
+                                <div class="info-value">${user.business_name || 'N/A'}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Business Address</div>
+                                <div class="info-value">${user.business_address || 'N/A'}</div>
+                            </div>
+                            <div class="info-item">
+                                <div class="info-label">Verification Status</div>
+                                <div class="info-value">${user.verification_status === 'verified' ? '✅ Verified' : user.verification_status === 'pending' ? '⏳ Pending' : '❌ Not Verified'}</div>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+
+            // Orders Section (for buyers or sellers who also buy)
+            if (orders.length > 0) {
+                html += `
+                    <div class="user-info-section">
+                        <h3>🛒 Order History (${orders.length} orders)</h3>
+                        <table class="orders-table">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Date</th>
+                                    <th>Items</th>
+                                    <th>Total</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${orders.map(order => `
+                                    <tr>
+                                        <td>#${order.order_id.substring(0, 8)}</td>
+                                        <td>${order.order_date ? new Date(order.order_date).toLocaleDateString() : 'N/A'}</td>
+                                        <td>${order.item_count || 0} items</td>
+                                        <td>J$${order.total || 0}</td>
+                                        <td><span class="badge ${order.status === 'delivered' ? 'completed' : order.status === 'cancelled' ? 'cancelled' : 'pending'}">${order.status || 'pending'}</span></td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } else if (!user.is_seller) {
+                html += `
+                    <div class="user-info-section">
+                        <h3>🛒 Order History</h3>
+                        <div class="no-data-message">No orders placed yet</div>
+                    </div>
+                `;
+            }
+
+            // Products Section (for sellers)
+            if (user.is_seller) {
+                if (products.length > 0) {
+                    const isFlagged = flags.length > 0;
+                    html += `
+                        <div class="user-info-section">
+                            <h3>📦 Products Listed (${products.length} products)</h3>
+                            ${isFlagged ? `
+                                <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px; margin-bottom: 15px;">
+                                    <strong>⚠️ Note:</strong> Product images are currently hidden from public view due to active flags.
+                                    Images shown here are for admin reference only.
+                                </div>
+                            ` : ''}
+                            <div class="products-grid">
+                                ${products.map(product => {
+                                    const revenue = (product.sold || 0) * (product.price || 0);
+                                    return `
+                                    <div class="product-card-modal ${isFlagged ? 'flagged' : ''}">
+                                        ${isFlagged ? '<div class="flagged-overlay">🚫 Images Hidden</div>' : ''}
+                                        <img src="/static/${product.image_url || 'product-placeholder.svg'}"
+                                             alt="${product.name}"
+                                             onerror="this.src='/static/product-placeholder.svg'"
+                                             style="${isFlagged ? 'opacity: 0.6; filter: grayscale(50%);' : ''}">
+                                        <div class="product-info">
+                                            <div class="product-name">${product.name}</div>
+                                            <div class="product-price">J$${product.price}</div>
+                                            <div class="product-revenue">Revenue: J$${revenue.toFixed(2)}</div>
+                                            <div class="product-stats">
+                                                <span>Stock: ${product.amount || 0}</span>
+                                                <span>Sold: ${product.sold || 0}</span>
+                                            </div>
+                                            <div style="margin-top: 10px; display: flex; gap: 5px; flex-wrap: wrap;">
+                                                <span class="badge">${product.category || 'Uncategorized'}</span>
+                                                ${product.amount <= 0 ? '<span class="badge inactive">Out of Stock</span>' : ''}
+                                            </div>
+                                            <div style="margin-top: 8px; font-size: 11px; color: #666;">
+                                                Posted: ${product.posted_date ? new Date(product.posted_date).toLocaleDateString() : 'N/A'}
+                                            </div>
+                                        </div>
+                                    </div>
+                                `}).join('')}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    html += `
+                        <div class="user-info-section">
+                            <h3>📦 Products Listed</h3>
+                            <div class="no-data-message">No products listed yet</div>
+                        </div>
+                    `;
+                }
+            }
+
+            // Action Buttons
+            html += `
+                <div class="modal-actions">
+                    ${flags.length > 0 ?
+                        `<button class="modal-btn modal-btn-unflag" onclick="unflagUserFromModal('${user.email}')">✓ Unflag User</button>` :
+                        `<button class="modal-btn modal-btn-flag" onclick="flagUserFromModal('${user.email}')">⚠ Flag User</button>`
+                    }
+                    <button class="modal-btn modal-btn-close" onclick="closeUserModal()">Close</button>
+                </div>
+            `;
+
+            modalBody.innerHTML = html;
+        }
+
+        async function flagUser(email) {
+            const reason = prompt('Why are you flagging this user?');
+            if (!reason || reason.trim() === '') {
+                return;
+            }
+
+            if (!confirm(`Flag ${email} for: ${reason}?\n\nThis will hide all their product images.`)) {
+                return;
+            }
+
+            try {
+                const response = await apiCall('/admin/api/flag_user', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        user_email: email,
+                        flag_type: 'suspended',
+                        reason: reason,
+                        expires_days: null
+                    })
+                });
+
+                if (response.success) {
+                    showNotification(`User flagged - all product images hidden`, 'success');
+                    await loadUsers();
+                } else {
+                    showNotification(`Failed: ${response.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error flagging user:', error);
+                showNotification('Error flagging user', 'error');
+            }
+        }
+
+        async function flagUserFromModal(email) {
+            await flagUser(email);
+            // Refresh the modal
+            await viewUser(email);
+        }
+
+        async function unflagUser(email) {
+            if (!confirm(`Remove all flags from ${email}?\n\nTheir products will become visible again.`)) {
+                return;
+            }
+
+            try {
+                const response = await apiCall('/admin/api/unflag_user', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        user_email: email
+                    })
+                });
+
+                if (response.success) {
+                    showNotification(`User unflagged - products now visible`, 'success');
+                    await loadUsers();
+                } else {
+                    showNotification(`Failed: ${response.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error unflagging user:', error);
+                showNotification('Error unflagging user', 'error');
+            }
+        }
+
+        async function unflagUserFromModal(email) {
+            if (!confirm(`Are you sure you want to remove all flags from ${email}?`)) {
+                return;
+            }
+
+            try {
+                const response = await apiCall('/admin/api/unflag_user', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        user_email: email
+                    })
+                });
+
+                if (response.success) {
+                    showNotification(`User ${email} has been unflagged successfully`, 'success');
+                    // Refresh the modal
+                    await viewUser(email);
+                    // Reload users table
+                    await loadUsers();
+                } else {
+                    showNotification(`Failed to unflag user: ${response.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error unflagging user:', error);
+                showNotification('Error unflagging user', 'error');
+            }
+        }
+
+        function closeUserModal() {
+            const modal = document.getElementById('userModal');
+            modal.style.display = 'none';
+            currentUserEmail = null;
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('userModal');
+            if (event.target == modal) {
+                closeUserModal();
+            }
+        }
+
+        // PAYOUT APPROVAL FUNCTIONS
+        async function loadPendingPayouts() {
+            const tbody = document.getElementById('payoutsTableBody');
+            const summary = document.getElementById('payoutSummary');
+
+            if (!tbody) return;
+
+            tbody.innerHTML = '<tr><td colspan="9" class="loading"><div class="spinner"></div>Loading pending payouts...</td></tr>';
+
+            try {
+                const response = await apiCall('/admin/api/pending_payouts');
+                tbody.innerHTML = '';
+
+                if (response.success && response.payouts && response.payouts.length > 0) {
+                    response.payouts.forEach(payout => {
+                        const row = createPayoutRow(payout);
+                        tbody.appendChild(row);
+                    });
+
+                    // Show summary
+                    document.getElementById('totalPendingCount').textContent = response.summary.total_pending;
+                    document.getElementById('totalPendingAmount').textContent = response.summary.total_amount.toFixed(2);
+                    summary.style.display = 'block';
+
+                    console.log(`Loaded ${response.payouts.length} pending payouts`);
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><div class="icon">💸</div><h3>No pending payouts</h3><p>All seller payout requests have been processed</p></td></tr>';
+                    summary.style.display = 'none';
+                }
+            } catch (error) {
+                console.error('Error loading pending payouts:', error);
+                tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:#e74c3c;">Error loading payouts</td></tr>';
+                summary.style.display = 'none';
+            }
+        }
+
+        function createPayoutRow(payout) {
+            const row = document.createElement('tr');
+
+            const requestDate = payout.request_date ?
+                new Date(payout.request_date).toLocaleString() : 'Unknown';
+
+            const methodIcon = {
+                'card': '💳',
+                'mobile': '📱',
+                'bank': '🏦',
+                'lynk': '📱'
+            }[payout.method] || '💰';
+
+            row.innerHTML = `
+                <td>
+                    <div><strong>${payout.first_name || ''} ${payout.last_name || ''}</strong></div>
+                    <div style="font-size: 12px; color: #666;">${payout.seller_email}</div>
+                </td>
+                <td>
+                    <div>${methodIcon} ${payout.method ? payout.method.charAt(0).toUpperCase() + payout.method.slice(1) : 'N/A'}</div>
+                </td>
+                <td>
+                    <div style="font-size: 13px;">
+                        ${payout.account_number ? `<div><strong>Account:</strong> ${payout.account_number}</div>` : ''}
+                        ${payout.account_name ? `<div><strong>Name:</strong> ${payout.account_name}</div>` : ''}
+                        ${payout.bank_name ? `<div><strong>Bank:</strong> ${payout.bank_name}</div>` : ''}
+                        ${!payout.account_number && !payout.account_name && !payout.bank_name ? '<div style="color: #e74c3c;">⚠️ No payment details</div>' : ''}
+                    </div>
+                </td>
+                <td><strong>J$${payout.amount ? payout.amount.toFixed(2) : '0.00'}</strong></td>
+                <td style="color: #e67e22;">J$${payout.fee ? payout.fee.toFixed(2) : '0.00'}</td>
+                <td><strong style="color: #27ae60;">J$${payout.net_amount ? payout.net_amount.toFixed(2) : '0.00'}</strong></td>
+                <td>${payout.processing_time || 'N/A'}</td>
+                <td style="font-size: 12px;">${requestDate}</td>
+                <td>
+                    <button class="btn btn-success" onclick="approvePayout(${payout.id}, '${payout.seller_email}', ${payout.net_amount})">
+                        ✓ Approve
+                    </button>
+                    <button class="btn btn-danger" onclick="rejectPayout(${payout.id}, '${payout.seller_email}')">
+                        ✗ Reject
+                    </button>
+                </td>
+            `;
+            return row;
+        }
+
+        async function approvePayout(payoutId, sellerEmail, netAmount) {
+            if (!confirm(`Approve payout of J$${netAmount.toFixed(2)} for ${sellerEmail}?\n\nThis action will mark the payout as completed.`)) {
+                return;
+            }
+
+            try {
+                const response = await apiCall('/admin/api/approve_payout', {
+                    method: 'POST',
+                    body: JSON.stringify({ payout_id: payoutId })
+                });
+
+                if (response.success) {
+                    showNotification(`✅ Payout approved: J$${netAmount.toFixed(2)} for ${sellerEmail}`, 'success', 6000);
+                    await loadPendingPayouts();
+                    await loadPayoutHistory();
+                    await loadFinancials(); // Refresh financial stats
+                } else {
+                    showNotification(`❌ Failed: ${response.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error approving payout:', error);
+                showNotification('❌ Error approving payout', 'error');
+            }
+        }
+
+        async function rejectPayout(payoutId, sellerEmail) {
+            const reason = prompt(`Why are you rejecting this payout request for ${sellerEmail}?`);
+            if (!reason || reason.trim() === '') {
+                return;
+            }
+
+            if (!confirm(`Reject payout request for ${sellerEmail}?\nReason: ${reason}\n\nThe funds will be returned to the seller's balance.`)) {
+                return;
+            }
+
+            try {
+                const response = await apiCall('/admin/api/reject_payout', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        payout_id: payoutId,
+                        reason: reason
+                    })
+                });
+
+                if (response.success) {
+                    showNotification(`Payout rejected for ${sellerEmail}. Funds returned to balance.`, 'warning', 6000);
+                    await loadPendingPayouts();
+                    await loadPayoutHistory();
+                } else {
+                    showNotification(`Failed: ${response.message}`, 'error');
+                }
+            } catch (error) {
+                console.error('Error rejecting payout:', error);
+                showNotification('Error rejecting payout', 'error');
+            }
+        }
+
+        async function loadPayoutHistory() {
+            const tbody = document.getElementById('payoutHistoryTableBody');
+            if (!tbody) return;
+
+            tbody.innerHTML = '<tr><td colspan="7" class="loading"><div class="spinner"></div>Loading payout history...</td></tr>';
+
+            try {
+                const filter = document.getElementById('payoutStatusFilter')?.value || 'all';
+                const response = await apiCall(`/admin/api/payout_history?status=${filter}`);
+                tbody.innerHTML = '';
+
+                if (response.success && response.payouts && response.payouts.length > 0) {
+                    response.payouts.forEach(payout => {
+                        const row = createPayoutHistoryRow(payout);
+                        tbody.appendChild(row);
+                    });
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><div class="icon">📜</div><h3>No payout history</h3><p>Completed payouts will appear here</p></td></tr>';
+                }
+            } catch (error) {
+                console.error('Error loading payout history:', error);
+                tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; color:#e74c3c;">Error loading history</td></tr>';
+            }
+        }
+
+        function createPayoutHistoryRow(payout) {
+            const row = document.createElement('tr');
+
+            const requestDate = payout.request_date ?
+                new Date(payout.request_date).toLocaleDateString() : 'Unknown';
+            const completedDate = payout.completed_date ?
+                new Date(payout.completed_date).toLocaleDateString() : 'N/A';
+
+            const statusClass = {
+                'completed': 'completed',
+                'failed': 'cancelled'
+            }[payout.status] || 'pending';
+
+            row.innerHTML = `
+                <td>
+                    <div><strong>${payout.first_name || ''} ${payout.last_name || ''}</strong></div>
+                    <div style="font-size: 12px; color: #666;">${payout.seller_email}</div>
+                </td>
+                <td>${payout.method ? payout.method.charAt(0).toUpperCase() + payout.method.slice(1) : 'N/A'}</td>
+                <td>J$${payout.amount ? payout.amount.toFixed(2) : '0.00'}</td>
+                <td><strong style="color: #27ae60;">J$${payout.net_amount ? payout.net_amount.toFixed(2) : '0.00'}</strong></td>
+                <td><span class="badge ${statusClass}">${payout.status || 'unknown'}</span></td>
+                <td style="font-size: 12px;">${requestDate}</td>
+                <td style="font-size: 12px;">${completedDate}</td>
+            `;
+            return row;
+        }
+
+        // Auto-load payouts when financials section is shown
+        const originalLoadFinancials = loadFinancials;
+        loadFinancials = async function() {
+            await originalLoadFinancials();
+            await loadPendingPayouts();
+            await loadPayoutHistory();
+        };
     </script>
+
+    <!-- User Details Modal -->
+    <div id="userModal" class="user-modal">
+        <div class="user-modal-content">
+            <div class="user-modal-header">
+                <h2 id="modalUserName">User Details</h2>
+                <span class="close-modal" onclick="closeUserModal()">&times;</span>
+            </div>
+            <div class="user-modal-body" id="userModalBody">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading user details...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Seller Details Modal -->
+    <div id="sellerModal" class="user-modal">
+        <div class="user-modal-content">
+            <div class="user-modal-header">
+                <h2 id="modalSellerName">Seller Details</h2>
+                <span class="close-modal" onclick="closeSellerModal()">&times;</span>
+            </div>
+            <div class="user-modal-body" id="sellerModalBody">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    Loading seller details...
+                </div>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
