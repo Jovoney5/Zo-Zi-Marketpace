@@ -595,23 +595,26 @@ def get_all_products(active_only=True):
             products = []
             for row in cursor.fetchall():
                 product = dict(row)
-                # Parse JSON fields
-                if product.get('image_urls'):
+                # Handle JSON fields - PostgreSQL JSONB returns Python objects directly
+                image_urls = product.get('image_urls', [])
+                if isinstance(image_urls, str):
                     try:
-                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'],
-                                                                                                str) else product[
-                            'image_urls']
+                        product['image_urls'] = json.loads(image_urls)
                     except:
                         product['image_urls'] = []
+                elif isinstance(image_urls, list):
+                    product['image_urls'] = image_urls
                 else:
                     product['image_urls'] = []
 
-                if product.get('sizes'):
+                sizes = product.get('sizes', {})
+                if isinstance(sizes, str):
                     try:
-                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else \
-                        product['sizes']
+                        product['sizes'] = json.loads(sizes)
                     except:
                         product['sizes'] = {}
+                elif isinstance(sizes, dict):
+                    product['sizes'] = sizes
                 else:
                     product['sizes'] = {}
                 products.append(product)
@@ -630,22 +633,26 @@ def get_product_by_key(product_key):
             row = cursor.fetchone()
             if row:
                 product = dict(row)
-                if product.get('image_urls'):
+                # Handle JSON fields
+                image_urls = product.get('image_urls', [])
+                if isinstance(image_urls, str):
                     try:
-                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'],
-                                                                                                str) else product[
-                            'image_urls']
+                        product['image_urls'] = json.loads(image_urls)
                     except:
                         product['image_urls'] = []
+                elif isinstance(image_urls, list):
+                    product['image_urls'] = image_urls
                 else:
                     product['image_urls'] = []
 
-                if product.get('sizes'):
+                sizes = product.get('sizes', {})
+                if isinstance(sizes, str):
                     try:
-                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else \
-                        product['sizes']
+                        product['sizes'] = json.loads(sizes)
                     except:
                         product['sizes'] = {}
+                elif isinstance(sizes, dict):
+                    product['sizes'] = sizes
                 else:
                     product['sizes'] = {}
                 return product
@@ -664,22 +671,26 @@ def get_products_by_seller(seller_email):
             products = []
             for row in cursor.fetchall():
                 product = dict(row)
-                if product.get('image_urls'):
+                # Handle JSON fields
+                image_urls = product.get('image_urls', [])
+                if isinstance(image_urls, str):
                     try:
-                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'],
-                                                                                                str) else product[
-                            'image_urls']
+                        product['image_urls'] = json.loads(image_urls)
                     except:
                         product['image_urls'] = []
+                elif isinstance(image_urls, list):
+                    product['image_urls'] = image_urls
                 else:
                     product['image_urls'] = []
 
-                if product.get('sizes'):
+                sizes = product.get('sizes', {})
+                if isinstance(sizes, str):
                     try:
-                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else \
-                        product['sizes']
+                        product['sizes'] = json.loads(sizes)
                     except:
                         product['sizes'] = {}
+                elif isinstance(sizes, dict):
+                    product['sizes'] = sizes
                 else:
                     product['sizes'] = {}
                 products.append(product)
@@ -712,22 +723,26 @@ def search_products(query, category=None):
             products = []
             for row in cursor.fetchall():
                 product = dict(row)
-                if product.get('image_urls'):
+                # Handle JSON fields
+                image_urls = product.get('image_urls', [])
+                if isinstance(image_urls, str):
                     try:
-                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'],
-                                                                                                str) else product[
-                            'image_urls']
+                        product['image_urls'] = json.loads(image_urls)
                     except:
                         product['image_urls'] = []
+                elif isinstance(image_urls, list):
+                    product['image_urls'] = image_urls
                 else:
                     product['image_urls'] = []
 
-                if product.get('sizes'):
+                sizes = product.get('sizes', {})
+                if isinstance(sizes, str):
                     try:
-                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else \
-                        product['sizes']
+                        product['sizes'] = json.loads(sizes)
                     except:
                         product['sizes'] = {}
+                elif isinstance(sizes, dict):
+                    product['sizes'] = sizes
                 else:
                     product['sizes'] = {}
                 products.append(product)
@@ -1109,14 +1124,28 @@ def get_personalized_products(user_email, excluded_seller_emails=None):
             products = {}
             for row in cursor.fetchall():
                 product = dict(row)
-                # Parse JSON fields
-                if product.get('image_urls'):
-                    product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'],
-                                                                                            str) else product[
-                        'image_urls']
-                if product.get('sizes'):
-                    product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else product[
-                        'sizes']
+                # Handle JSON fields
+                image_urls = product.get('image_urls', [])
+                if isinstance(image_urls, str):
+                    try:
+                        product['image_urls'] = json.loads(image_urls)
+                    except:
+                        product['image_urls'] = []
+                elif isinstance(image_urls, list):
+                    product['image_urls'] = image_urls
+                else:
+                    product['image_urls'] = []
+
+                sizes = product.get('sizes', {})
+                if isinstance(sizes, str):
+                    try:
+                        product['sizes'] = json.loads(sizes)
+                    except:
+                        product['sizes'] = {}
+                elif isinstance(sizes, dict):
+                    product['sizes'] = sizes
+                else:
+                    product['sizes'] = {}
                 products[product['product_key']] = product
 
             return products
