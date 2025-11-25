@@ -139,37 +139,6 @@ def inject_csrf_token():
     return dict(csrf_token=generate_csrf)
 
 # Database connection helper
-from contextlib import contextmanager
-
-# Detect database type
-DATABASE_TYPE = os.getenv('DATABASE_TYPE', 'postgresql' if os.getenv('DATABASE_URL') else 'sqlite')
-
-@contextmanager
-def get_db():
-    """Database connection context manager - works with both PostgreSQL and SQLite"""
-    conn = None
-    try:
-        if DATABASE_TYPE == 'postgresql':
-            # PostgreSQL connection
-            conn = psycopg2.connect(os.getenv('DATABASE_URL'))
-            yield conn
-            conn.commit()
-        else:
-            # SQLite connection
-            import sqlite3
-            conn = sqlite3.connect('zo-zi.db')
-            conn.row_factory = sqlite3.Row
-            yield conn
-            conn.commit()
-    except Exception as e:
-        if conn:
-            conn.rollback()
-        logging.error(f"Database error: {e}")
-        raise
-    finally:
-        if conn:
-            conn.close()
-
 def init_db():
     conn = sqlite3.connect('zo-zi.db')
     conn.row_factory = sqlite3.Row
