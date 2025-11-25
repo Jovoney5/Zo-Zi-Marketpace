@@ -107,7 +107,8 @@ limiter = Limiter(
 print("✅ Rate limiting enabled - protecting against spam and attacks")
 
 # PRODUCTION SECURITY FIX #2: Force PostgreSQL, block SQLite in production
-DATABASE_TYPE = os.getenv('DATABASE_TYPE', 'sqlite')
+# Auto-detect PostgreSQL from DATABASE_URL (used by Render, Heroku, etc.)
+DATABASE_TYPE = os.getenv('DATABASE_TYPE', 'postgresql' if os.getenv('DATABASE_URL') else 'sqlite')
 print(f"🔧 Database Type: {DATABASE_TYPE}")
 
 if DATABASE_TYPE == 'postgresql':
@@ -116,7 +117,8 @@ if DATABASE_TYPE == 'postgresql':
         get_db,
         track_product_view,
         get_last_viewed_product,
-        get_personalized_products
+        get_personalized_products,
+        init_db as init_postgres_db
     )
     print("✅ Using PostgreSQL database (PRODUCTION READY)")
 else:
@@ -1635,6 +1637,7 @@ def index():
 
     except Exception as e:
         context['error'] = f"An error occurred: {str(e)}"
+        context['products'] = {}  # Ensure products is always defined
         return render_template('index.html', **context)
 
 
@@ -9406,6 +9409,10 @@ def reset_database_fresh():
 
 
 if __name__ == '__main__':
+    # Initialize PostgreSQL database if using PostgreSQL
+    if DATABASE_TYPE == 'postgresql':
+        init_postgres_db()
+
     add_purchase_count_column()              # ADD THIS
     update_purchase_counts_from_orders()     # ADD THIS
     fix_messaging_tables()
