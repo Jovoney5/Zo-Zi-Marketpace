@@ -313,6 +313,17 @@ def init_db():
                 )
             ''')
 
+            # User product views table for personalization
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS user_product_views (
+                    id SERIAL PRIMARY KEY,
+                    user_email VARCHAR(255) NOT NULL,
+                    product_key VARCHAR(255) NOT NULL,
+                    category VARCHAR(100),
+                    viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+
             # Create indexes for better performance
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_products_seller ON products(seller_email)')
@@ -320,7 +331,8 @@ def init_db():
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_email)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)')
             cursor.execute('CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient_email)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_email)')
+            cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_product_views ON user_product_views(user_email, viewed_at)')
 
             logger.info("✅ PostgreSQL database initialized successfully!")
             return True
