@@ -7718,7 +7718,10 @@ def product(product_key):
             product = cursor.fetchone()
         if not product:
             return redirect(url_for('index'))
-        product = dict(product, image_urls=json.loads(product['image_urls']), sizes=json.loads(product['sizes']))
+        # Handle JSON fields - PostgreSQL returns Python objects directly
+        image_urls = product['image_urls'] if isinstance(product['image_urls'], list) else json.loads(product['image_urls']) if product['image_urls'] else []
+        sizes = product['sizes'] if isinstance(product['sizes'], dict) else json.loads(product['sizes']) if product['sizes'] else {}
+        product = dict(product, image_urls=image_urls, sizes=sizes)
 
         # Check if seller is flagged - if so, completely hide product
         # is_user_flagged returns None if not flagged, dict if flagged
