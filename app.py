@@ -1356,8 +1356,8 @@ def free():
         cursor.execute('SELECT * FROM products WHERE price = 0')
         gifts = [
             dict(row,
-                 image_urls=json.loads(row['image_urls']),
-                 sizes=json.loads(row['sizes'])
+                 image_urls=row['image_urls'] if isinstance(row['image_urls'], list) else json.loads(row['image_urls']) if row['image_urls'] else [],
+                 sizes=row['sizes'] if isinstance(row['sizes'], dict) else json.loads(row['sizes']) if row['sizes'] else {}
                  )
             for row in cursor.fetchall()
         ]
@@ -1561,7 +1561,10 @@ def index():
                     cursor.execute('SELECT * FROM products ORDER BY RANDOM()')
                     products = {}
                     for row in cursor.fetchall():
-                        product = dict(row, image_urls=json.loads(row['image_urls']), sizes=json.loads(row['sizes']))
+                        # Handle JSON fields - PostgreSQL returns Python objects directly
+                        image_urls = row['image_urls'] if isinstance(row['image_urls'], list) else json.loads(row['image_urls']) if row['image_urls'] else []
+                        sizes = row['sizes'] if isinstance(row['sizes'], dict) else json.loads(row['sizes']) if row['sizes'] else {}
+                        product = dict(row, image_urls=image_urls, sizes=sizes)
                         if is_user_flagged(product['seller_email']) is None:
                             products[product['product_key']] = product
                     context['products'] = products
@@ -1575,7 +1578,10 @@ def index():
                     cursor.execute('SELECT * FROM products ORDER BY (clicks + likes * 2) DESC')
                 products = {}
                 for row in cursor.fetchall():
-                    product = dict(row, image_urls=json.loads(row['image_urls']), sizes=json.loads(row['sizes']))
+                    # Handle JSON fields - PostgreSQL returns Python objects directly
+                    image_urls = row['image_urls'] if isinstance(row['image_urls'], list) else json.loads(row['image_urls']) if row['image_urls'] else []
+                    sizes = row['sizes'] if isinstance(row['sizes'], dict) else json.loads(row['sizes']) if row['sizes'] else {}
+                    product = dict(row, image_urls=image_urls, sizes=sizes)
                     # Check if seller is flagged - completely hide product from homepage
                     if is_user_flagged(product['seller_email']) is None:
                         products[product['product_key']] = product
@@ -7090,7 +7096,10 @@ def product_listing():
             return redirect(url_for('login'))
         cursor.execute('SELECT * FROM products WHERE seller_email = %s', (seller_email,))
         seller_products = {
-            row['product_key']: dict(row, image_urls=json.loads(row['image_urls']), sizes=json.loads(row['sizes']))
+            row['product_key']: dict(row,
+                 image_urls=row['image_urls'] if isinstance(row['image_urls'], list) else json.loads(row['image_urls']) if row['image_urls'] else [],
+                 sizes=row['sizes'] if isinstance(row['sizes'], dict) else json.loads(row['sizes']) if row['sizes'] else {}
+                 )
             for row in cursor.fetchall()}
     cart_data = get_cart_items()
     return render_template(
@@ -7774,7 +7783,10 @@ def product(product_key):
             LIMIT 4
         ''', (product['category'], product['product_key']))
         related_products = [
-            dict(row, image_urls=json.loads(row['image_urls']), sizes=json.loads(row['sizes']))
+            dict(row,
+                 image_urls=row['image_urls'] if isinstance(row['image_urls'], list) else json.loads(row['image_urls']) if row['image_urls'] else [],
+                 sizes=row['sizes'] if isinstance(row['sizes'], dict) else json.loads(row['sizes']) if row['sizes'] else {}
+                 )
             for row in cursor.fetchall()
         ]
         user_liked = False
@@ -8995,7 +9007,10 @@ def search():
 
             cursor.execute(sql, params)
             products_list = [
-                dict(row, image_urls=json.loads(row['image_urls']), sizes=json.loads(row['sizes']))
+                dict(row,
+                 image_urls=row['image_urls'] if isinstance(row['image_urls'], list) else json.loads(row['image_urls']) if row['image_urls'] else [],
+                 sizes=row['sizes'] if isinstance(row['sizes'], dict) else json.loads(row['sizes']) if row['sizes'] else {}
+                 )
                 for row in cursor.fetchall()
             ]
             # Convert list to dictionary with product_key as key (matching index route format)
