@@ -79,261 +79,277 @@ def get_db_connection():
 # DATABASE MIGRATION SYSTEM
 # =============================================================================
 
-def run_migrations():
+def run_migrations(cursor=None, conn=None):
     """
     Run all database migrations to ensure schema is up to date.
     This handles adding missing tables and columns to existing databases.
     Safe to run multiple times - uses IF NOT EXISTS and checks.
+
+    Args:
+        cursor: Optional cursor to use (if None, creates new connection)
+        conn: Optional connection (used with cursor)
     """
+    # If no cursor provided, create new connection
+    if cursor is None:
+        try:
+            with get_db() as new_conn:
+                new_cursor = new_conn.cursor()
+                logger.info("🔄 Running database migrations...")
+                return _run_migrations_impl(new_cursor)
+        except Exception as e:
+            logger.error(f"❌ Migration error: {e}")
+            return False
+    else:
+        # Use provided cursor
+        logger.info("🔄 Running database migrations...")
+        return _run_migrations_impl(cursor)
+
+
+def _run_migrations_impl(cursor):
+    """Implementation of migrations using provided cursor"""
     try:
-        with get_db() as conn:
-            cursor = conn.cursor()
-            logger.info("🔄 Running database migrations...")
+        # Migration 1: Ensure user_flags table exists
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_flags (
+                id SERIAL PRIMARY KEY,
+                user_email VARCHAR(255) NOT NULL,
+                flag_type VARCHAR(50) NOT NULL,
+                reason TEXT,
+                flagged_by VARCHAR(255) NOT NULL,
+                flag_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                expires_at TIMESTAMP,
+                is_active BOOLEAN DEFAULT TRUE
+            )
+        ''')
+        logger.info("  ✓ user_flags table checked")
 
-            # Migration 1: Ensure user_flags table exists
+        # Migration: Ensure product_reviews table exists
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS product_reviews (
+                id SERIAL PRIMARY KEY,
+                product_key VARCHAR(255) NOT NULL,
+                buyer_email VARCHAR(255) NOT NULL,
+                seller_email VARCHAR(255) NOT NULL,
+                rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+                review_text TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_verified_purchase BOOLEAN DEFAULT FALSE,
+                UNIQUE(product_key, buyer_email)
+            )
+        ''')
+        logger.info("  ✓ product_reviews table checked")
+
+        # Migration 2: Ensure messages table has conversation_id
+        cursor.execute('''
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'messages' AND column_name = 'conversation_id'
+        ''')
+        if not cursor.fetchone():
+            # Check if messages table exists at all
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS user_flags (
-                    id SERIAL PRIMARY KEY,
-                    user_email VARCHAR(255) NOT NULL,
-                    flag_type VARCHAR(50) NOT NULL,
-                    reason TEXT,
-                    flagged_by VARCHAR(255) NOT NULL,
-                    flag_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    expires_at TIMESTAMP,
-                    is_active BOOLEAN DEFAULT TRUE
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables
+                    WHERE table_name = 'messages'
                 )
             ''')
-            conn.commit()  # Force commit so table is visible to other connections
-            logger.info("  ✓ user_flags table checked")
-
-            # Migration: Ensure product_reviews table exists
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS product_reviews (
-                    id SERIAL PRIMARY KEY,
-                    product_key VARCHAR(255) NOT NULL,
-                    buyer_email VARCHAR(255) NOT NULL,
-                    seller_email VARCHAR(255) NOT NULL,
-                    rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
-                    review_text TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    is_verified_purchase BOOLEAN DEFAULT FALSE,
-                    UNIQUE(product_key, buyer_email)
-                )
-            ''')
-            conn.commit()
-            logger.info("  ✓ product_reviews table checked")
-
-            # Migration 2: Ensure messages table has conversation_id
-            cursor.execute('''
-                SELECT column_name FROM information_schema.columns 
-                WHERE table_name = 'messages' AND column_name = 'conversation_id'
-            ''')
-            if not cursor.fetchone():
-                # Check if messages table exists at all
+            if cursor.fetchone()[0]:
+                # Table exists but missing column - add it
+                cursor.execute('ALTER TABLE messages ADD COLUMN conversation_id INTEGER DEFAULT 0')
+                cursor.execute(
+                    'UPDATE messages SET conversation_id = id WHERE conversation_id IS NULL OR conversation_id = 0')
+                logger.info("  ✓ Added conversation_id to messages table")
+            else:
+                # Create full messages table
                 cursor.execute('''
-                    SELECT EXISTS (
-                        SELECT FROM information_schema.tables 
-                        WHERE table_name = 'messages'
+                    CREATE TABLE messages (
+                        id SERIAL PRIMARY KEY,
+                        conversation_id INTEGER NOT NULL DEFAULT 0,
+                        sender_email VARCHAR(255) NOT NULL,
+                        receiver_email VARCHAR(255) NOT NULL,
+                        message TEXT NOT NULL,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        read_status BOOLEAN DEFAULT FALSE
                     )
                 ''')
-                if cursor.fetchone()[0]:
-                    # Table exists but missing column - add it
-                    cursor.execute('ALTER TABLE messages ADD COLUMN conversation_id INTEGER DEFAULT 0')
-                    cursor.execute(
-                        'UPDATE messages SET conversation_id = id WHERE conversation_id IS NULL OR conversation_id = 0')
-                    logger.info("  ✓ Added conversation_id to messages table")
-                else:
-                    # Create full messages table
-                    cursor.execute('''
-                        CREATE TABLE messages (
-                            id SERIAL PRIMARY KEY,
-                            conversation_id INTEGER NOT NULL DEFAULT 0,
-                            sender_email VARCHAR(255) NOT NULL,
-                            receiver_email VARCHAR(255) NOT NULL,
-                            message TEXT NOT NULL,
-                            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            read_status BOOLEAN DEFAULT FALSE
-                        )
-                    ''')
-                    logger.info("  ✓ Created messages table")
-            else:
-                logger.info("  ✓ messages.conversation_id exists")
+                logger.info("  ✓ Created messages table")
+        else:
+            logger.info("  ✓ messages.conversation_id exists")
 
-            # Migration 3: Ensure admin_activity_log table exists
+        # Migration 3: Ensure admin_activity_log table exists
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS admin_activity_log (
+                id SERIAL PRIMARY KEY,
+                admin_email VARCHAR(255) NOT NULL,
+                action_type VARCHAR(100) NOT NULL,
+                target_type VARCHAR(50),
+                target_id VARCHAR(255),
+                description TEXT,
+                timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                ip_address INET
+            )
+        ''')
+        logger.info("  ✓ admin_activity_log table checked")
+
+        # Migration 4: Ensure seller_finances table exists
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS seller_finances (
+                id SERIAL PRIMARY KEY,
+                seller_email VARCHAR(255) UNIQUE NOT NULL,
+                balance DECIMAL(10,2) DEFAULT 0,
+                total_sales DECIMAL(10,2) DEFAULT 0,
+                pending_withdrawals DECIMAL(10,2) DEFAULT 0,
+                total_withdrawn DECIMAL(10,2) DEFAULT 0,
+                last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                commission_rate DECIMAL(5,4) DEFAULT 0.05
+            )
+        ''')
+        logger.info("  ✓ seller_finances table checked")
+
+        # Migration 5: Ensure seller_transactions table exists
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS seller_transactions (
+                id SERIAL PRIMARY KEY,
+                seller_email VARCHAR(255) NOT NULL,
+                transaction_type VARCHAR(50) NOT NULL,
+                amount DECIMAL(10,2) NOT NULL,
+                description TEXT,
+                order_id VARCHAR(255),
+                transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        logger.info("  ✓ seller_transactions table checked")
+
+        # Migration 6: Ensure withdrawal_requests table exists
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS withdrawal_requests (
+                id SERIAL PRIMARY KEY,
+                seller_email VARCHAR(255) NOT NULL,
+                amount DECIMAL(10,2) NOT NULL,
+                status VARCHAR(50) DEFAULT 'pending',
+                request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                processed_date TIMESTAMP,
+                bank_details JSONB,
+                notes TEXT
+            )
+        ''')
+        logger.info("  ✓ withdrawal_requests table checked")
+
+        # Migration 7: Ensure seller_verification table exists
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS seller_verification (
+                id SERIAL PRIMARY KEY,
+                seller_email VARCHAR(255) UNIQUE NOT NULL,
+                business_name VARCHAR(255),
+                business_address TEXT,
+                phone_number VARCHAR(20),
+                id_document_path VARCHAR(255),
+                business_document_path VARCHAR(255),
+                bank_statement_path VARCHAR(255),
+                verification_status VARCHAR(50) DEFAULT 'pending_review',
+                submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                reviewed_at TIMESTAMP,
+                reviewed_by VARCHAR(255),
+                rejection_reason TEXT
+            )
+        ''')
+        logger.info("  ✓ seller_verification table checked")
+
+        # Migration 8: Ensure payment_transactions table exists
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS payment_transactions (
+                id SERIAL PRIMARY KEY,
+                transaction_id VARCHAR(255) UNIQUE NOT NULL,
+                order_id VARCHAR(255),
+                user_email VARCHAR(255) NOT NULL,
+                amount DECIMAL(10,2) NOT NULL,
+                payment_method VARCHAR(50) NOT NULL,
+                transaction_type VARCHAR(50) NOT NULL,
+                status VARCHAR(50) DEFAULT 'pending',
+                gateway_response JSONB,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                processed_at TIMESTAMP
+            )
+        ''')
+        logger.info("  ✓ payment_transactions table checked")
+
+        # Migration 9: Ensure contact_sessions table exists
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS contact_sessions (
+                id SERIAL PRIMARY KEY,
+                user_email VARCHAR(255) NOT NULL,
+                session_id VARCHAR(255) UNIQUE NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                is_active BOOLEAN DEFAULT TRUE
+            )
+        ''')
+        logger.info("  ✓ contact_sessions table checked")
+
+        # Migration 10: Ensure user_product_views table exists
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_product_views (
+                id SERIAL PRIMARY KEY,
+                user_email VARCHAR(255) NOT NULL,
+                product_key VARCHAR(255) NOT NULL,
+                category VARCHAR(100),
+                viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        logger.info("  ✓ user_product_views table checked")
+
+        # Migration 11: Add any missing columns to users table
+        user_columns_to_add = [
+            ('discount_used', 'BOOLEAN DEFAULT FALSE'),
+            ('notification_preference', 'VARCHAR(10)'),
+            ('business_name', 'VARCHAR(255)'),
+            ('business_address', 'TEXT'),
+            ('security_question', 'TEXT'),
+            ('security_answer', 'TEXT'),
+            ('discount_applied', 'BOOLEAN DEFAULT FALSE'),
+            ('gender', 'VARCHAR(20)'),
+            ('delivery_address', 'TEXT'),
+            ('billing_address', 'TEXT'),
+            ('whatsapp_number', 'VARCHAR(20)'),
+            ('business_description', 'TEXT'),
+            ('verification_status', "VARCHAR(50) DEFAULT 'pending_documents'"),
+            ('purchase_count', 'INTEGER DEFAULT 0'),
+        ]
+
+        for col_name, col_type in user_columns_to_add:
             cursor.execute('''
-                CREATE TABLE IF NOT EXISTS admin_activity_log (
-                    id SERIAL PRIMARY KEY,
-                    admin_email VARCHAR(255) NOT NULL,
-                    action_type VARCHAR(100) NOT NULL,
-                    target_type VARCHAR(50),
-                    target_id VARCHAR(255),
-                    description TEXT,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    ip_address INET
-                )
-            ''')
-            logger.info("  ✓ admin_activity_log table checked")
-
-            # Migration 4: Ensure seller_finances table exists
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS seller_finances (
-                    id SERIAL PRIMARY KEY,
-                    seller_email VARCHAR(255) UNIQUE NOT NULL,
-                    balance DECIMAL(10,2) DEFAULT 0,
-                    total_sales DECIMAL(10,2) DEFAULT 0,
-                    pending_withdrawals DECIMAL(10,2) DEFAULT 0,
-                    total_withdrawn DECIMAL(10,2) DEFAULT 0,
-                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    commission_rate DECIMAL(5,4) DEFAULT 0.05
-                )
-            ''')
-            logger.info("  ✓ seller_finances table checked")
-
-            # Migration 5: Ensure seller_transactions table exists
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS seller_transactions (
-                    id SERIAL PRIMARY KEY,
-                    seller_email VARCHAR(255) NOT NULL,
-                    transaction_type VARCHAR(50) NOT NULL,
-                    amount DECIMAL(10,2) NOT NULL,
-                    description TEXT,
-                    order_id VARCHAR(255),
-                    transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            logger.info("  ✓ seller_transactions table checked")
-
-            # Migration 6: Ensure withdrawal_requests table exists
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS withdrawal_requests (
-                    id SERIAL PRIMARY KEY,
-                    seller_email VARCHAR(255) NOT NULL,
-                    amount DECIMAL(10,2) NOT NULL,
-                    status VARCHAR(50) DEFAULT 'pending',
-                    request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    processed_date TIMESTAMP,
-                    bank_details JSONB,
-                    notes TEXT
-                )
-            ''')
-            logger.info("  ✓ withdrawal_requests table checked")
-
-            # Migration 7: Ensure seller_verification table exists
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS seller_verification (
-                    id SERIAL PRIMARY KEY,
-                    seller_email VARCHAR(255) UNIQUE NOT NULL,
-                    business_name VARCHAR(255),
-                    business_address TEXT,
-                    phone_number VARCHAR(20),
-                    id_document_path VARCHAR(255),
-                    business_document_path VARCHAR(255),
-                    bank_statement_path VARCHAR(255),
-                    verification_status VARCHAR(50) DEFAULT 'pending_review',
-                    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    reviewed_at TIMESTAMP,
-                    reviewed_by VARCHAR(255),
-                    rejection_reason TEXT
-                )
-            ''')
-            logger.info("  ✓ seller_verification table checked")
-
-            # Migration 8: Ensure payment_transactions table exists
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS payment_transactions (
-                    id SERIAL PRIMARY KEY,
-                    transaction_id VARCHAR(255) UNIQUE NOT NULL,
-                    order_id VARCHAR(255),
-                    user_email VARCHAR(255) NOT NULL,
-                    amount DECIMAL(10,2) NOT NULL,
-                    payment_method VARCHAR(50) NOT NULL,
-                    transaction_type VARCHAR(50) NOT NULL,
-                    status VARCHAR(50) DEFAULT 'pending',
-                    gateway_response JSONB,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    processed_at TIMESTAMP
-                )
-            ''')
-            logger.info("  ✓ payment_transactions table checked")
-
-            # Migration 9: Ensure contact_sessions table exists
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS contact_sessions (
-                    id SERIAL PRIMARY KEY,
-                    user_email VARCHAR(255) NOT NULL,
-                    session_id VARCHAR(255) UNIQUE NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    is_active BOOLEAN DEFAULT TRUE
-                )
-            ''')
-            logger.info("  ✓ contact_sessions table checked")
-
-            # Migration 10: Ensure user_product_views table exists
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS user_product_views (
-                    id SERIAL PRIMARY KEY,
-                    user_email VARCHAR(255) NOT NULL,
-                    product_key VARCHAR(255) NOT NULL,
-                    category VARCHAR(100),
-                    viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            logger.info("  ✓ user_product_views table checked")
-
-            # Migration 11: Add any missing columns to users table
-            user_columns_to_add = [
-                ('discount_used', 'BOOLEAN DEFAULT FALSE'),
-                ('notification_preference', 'VARCHAR(10)'),
-                ('business_name', 'VARCHAR(255)'),
-                ('business_address', 'TEXT'),
-                ('security_question', 'TEXT'),
-                ('security_answer', 'TEXT'),
-                ('discount_applied', 'BOOLEAN DEFAULT FALSE'),
-                ('gender', 'VARCHAR(20)'),
-                ('delivery_address', 'TEXT'),
-                ('billing_address', 'TEXT'),
-                ('whatsapp_number', 'VARCHAR(20)'),
-                ('business_description', 'TEXT'),
-                ('verification_status', "VARCHAR(50) DEFAULT 'pending_documents'"),
-                ('purchase_count', 'INTEGER DEFAULT 0'),
-            ]
-
-            for col_name, col_type in user_columns_to_add:
-                cursor.execute('''
-                    SELECT column_name FROM information_schema.columns 
-                    WHERE table_name = 'users' AND column_name = %s
-                ''', (col_name,))
-                if not cursor.fetchone():
-                    try:
-                        cursor.execute(f'ALTER TABLE users ADD COLUMN {col_name} {col_type}')
-                        logger.info(f"  ✓ Added users.{col_name}")
-                    except Exception as e:
-                        logger.warning(f"  ⚠ Could not add users.{col_name}: {e}")
-
-            # Migration 12: Create all indexes
-            indexes = [
-                ('idx_users_email', 'users', 'email'),
-                ('idx_products_seller', 'products', 'seller_email'),
-                ('idx_products_category', 'products', 'category'),
-                ('idx_orders_user', 'orders', 'user_email'),
-                ('idx_orders_status', 'orders', 'status'),
-                ('idx_messages_conversation', 'messages', 'conversation_id'),
-                ('idx_messages_receiver', 'messages', 'receiver_email'),
-                ('idx_user_flags_email', 'user_flags', 'user_email'),
-                ('idx_user_flags_active', 'user_flags', 'is_active'),
-                ('idx_user_product_views_user', 'user_product_views', 'user_email'),
-            ]
-
-            for idx_name, table, column in indexes:
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'users' AND column_name = %s
+            ''', (col_name,))
+            if not cursor.fetchone():
                 try:
-                    cursor.execute(f'CREATE INDEX IF NOT EXISTS {idx_name} ON {table}({column})')
+                    cursor.execute(f'ALTER TABLE users ADD COLUMN {col_name} {col_type}')
+                    logger.info(f"  ✓ Added users.{col_name}")
                 except Exception as e:
-                    pass  # Index might already exist or table missing
+                    logger.warning(f"  ⚠ Could not add users.{col_name}: {e}")
 
-            logger.info("  ✓ Indexes checked")
-            logger.info("✅ All migrations completed successfully!")
-            return True
+        # Migration 12: Create all indexes
+        indexes = [
+            ('idx_users_email', 'users', 'email'),
+            ('idx_products_seller', 'products', 'seller_email'),
+            ('idx_products_category', 'products', 'category'),
+            ('idx_orders_user', 'orders', 'user_email'),
+            ('idx_orders_status', 'orders', 'status'),
+            ('idx_messages_conversation', 'messages', 'conversation_id'),
+            ('idx_messages_receiver', 'messages', 'receiver_email'),
+            ('idx_user_flags_email', 'user_flags', 'user_email'),
+            ('idx_user_flags_active', 'user_flags', 'is_active'),
+            ('idx_user_product_views_user', 'user_product_views', 'user_email'),
+        ]
+
+        for idx_name, table, column in indexes:
+            try:
+                cursor.execute(f'CREATE INDEX IF NOT EXISTS {idx_name} ON {table}({column})')
+            except Exception as e:
+                pass  # Index might already exist or table missing
+
+        logger.info("  ✓ Indexes checked")
+        logger.info("✅ All migrations completed successfully!")
+        return True
 
     except Exception as e:
         logger.error(f"❌ Migration error: {e}")
@@ -457,7 +473,8 @@ def init_db():
             logger.info("✅ PostgreSQL core tables created!")
 
             # Now run migrations to add any missing tables/columns
-            run_migrations()
+            # Pass cursor so migrations run in same transaction
+            run_migrations(cursor=cursor, conn=conn)
 
             return True
 
