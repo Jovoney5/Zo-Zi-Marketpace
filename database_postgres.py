@@ -13,9 +13,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 def get_database_url():
     """Get database URL from environment or default"""
     return os.getenv('DATABASE_URL', 'postgresql://username:password@localhost:5432/zozi_marketplace')
+
 
 def parse_database_url(database_url):
     """Parse database URL into connection parameters"""
@@ -27,6 +29,7 @@ def parse_database_url(database_url):
         'user': url.username,
         'password': url.password
     }
+
 
 @contextmanager
 def get_db():
@@ -58,6 +61,7 @@ def get_db():
         if conn:
             conn.close()
 
+
 def get_db_connection():
     """
     Alternative method - simple connection getter
@@ -69,6 +73,253 @@ def get_db_connection():
 
     conn = psycopg2.connect(database_url)
     return conn
+
+
+# =============================================================================
+# DATABASE MIGRATION SYSTEM
+# =============================================================================
+
+def run_migrations():
+    """
+    Run all database migrations to ensure schema is up to date.
+    This handles adding missing tables and columns to existing databases.
+    Safe to run multiple times - uses IF NOT EXISTS and checks.
+    """
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor()
+            logger.info("🔄 Running database migrations...")
+
+            # Migration 1: Ensure user_flags table exists
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS user_flags (
+                    id SERIAL PRIMARY KEY,
+                    user_email VARCHAR(255) NOT NULL,
+                    flag_type VARCHAR(50) NOT NULL,
+                    reason TEXT,
+                    flagged_by VARCHAR(255) NOT NULL,
+                    flag_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    expires_at TIMESTAMP,
+                    is_active BOOLEAN DEFAULT TRUE
+                )
+            ''')
+            logger.info("  ✓ user_flags table checked")
+
+            # Migration 2: Ensure messages table has conversation_id
+            cursor.execute('''
+                SELECT column_name FROM information_schema.columns 
+                WHERE table_name = 'messages' AND column_name = 'conversation_id'
+            ''')
+            if not cursor.fetchone():
+                # Check if messages table exists at all
+                cursor.execute('''
+                    SELECT EXISTS (
+                        SELECT FROM information_schema.tables 
+                        WHERE table_name = 'messages'
+                    )
+                ''')
+                if cursor.fetchone()[0]:
+                    # Table exists but missing column - add it
+                    cursor.execute('ALTER TABLE messages ADD COLUMN conversation_id INTEGER DEFAULT 0')
+                    cursor.execute(
+                        'UPDATE messages SET conversation_id = id WHERE conversation_id IS NULL OR conversation_id = 0')
+                    logger.info("  ✓ Added conversation_id to messages table")
+                else:
+                    # Create full messages table
+                    cursor.execute('''
+                        CREATE TABLE messages (
+                            id SERIAL PRIMARY KEY,
+                            conversation_id INTEGER NOT NULL DEFAULT 0,
+                            sender_email VARCHAR(255) NOT NULL,
+                            receiver_email VARCHAR(255) NOT NULL,
+                            message TEXT NOT NULL,
+                            timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            read_status BOOLEAN DEFAULT FALSE
+                        )
+                    ''')
+                    logger.info("  ✓ Created messages table")
+            else:
+                logger.info("  ✓ messages.conversation_id exists")
+
+            # Migration 3: Ensure admin_activity_log table exists
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS admin_activity_log (
+                    id SERIAL PRIMARY KEY,
+                    admin_email VARCHAR(255) NOT NULL,
+                    action_type VARCHAR(100) NOT NULL,
+                    target_type VARCHAR(50),
+                    target_id VARCHAR(255),
+                    description TEXT,
+                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    ip_address INET
+                )
+            ''')
+            logger.info("  ✓ admin_activity_log table checked")
+
+            # Migration 4: Ensure seller_finances table exists
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS seller_finances (
+                    id SERIAL PRIMARY KEY,
+                    seller_email VARCHAR(255) UNIQUE NOT NULL,
+                    balance DECIMAL(10,2) DEFAULT 0,
+                    total_sales DECIMAL(10,2) DEFAULT 0,
+                    pending_withdrawals DECIMAL(10,2) DEFAULT 0,
+                    total_withdrawn DECIMAL(10,2) DEFAULT 0,
+                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    commission_rate DECIMAL(5,4) DEFAULT 0.05
+                )
+            ''')
+            logger.info("  ✓ seller_finances table checked")
+
+            # Migration 5: Ensure seller_transactions table exists
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS seller_transactions (
+                    id SERIAL PRIMARY KEY,
+                    seller_email VARCHAR(255) NOT NULL,
+                    transaction_type VARCHAR(50) NOT NULL,
+                    amount DECIMAL(10,2) NOT NULL,
+                    description TEXT,
+                    order_id VARCHAR(255),
+                    transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            logger.info("  ✓ seller_transactions table checked")
+
+            # Migration 6: Ensure withdrawal_requests table exists
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS withdrawal_requests (
+                    id SERIAL PRIMARY KEY,
+                    seller_email VARCHAR(255) NOT NULL,
+                    amount DECIMAL(10,2) NOT NULL,
+                    status VARCHAR(50) DEFAULT 'pending',
+                    request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    processed_date TIMESTAMP,
+                    bank_details JSONB,
+                    notes TEXT
+                )
+            ''')
+            logger.info("  ✓ withdrawal_requests table checked")
+
+            # Migration 7: Ensure seller_verification table exists
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS seller_verification (
+                    id SERIAL PRIMARY KEY,
+                    seller_email VARCHAR(255) UNIQUE NOT NULL,
+                    business_name VARCHAR(255),
+                    business_address TEXT,
+                    phone_number VARCHAR(20),
+                    id_document_path VARCHAR(255),
+                    business_document_path VARCHAR(255),
+                    bank_statement_path VARCHAR(255),
+                    verification_status VARCHAR(50) DEFAULT 'pending_review',
+                    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    reviewed_at TIMESTAMP,
+                    reviewed_by VARCHAR(255),
+                    rejection_reason TEXT
+                )
+            ''')
+            logger.info("  ✓ seller_verification table checked")
+
+            # Migration 8: Ensure payment_transactions table exists
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS payment_transactions (
+                    id SERIAL PRIMARY KEY,
+                    transaction_id VARCHAR(255) UNIQUE NOT NULL,
+                    order_id VARCHAR(255),
+                    user_email VARCHAR(255) NOT NULL,
+                    amount DECIMAL(10,2) NOT NULL,
+                    payment_method VARCHAR(50) NOT NULL,
+                    transaction_type VARCHAR(50) NOT NULL,
+                    status VARCHAR(50) DEFAULT 'pending',
+                    gateway_response JSONB,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    processed_at TIMESTAMP
+                )
+            ''')
+            logger.info("  ✓ payment_transactions table checked")
+
+            # Migration 9: Ensure contact_sessions table exists
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS contact_sessions (
+                    id SERIAL PRIMARY KEY,
+                    user_email VARCHAR(255) NOT NULL,
+                    session_id VARCHAR(255) UNIQUE NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    is_active BOOLEAN DEFAULT TRUE
+                )
+            ''')
+            logger.info("  ✓ contact_sessions table checked")
+
+            # Migration 10: Ensure user_product_views table exists
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS user_product_views (
+                    id SERIAL PRIMARY KEY,
+                    user_email VARCHAR(255) NOT NULL,
+                    product_key VARCHAR(255) NOT NULL,
+                    category VARCHAR(100),
+                    viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+            ''')
+            logger.info("  ✓ user_product_views table checked")
+
+            # Migration 11: Add any missing columns to users table
+            user_columns_to_add = [
+                ('discount_used', 'BOOLEAN DEFAULT FALSE'),
+                ('notification_preference', 'VARCHAR(10)'),
+                ('business_name', 'VARCHAR(255)'),
+                ('business_address', 'TEXT'),
+                ('security_question', 'TEXT'),
+                ('security_answer', 'TEXT'),
+                ('discount_applied', 'BOOLEAN DEFAULT FALSE'),
+                ('gender', 'VARCHAR(20)'),
+                ('delivery_address', 'TEXT'),
+                ('billing_address', 'TEXT'),
+                ('whatsapp_number', 'VARCHAR(20)'),
+                ('business_description', 'TEXT'),
+                ('verification_status', "VARCHAR(50) DEFAULT 'pending_documents'"),
+                ('purchase_count', 'INTEGER DEFAULT 0'),
+            ]
+
+            for col_name, col_type in user_columns_to_add:
+                cursor.execute('''
+                    SELECT column_name FROM information_schema.columns 
+                    WHERE table_name = 'users' AND column_name = %s
+                ''', (col_name,))
+                if not cursor.fetchone():
+                    try:
+                        cursor.execute(f'ALTER TABLE users ADD COLUMN {col_name} {col_type}')
+                        logger.info(f"  ✓ Added users.{col_name}")
+                    except Exception as e:
+                        logger.warning(f"  ⚠ Could not add users.{col_name}: {e}")
+
+            # Migration 12: Create all indexes
+            indexes = [
+                ('idx_users_email', 'users', 'email'),
+                ('idx_products_seller', 'products', 'seller_email'),
+                ('idx_products_category', 'products', 'category'),
+                ('idx_orders_user', 'orders', 'user_email'),
+                ('idx_orders_status', 'orders', 'status'),
+                ('idx_messages_conversation', 'messages', 'conversation_id'),
+                ('idx_messages_receiver', 'messages', 'receiver_email'),
+                ('idx_user_flags_email', 'user_flags', 'user_email'),
+                ('idx_user_flags_active', 'user_flags', 'is_active'),
+                ('idx_user_product_views_user', 'user_product_views', 'user_email'),
+            ]
+
+            for idx_name, table, column in indexes:
+                try:
+                    cursor.execute(f'CREATE INDEX IF NOT EXISTS {idx_name} ON {table}({column})')
+                except Exception as e:
+                    pass  # Index might already exist or table missing
+
+            logger.info("  ✓ Indexes checked")
+            logger.info("✅ All migrations completed successfully!")
+            return True
+
+    except Exception as e:
+        logger.error(f"❌ Migration error: {e}")
+        return False
+
 
 def init_db():
     """Initialize PostgreSQL database with all required tables"""
@@ -184,162 +435,17 @@ def init_db():
                 )
             ''')
 
-            # User flags table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS user_flags (
-                    id SERIAL PRIMARY KEY,
-                    user_email VARCHAR(255) NOT NULL,
-                    flag_type VARCHAR(50) NOT NULL,
-                    reason TEXT,
-                    flagged_by VARCHAR(255) NOT NULL,
-                    flag_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    expires_at TIMESTAMP,
-                    is_active BOOLEAN DEFAULT TRUE
-                )
-            ''')
+            logger.info("✅ PostgreSQL core tables created!")
 
-            # Admin activity log
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS admin_activity_log (
-                    id SERIAL PRIMARY KEY,
-                    admin_email VARCHAR(255) NOT NULL,
-                    action_type VARCHAR(100) NOT NULL,
-                    target_type VARCHAR(50),
-                    target_id VARCHAR(255),
-                    description TEXT,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    ip_address INET
-                )
-            ''')
+            # Now run migrations to add any missing tables/columns
+            run_migrations()
 
-            # Seller finances table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS seller_finances (
-                    id SERIAL PRIMARY KEY,
-                    seller_email VARCHAR(255) UNIQUE NOT NULL,
-                    balance DECIMAL(10,2) DEFAULT 0,
-                    total_sales DECIMAL(10,2) DEFAULT 0,
-                    pending_withdrawals DECIMAL(10,2) DEFAULT 0,
-                    total_withdrawn DECIMAL(10,2) DEFAULT 0,
-                    last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    commission_rate DECIMAL(5,4) DEFAULT 0.05
-                )
-            ''')
-
-            # Seller transactions table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS seller_transactions (
-                    id SERIAL PRIMARY KEY,
-                    seller_email VARCHAR(255) NOT NULL,
-                    transaction_type VARCHAR(50) NOT NULL,
-                    amount DECIMAL(10,2) NOT NULL,
-                    description TEXT,
-                    order_id VARCHAR(255),
-                    transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-
-            # Withdrawal requests table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS withdrawal_requests (
-                    id SERIAL PRIMARY KEY,
-                    seller_email VARCHAR(255) NOT NULL,
-                    amount DECIMAL(10,2) NOT NULL,
-                    status VARCHAR(50) DEFAULT 'pending',
-                    request_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    processed_date TIMESTAMP,
-                    bank_details JSONB,
-                    notes TEXT
-                )
-            ''')
-
-            # Seller verification table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS seller_verification (
-                    id SERIAL PRIMARY KEY,
-                    seller_email VARCHAR(255) UNIQUE NOT NULL,
-                    business_name VARCHAR(255),
-                    business_address TEXT,
-                    phone_number VARCHAR(20),
-                    id_document_path VARCHAR(255),
-                    business_document_path VARCHAR(255),
-                    bank_statement_path VARCHAR(255),
-                    verification_status VARCHAR(50) DEFAULT 'pending_review',
-                    submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    reviewed_at TIMESTAMP,
-                    reviewed_by VARCHAR(255),
-                    rejection_reason TEXT
-                )
-            ''')
-
-            # Messages table - matching your SQLite structure
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS messages (
-                    id SERIAL PRIMARY KEY,
-                    conversation_id INTEGER NOT NULL,
-                    sender_email VARCHAR(255) NOT NULL,
-                    receiver_email VARCHAR(255) NOT NULL,
-                    message TEXT NOT NULL,
-                    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    read_status BOOLEAN DEFAULT FALSE
-                )
-            ''')
-
-            # Payment transactions table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS payment_transactions (
-                    id SERIAL PRIMARY KEY,
-                    transaction_id VARCHAR(255) UNIQUE NOT NULL,
-                    order_id VARCHAR(255),
-                    user_email VARCHAR(255) NOT NULL,
-                    amount DECIMAL(10,2) NOT NULL,
-                    payment_method VARCHAR(50) NOT NULL,
-                    transaction_type VARCHAR(50) NOT NULL,
-                    status VARCHAR(50) DEFAULT 'pending',
-                    gateway_response JSONB,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    processed_at TIMESTAMP
-                )
-            ''')
-
-            # Contact sessions table
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS contact_sessions (
-                    id SERIAL PRIMARY KEY,
-                    user_email VARCHAR(255) NOT NULL,
-                    session_id VARCHAR(255) UNIQUE NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    is_active BOOLEAN DEFAULT TRUE
-                )
-            ''')
-
-            # User product views table for personalization
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS user_product_views (
-                    id SERIAL PRIMARY KEY,
-                    user_email VARCHAR(255) NOT NULL,
-                    product_key VARCHAR(255) NOT NULL,
-                    category VARCHAR(100),
-                    viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-
-            # Create indexes for better performance
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_products_seller ON products(seller_email)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_email)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_messages_receiver ON messages(receiver_email)')
-            cursor.execute('CREATE INDEX IF NOT EXISTS idx_user_product_views ON user_product_views(user_email, viewed_at)')
-
-            logger.info("✅ PostgreSQL database initialized successfully!")
             return True
 
     except Exception as e:
         logger.error(f"❌ Error initializing database: {e}")
         return False
+
 
 def test_connection():
     """Test PostgreSQL database connection"""
@@ -353,6 +459,7 @@ def test_connection():
     except Exception as e:
         logger.error(f"❌ PostgreSQL connection failed: {e}")
         return False
+
 
 # User-related database functions (PostgreSQL compatible)
 def create_user(email, first_name, last_name, password, phone_number=None, parish='Kingston', is_seller=False):
@@ -376,6 +483,7 @@ def create_user(email, first_name, last_name, password, phone_number=None, paris
         logger.error(f"Error creating user: {e}")
         return False
 
+
 def get_user_by_email(email):
     """Get user details by email"""
     try:
@@ -387,6 +495,7 @@ def get_user_by_email(email):
         logger.error(f"Error getting user: {e}")
         return None
 
+
 def get_user_by_phone(phone_number):
     """Get user details by phone number"""
     try:
@@ -397,6 +506,7 @@ def get_user_by_phone(phone_number):
     except Exception as e:
         logger.error(f"Error getting user by phone: {e}")
         return None
+
 
 def verify_user_login(identifier, password):
     """Verify user login credentials (email or phone)"""
@@ -419,13 +529,15 @@ def verify_user_login(identifier, password):
                     if user['password'] == password:
                         # Update to hashed password
                         hashed_password = generate_password_hash(password)
-                        cursor.execute('UPDATE users SET password = %s WHERE email = %s', (hashed_password, user['email']))
+                        cursor.execute('UPDATE users SET password = %s WHERE email = %s',
+                                       (hashed_password, user['email']))
                         conn.commit()
                         return user
             return None
     except Exception as e:
         logger.error(f"Error verifying login: {e}")
         return None
+
 
 def update_user_profile(email, **kwargs):
     """Update user profile information"""
@@ -453,6 +565,7 @@ def update_user_profile(email, **kwargs):
         logger.error(f"Error updating user profile: {e}")
         return False
 
+
 # Product-related database functions (PostgreSQL compatible)
 def get_all_products(active_only=True):
     """Get all products from the database"""
@@ -466,7 +579,9 @@ def get_all_products(active_only=True):
                 # Parse JSON fields
                 if product.get('image_urls'):
                     try:
-                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'], str) else product['image_urls']
+                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'],
+                                                                                                str) else product[
+                            'image_urls']
                     except:
                         product['image_urls'] = []
                 else:
@@ -474,7 +589,8 @@ def get_all_products(active_only=True):
 
                 if product.get('sizes'):
                     try:
-                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else product['sizes']
+                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else \
+                        product['sizes']
                     except:
                         product['sizes'] = {}
                 else:
@@ -484,6 +600,7 @@ def get_all_products(active_only=True):
     except Exception as e:
         logger.error(f"Error getting products: {e}")
         return []
+
 
 def get_product_by_key(product_key):
     """Get a specific product by its key"""
@@ -496,7 +613,9 @@ def get_product_by_key(product_key):
                 product = dict(row)
                 if product.get('image_urls'):
                     try:
-                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'], str) else product['image_urls']
+                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'],
+                                                                                                str) else product[
+                            'image_urls']
                     except:
                         product['image_urls'] = []
                 else:
@@ -504,7 +623,8 @@ def get_product_by_key(product_key):
 
                 if product.get('sizes'):
                     try:
-                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else product['sizes']
+                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else \
+                        product['sizes']
                     except:
                         product['sizes'] = {}
                 else:
@@ -514,6 +634,7 @@ def get_product_by_key(product_key):
     except Exception as e:
         logger.error(f"Error getting product: {e}")
         return None
+
 
 def get_products_by_seller(seller_email):
     """Get all products for a specific seller"""
@@ -526,7 +647,9 @@ def get_products_by_seller(seller_email):
                 product = dict(row)
                 if product.get('image_urls'):
                     try:
-                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'], str) else product['image_urls']
+                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'],
+                                                                                                str) else product[
+                            'image_urls']
                     except:
                         product['image_urls'] = []
                 else:
@@ -534,7 +657,8 @@ def get_products_by_seller(seller_email):
 
                 if product.get('sizes'):
                     try:
-                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else product['sizes']
+                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else \
+                        product['sizes']
                     except:
                         product['sizes'] = {}
                 else:
@@ -545,6 +669,7 @@ def get_products_by_seller(seller_email):
         logger.error(f"Error getting seller products: {e}")
         return []
 
+
 def search_products(query, category=None):
     """Search products by name, description, or category"""
     try:
@@ -554,14 +679,14 @@ def search_products(query, category=None):
             if category:
                 cursor.execute('''
                     SELECT * FROM products
-                    WHERE (name LIKE %s OR description LIKE %s)
+                    WHERE (name ILIKE %s OR description ILIKE %s)
                     AND category = %s
                     ORDER BY clicks DESC, likes DESC
                 ''', (f'%{query}%', f'%{query}%', category))
             else:
                 cursor.execute('''
                     SELECT * FROM products
-                    WHERE (name LIKE %s OR description LIKE %s)
+                    WHERE (name ILIKE %s OR description ILIKE %s)
                     ORDER BY clicks DESC, likes DESC
                 ''', (f'%{query}%', f'%{query}%'))
 
@@ -570,7 +695,9 @@ def search_products(query, category=None):
                 product = dict(row)
                 if product.get('image_urls'):
                     try:
-                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'], str) else product['image_urls']
+                        product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'],
+                                                                                                str) else product[
+                            'image_urls']
                     except:
                         product['image_urls'] = []
                 else:
@@ -578,7 +705,8 @@ def search_products(query, category=None):
 
                 if product.get('sizes'):
                     try:
-                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else product['sizes']
+                        product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else \
+                        product['sizes']
                     except:
                         product['sizes'] = {}
                 else:
@@ -588,6 +716,7 @@ def search_products(query, category=None):
     except Exception as e:
         logger.error(f"Error searching products: {e}")
         return []
+
 
 def update_product_stats(product_key, field, increment=1):
     """Update product statistics (clicks, likes, etc.)"""
@@ -601,6 +730,7 @@ def update_product_stats(product_key, field, increment=1):
     except Exception as e:
         logger.error(f"Error updating product stats: {e}")
         return False
+
 
 # Order-related functions (PostgreSQL compatible)
 def get_user_orders(user_email):
@@ -618,6 +748,7 @@ def get_user_orders(user_email):
         logger.error(f"Error getting user orders: {e}")
         return []
 
+
 def get_order_items(order_id):
     """Get all items for a specific order"""
     try:
@@ -634,6 +765,7 @@ def get_order_items(order_id):
         logger.error(f"Error getting order items: {e}")
         return []
 
+
 # Admin-related functions (PostgreSQL compatible)
 def get_admin_user(email):
     """Get admin user details"""
@@ -645,6 +777,7 @@ def get_admin_user(email):
     except Exception as e:
         logger.error(f"Error getting admin user: {e}")
         return None
+
 
 def get_user_flags(user_email):
     """Get active flags for a user"""
@@ -662,6 +795,23 @@ def get_user_flags(user_email):
         logger.error(f"Error getting user flags: {e}")
         return []
 
+
+def get_all_flagged_users():
+    """Get all users with active flags - for admin dashboard"""
+    try:
+        with get_db() as conn:
+            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+            cursor.execute('''
+                SELECT DISTINCT user_email FROM user_flags
+                WHERE is_active = TRUE
+                AND (expires_at IS NULL OR expires_at > NOW())
+            ''')
+            return [row['user_email'] for row in cursor.fetchall()]
+    except Exception as e:
+        logger.error(f"Error getting flagged users: {e}")
+        return []
+
+
 def log_admin_activity(admin_email, action_type, target_type=None, target_id=None, description=None, ip_address=None):
     """Log admin activity"""
     try:
@@ -678,6 +828,7 @@ def log_admin_activity(admin_email, action_type, target_type=None, target_id=Non
         logger.error(f"Error logging admin activity: {e}")
         return False
 
+
 # Seller financial functions (PostgreSQL compatible)
 def get_seller_finances(seller_email):
     """Get seller's financial information"""
@@ -689,6 +840,7 @@ def get_seller_finances(seller_email):
     except Exception as e:
         logger.error(f"Error getting seller finances: {e}")
         return None
+
 
 def get_seller_transactions(seller_email, limit=10):
     """Get seller's recent transactions"""
@@ -706,6 +858,7 @@ def get_seller_transactions(seller_email, limit=10):
         logger.error(f"Error getting seller transactions: {e}")
         return []
 
+
 def get_withdrawal_requests(seller_email, limit=5):
     """Get seller's withdrawal request history"""
     try:
@@ -721,6 +874,7 @@ def get_withdrawal_requests(seller_email, limit=5):
     except Exception as e:
         logger.error(f"Error getting withdrawal requests: {e}")
         return []
+
 
 # Analytics functions for admin dashboard
 def get_daily_stats(days=30):
@@ -745,6 +899,7 @@ def get_daily_stats(days=30):
         logger.error(f"Error getting daily stats: {e}")
         return []
 
+
 def get_category_stats():
     """Get sales statistics by category"""
     try:
@@ -765,6 +920,7 @@ def get_category_stats():
     except Exception as e:
         logger.error(f"Error getting category stats: {e}")
         return []
+
 
 # Utility functions
 def get_database_stats():
@@ -808,6 +964,7 @@ def get_database_stats():
         logger.error(f"Error getting database stats: {e}")
         return {}
 
+
 # User Browsing History & Personalization Functions
 
 def track_product_view(user_email, product_key, category):
@@ -823,6 +980,7 @@ def track_product_view(user_email, product_key, category):
     except Exception as e:
         logger.error(f"Error tracking product view: {e}")
         return False
+
 
 def get_last_viewed_product(user_email):
     """Get the most recently viewed product by a user"""
@@ -841,6 +999,7 @@ def get_last_viewed_product(user_email):
         logger.error(f"Error getting last viewed product: {e}")
         return None
 
+
 def get_user_viewing_history(user_email, limit=10):
     """Get user's viewing history"""
     try:
@@ -857,6 +1016,7 @@ def get_user_viewing_history(user_email, limit=10):
     except Exception as e:
         logger.error(f"Error getting user viewing history: {e}")
         return []
+
 
 def get_personalized_products(user_email, excluded_seller_emails=None):
     """
@@ -932,9 +1092,12 @@ def get_personalized_products(user_email, excluded_seller_emails=None):
                 product = dict(row)
                 # Parse JSON fields
                 if product.get('image_urls'):
-                    product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'], str) else product['image_urls']
+                    product['image_urls'] = json.loads(product['image_urls']) if isinstance(product['image_urls'],
+                                                                                            str) else product[
+                        'image_urls']
                 if product.get('sizes'):
-                    product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else product['sizes']
+                    product['sizes'] = json.loads(product['sizes']) if isinstance(product['sizes'], str) else product[
+                        'sizes']
                 products[product['product_key']] = product
 
             return products
@@ -943,6 +1106,7 @@ def get_personalized_products(user_email, excluded_seller_emails=None):
         logger.error(f"Error getting personalized products: {e}")
         # Fallback to all products
         return get_all_products()
+
 
 if __name__ == "__main__":
     # Test the database when running this file directly
