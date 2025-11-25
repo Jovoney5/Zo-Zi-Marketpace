@@ -1565,7 +1565,8 @@ def index():
                         image_urls = row['image_urls'] if isinstance(row['image_urls'], list) else json.loads(row['image_urls']) if row['image_urls'] else []
                         sizes = row['sizes'] if isinstance(row['sizes'], dict) else json.loads(row['sizes']) if row['sizes'] else {}
                         product = dict(row, image_urls=image_urls, sizes=sizes)
-                        if is_user_flagged(product['seller_email']) is None:
+                        # Use pre-fetched flagged_sellers list instead of querying for each product
+                        if product['seller_email'] not in flagged_sellers:
                             products[product['product_key']] = product
                     context['products'] = products
         else:
@@ -1582,8 +1583,8 @@ def index():
                     image_urls = row['image_urls'] if isinstance(row['image_urls'], list) else json.loads(row['image_urls']) if row['image_urls'] else []
                     sizes = row['sizes'] if isinstance(row['sizes'], dict) else json.loads(row['sizes']) if row['sizes'] else {}
                     product = dict(row, image_urls=image_urls, sizes=sizes)
-                    # Check if seller is flagged - completely hide product from homepage
-                    if is_user_flagged(product['seller_email']) is None:
+                    # Use pre-fetched flagged_sellers list instead of querying for each product
+                    if product['seller_email'] not in flagged_sellers:
                         products[product['product_key']] = product
                 context['products'] = products
 
