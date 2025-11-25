@@ -121,6 +121,9 @@ if DATABASE_TYPE == 'postgresql':
         init_db as init_postgres_db
     )
     print("✅ Using PostgreSQL database (PRODUCTION READY)")
+    # Initialize database tables immediately when using PostgreSQL
+    init_postgres_db()
+    print("✅ PostgreSQL database initialized")
 else:
     # Use SQLite for development ONLY
     if os.getenv('FLASK_ENV') == 'production':
@@ -9409,10 +9412,6 @@ def reset_database_fresh():
 
 
 if __name__ == '__main__':
-    # Initialize PostgreSQL database if using PostgreSQL
-    if DATABASE_TYPE == 'postgresql':
-        init_postgres_db()
-
     add_purchase_count_column()              # ADD THIS
     update_purchase_counts_from_orders()     # ADD THIS
     fix_messaging_tables()
