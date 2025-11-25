@@ -108,6 +108,7 @@ def run_migrations(cursor=None, conn=None):
 def _run_migrations_impl(cursor):
     """Implementation of migrations using provided cursor"""
     try:
+        logger.info("  Starting migration 1: user_flags")
         # Migration 1: Ensure user_flags table exists
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS user_flags (
@@ -123,6 +124,7 @@ def _run_migrations_impl(cursor):
         ''')
         logger.info("  ✓ user_flags table checked")
 
+        logger.info("  Starting migration 2: product_reviews")
         # Migration: Ensure product_reviews table exists
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS product_reviews (
@@ -140,6 +142,7 @@ def _run_migrations_impl(cursor):
         ''')
         logger.info("  ✓ product_reviews table checked")
 
+        logger.info("  Starting migration 3: messages conversation_id")
         # Migration 2: Ensure messages table has conversation_id
         cursor.execute('''
             SELECT column_name FROM information_schema.columns
@@ -176,6 +179,7 @@ def _run_migrations_impl(cursor):
         else:
             logger.info("  ✓ messages.conversation_id exists")
 
+        logger.info("  Starting migration 4: admin_activity_log")
         # Migration 3: Ensure admin_activity_log table exists
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS admin_activity_log (
@@ -191,6 +195,7 @@ def _run_migrations_impl(cursor):
         ''')
         logger.info("  ✓ admin_activity_log table checked")
 
+        logger.info("  Starting migration 5: seller_finances")
         # Migration 4: Ensure seller_finances table exists
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS seller_finances (
@@ -206,6 +211,7 @@ def _run_migrations_impl(cursor):
         ''')
         logger.info("  ✓ seller_finances table checked")
 
+        logger.info("  Starting migration 6: seller_transactions")
         # Migration 5: Ensure seller_transactions table exists
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS seller_transactions (
@@ -220,6 +226,7 @@ def _run_migrations_impl(cursor):
         ''')
         logger.info("  ✓ seller_transactions table checked")
 
+        logger.info("  Starting migration 7: withdrawal_requests")
         # Migration 6: Ensure withdrawal_requests table exists
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS withdrawal_requests (
@@ -235,6 +242,7 @@ def _run_migrations_impl(cursor):
         ''')
         logger.info("  ✓ withdrawal_requests table checked")
 
+        logger.info("  Starting migration 8: seller_verification")
         # Migration 7: Ensure seller_verification table exists
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS seller_verification (

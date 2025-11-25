@@ -7125,14 +7125,19 @@ def new_product():
             return redirect(url_for('login'))
 
         # Check if seller is verified from seller_verification table
-        cursor.execute('SELECT verification_status FROM seller_verification WHERE seller_email = %s', (session['user']['email'],))
-        verification = cursor.fetchone()
+        try:
+            cursor.execute('SELECT verification_status FROM seller_verification WHERE seller_email = %s', (session['user']['email'],))
+            verification = cursor.fetchone()
+        except Exception as e:
+            # If table doesn't exist yet, allow seller to continue (will be checked later)
+            logger.warning(f"seller_verification table issue: {e}")
+            verification = None
 
         if not verification:
             flash('You must complete seller verification before posting products.', 'error')
             return redirect(url_for('seller_verification'))
 
-        if verification['verification_status'] != 'approved':
+        if verification.get('verification_status') != 'approved':
             if verification['verification_status'] == 'pending_review':
                 return redirect(url_for('seller_verification_pending'))
             elif verification['verification_status'] == 'rejected':
@@ -7745,13 +7750,24 @@ def product(product_key):
                 # Don't block the page if tracking fails
                 pass
 
-        cursor.execute('''
-            SELECT u.business_name, u.business_address, sv.verification_status
-            FROM users u
-            LEFT JOIN seller_verification sv ON u.email = sv.seller_email
-            WHERE u.email = %s
-        ''', (product['seller_email'],))
-        seller = cursor.fetchone()
+        # Get seller info - handle case where seller_verification might not exist yet
+        try:
+            cursor.execute('''
+                SELECT u.business_name, u.business_address, sv.verification_status
+                FROM users u
+                LEFT JOIN seller_verification sv ON u.email = sv.seller_email
+                WHERE u.email = %s
+            ''', (product['seller_email'],))
+            seller = cursor.fetchone()
+        except Exception as e:
+            # If seller_verification table doesn't exist yet, just get user info
+            logger.warning(f"seller_verification table issue: {e}, fetching basic user info")
+            cursor.execute('''
+                SELECT business_name, business_address, NULL as verification_status
+                FROM users
+                WHERE email = %s
+            ''', (product['seller_email'],))
+            seller = cursor.fetchone()
         cursor.execute('''
             SELECT AVG(rating) as avg_rating, COUNT(rating) as rating_count
             FROM seller_ratings
