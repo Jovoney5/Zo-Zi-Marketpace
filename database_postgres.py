@@ -106,6 +106,24 @@ def run_migrations():
             conn.commit()  # Force commit so table is visible to other connections
             logger.info("  ✓ user_flags table checked")
 
+            # Migration: Ensure product_reviews table exists
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS product_reviews (
+                    id SERIAL PRIMARY KEY,
+                    product_key VARCHAR(255) NOT NULL,
+                    buyer_email VARCHAR(255) NOT NULL,
+                    seller_email VARCHAR(255) NOT NULL,
+                    rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+                    review_text TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    is_verified_purchase BOOLEAN DEFAULT FALSE,
+                    UNIQUE(product_key, buyer_email)
+                )
+            ''')
+            conn.commit()
+            logger.info("  ✓ product_reviews table checked")
+
             # Migration 2: Ensure messages table has conversation_id
             cursor.execute('''
                 SELECT column_name FROM information_schema.columns 
