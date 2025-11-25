@@ -103,6 +103,7 @@ def run_migrations():
                     is_active BOOLEAN DEFAULT TRUE
                 )
             ''')
+            conn.commit()  # Force commit so table is visible to other connections
             logger.info("  ✓ user_flags table checked")
 
             # Migration 2: Ensure messages table has conversation_id
