@@ -95,18 +95,18 @@ def run_migrations(cursor=None, conn=None):
             with get_db() as new_conn:
                 new_cursor = new_conn.cursor()
                 logger.info("🔄 Running database migrations...")
-                return _run_migrations_impl(new_cursor)
+                return _run_migrations_impl(new_cursor, new_conn)
         except Exception as e:
             logger.error(f"❌ Migration error: {e}")
             return False
     else:
         # Use provided cursor
         logger.info("🔄 Running database migrations...")
-        return _run_migrations_impl(cursor)
+        return _run_migrations_impl(cursor, conn)
 
 
-def _run_migrations_impl(cursor):
-    """Implementation of migrations using provided cursor"""
+def _run_migrations_impl(cursor, conn):
+    """Implementation of migrations using provided cursor and connection"""
     try:
         logger.info("  Starting migration 1: user_flags")
         # Migration 1: Ensure user_flags table exists
@@ -122,6 +122,8 @@ def _run_migrations_impl(cursor):
                 is_active BOOLEAN DEFAULT TRUE
             )
         ''')
+        if conn:
+            conn.commit()  # Force commit so table is visible to other connections
         logger.info("  ✓ user_flags table checked")
 
         logger.info("  Starting migration 2: product_reviews")
@@ -140,6 +142,8 @@ def _run_migrations_impl(cursor):
                 UNIQUE(product_key, buyer_email)
             )
         ''')
+        if conn:
+            conn.commit()  # Force commit so table is visible to other connections
         logger.info("  ✓ product_reviews table checked")
 
         logger.info("  Starting migration 3: messages conversation_id")
@@ -193,6 +197,8 @@ def _run_migrations_impl(cursor):
                 ip_address INET
             )
         ''')
+        if conn:
+            conn.commit()  # Force commit so table is visible to other connections
         logger.info("  ✓ admin_activity_log table checked")
 
         logger.info("  Starting migration 5: seller_finances")
@@ -209,6 +215,8 @@ def _run_migrations_impl(cursor):
                 commission_rate DECIMAL(5,4) DEFAULT 0.05
             )
         ''')
+        if conn:
+            conn.commit()  # Force commit so table is visible to other connections
         logger.info("  ✓ seller_finances table checked")
 
         logger.info("  Starting migration 6: seller_transactions")
@@ -224,6 +232,8 @@ def _run_migrations_impl(cursor):
                 transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        if conn:
+            conn.commit()  # Force commit so table is visible to other connections
         logger.info("  ✓ seller_transactions table checked")
 
         logger.info("  Starting migration 7: withdrawal_requests")
@@ -240,6 +250,8 @@ def _run_migrations_impl(cursor):
                 notes TEXT
             )
         ''')
+        if conn:
+            conn.commit()  # Force commit so table is visible to other connections
         logger.info("  ✓ withdrawal_requests table checked")
 
         logger.info("  Starting migration 8: seller_verification")
@@ -261,8 +273,11 @@ def _run_migrations_impl(cursor):
                 rejection_reason TEXT
             )
         ''')
+        if conn:
+            conn.commit()  # Force commit so table is visible to other connections
         logger.info("  ✓ seller_verification table checked")
 
+        logger.info("  Starting migration 9: payment_transactions")
         # Migration 8: Ensure payment_transactions table exists
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS payment_transactions (
@@ -279,8 +294,11 @@ def _run_migrations_impl(cursor):
                 processed_at TIMESTAMP
             )
         ''')
+        if conn:
+            conn.commit()  # Force commit so table is visible to other connections
         logger.info("  ✓ payment_transactions table checked")
 
+        logger.info("  Starting migration 10: contact_sessions")
         # Migration 9: Ensure contact_sessions table exists
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS contact_sessions (
@@ -291,8 +309,11 @@ def _run_migrations_impl(cursor):
                 is_active BOOLEAN DEFAULT TRUE
             )
         ''')
+        if conn:
+            conn.commit()  # Force commit so table is visible to other connections
         logger.info("  ✓ contact_sessions table checked")
 
+        logger.info("  Starting migration 11: user_product_views")
         # Migration 10: Ensure user_product_views table exists
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS user_product_views (
@@ -303,8 +324,11 @@ def _run_migrations_impl(cursor):
                 viewed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        if conn:
+            conn.commit()  # Force commit so table is visible to other connections
         logger.info("  ✓ user_product_views table checked")
 
+        logger.info("  Starting migration 12: user table columns")
         # Migration 11: Add any missing columns to users table
         user_columns_to_add = [
             ('discount_used', 'BOOLEAN DEFAULT FALSE'),
@@ -356,11 +380,17 @@ def _run_migrations_impl(cursor):
                 pass  # Index might already exist or table missing
 
         logger.info("  ✓ Indexes checked")
+
+        # Final commit to ensure all changes are persisted
+        if conn:
+            conn.commit()
         logger.info("✅ All migrations completed successfully!")
         return True
 
     except Exception as e:
         logger.error(f"❌ Migration error: {e}")
+        if conn:
+            conn.rollback()
         return False
 
 
