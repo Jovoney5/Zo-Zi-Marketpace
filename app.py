@@ -8675,25 +8675,35 @@ def checkout():
     # COD is only available if every product in cart has cod_available = True
     cod_available = False
     if cart_data['items']:
-        with get_db() as conn:
-            cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
+        try:
+            with get_db() as conn:
+                cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) if DATABASE_TYPE == 'postgresql' else conn.cursor()
 
-            # Get product keys from cart
-            product_keys = [item['product_key'] for item in cart_data['items']]
+                # Get base product keys from cart (strip variations like "(Color, Size)")
+                import re
+                base_product_keys = []
+                for item in cart_data['items']:
+                    # Remove variations like "(Red, L)" from product key
+                    base_key = re.sub(r'\s*\([^)]+\)$', '', item['product_key']).strip()
+                    base_product_keys.append(base_key)
 
-            # Check if all products have cod_available = True
-            placeholders = ','.join(['%s'] * len(product_keys))
-            cursor.execute(f'''
-                SELECT COUNT(*) as total_products,
-                       SUM(CASE WHEN cod_available = TRUE THEN 1 ELSE 0 END) as cod_products
-                FROM products
-                WHERE product_key IN ({placeholders})
-            ''', product_keys)
+                # Check if all products have cod_available = True
+                placeholders = ','.join(['%s'] * len(base_product_keys))
+                cursor.execute(f'''
+                    SELECT COUNT(*) as total_products,
+                           SUM(CASE WHEN COALESCE(cod_available, FALSE) = TRUE THEN 1 ELSE 0 END) as cod_products
+                    FROM products
+                    WHERE product_key IN ({placeholders})
+                ''', base_product_keys)
 
-            result = cursor.fetchone()
-            if result:
-                # COD available only if ALL products support it
-                cod_available = result['total_products'] == result['cod_products'] and result['total_products'] > 0
+                result = cursor.fetchone()
+                if result:
+                    # COD available only if ALL products support it
+                    cod_available = result['total_products'] == result['cod_products'] and result['total_products'] > 0
+        except Exception as e:
+            logger.error(f"Error checking COD availability: {e}")
+            # Default to COD available if check fails
+            cod_available = True
 
     return render_template(
         'checkout.html',
