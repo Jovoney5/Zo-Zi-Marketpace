@@ -7768,14 +7768,22 @@ def product(product_key):
                 WHERE email = %s
             ''', (product['seller_email'],))
             seller = cursor.fetchone()
-        cursor.execute('''
-            SELECT AVG(rating) as avg_rating, COUNT(rating) as rating_count
-            FROM seller_ratings
-            WHERE seller_email = %s
-        ''', (product['seller_email'],))
-        rating_info = cursor.fetchone()
-        avg_rating = round(rating_info['avg_rating'], 1) if rating_info['avg_rating'] else 0
-        rating_count = rating_info['rating_count'] if rating_info['rating_count'] else 0
+
+        # Get seller ratings - handle case where seller_ratings might not exist yet
+        try:
+            cursor.execute('''
+                SELECT AVG(rating) as avg_rating, COUNT(rating) as rating_count
+                FROM seller_ratings
+                WHERE seller_email = %s
+            ''', (product['seller_email'],))
+            rating_info = cursor.fetchone()
+            avg_rating = round(rating_info['avg_rating'], 1) if rating_info['avg_rating'] else 0
+            rating_count = rating_info['rating_count'] if rating_info['rating_count'] else 0
+        except Exception as e:
+            # If seller_ratings table doesn't exist yet, default to no ratings
+            logger.warning(f"seller_ratings table issue: {e}")
+            avg_rating = 0
+            rating_count = 0
 
         # Get product reviews
         cursor.execute('''
@@ -7811,11 +7819,16 @@ def product(product_key):
         ]
         user_liked = False
         if 'user' in session:
-            cursor.execute('''
-                SELECT * FROM user_likes
-                WHERE user_email = %s AND product_key = %s
-            ''', (session['user']['email'], product['product_key']))
-            user_liked = cursor.fetchone() is not None
+            try:
+                cursor.execute('''
+                    SELECT * FROM user_likes
+                    WHERE user_email = %s AND product_key = %s
+                ''', (session['user']['email'], product['product_key']))
+                user_liked = cursor.fetchone() is not None
+            except Exception as e:
+                # If user_likes table doesn't exist yet, default to not liked
+                logger.warning(f"user_likes table issue: {e}")
+                user_liked = False
         conn.commit()
     cart_data = get_cart_items()
     return render_template(

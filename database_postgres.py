@@ -146,6 +146,37 @@ def _run_migrations_impl(cursor, conn):
             conn.commit()  # Force commit so table is visible to other connections
         logger.info("  ✓ product_reviews table checked")
 
+        logger.info("  Starting migration 2b: seller_ratings")
+        # Migration: Ensure seller_ratings table exists
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS seller_ratings (
+                id SERIAL PRIMARY KEY,
+                seller_email VARCHAR(255) NOT NULL,
+                buyer_email VARCHAR(255) NOT NULL,
+                rating INTEGER NOT NULL CHECK(rating >= 1 AND rating <= 5),
+                review_text TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(seller_email, buyer_email)
+            )
+        ''')
+        if conn:
+            conn.commit()  # Force commit so table is visible to other connections
+        logger.info("  ✓ seller_ratings table checked")
+
+        logger.info("  Starting migration 2c: user_likes")
+        # Migration: Ensure user_likes table exists
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_likes (
+                user_email VARCHAR(255) NOT NULL,
+                product_key VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_email, product_key)
+            )
+        ''')
+        if conn:
+            conn.commit()  # Force commit so table is visible to other connections
+        logger.info("  ✓ user_likes table checked")
+
         logger.info("  Starting migration 3: messages conversation_id")
         # Migration 2: Ensure messages table has conversation_id
         cursor.execute('''
