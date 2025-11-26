@@ -1046,14 +1046,14 @@ def get_cart_items():
                     items.append({
                         'product_key': product_key,
                         'name': product['name'],
-                        'price': product['price'],
+                        'price': float(product['price']),
                         'quantity': quantity,
                         'stock': product['amount'],
                         'image_url': product['image_url'],
                         'shipping_method': product.get('shipping_method', 'jamaica_post'),
                         'seller_email': product.get('seller_email')
                     })
-                    raw_total += product['price'] * quantity
+                    raw_total += float(product['price']) * quantity
 
         discount = 0.0
         if 'user' in session:
@@ -7891,7 +7891,7 @@ def cart():
                 else:
                     cart[cart_key] = {
                         'name': product['name'],
-                        'price': product['price'],
+                        'price': float(product['price']),
                         'quantity': min(quantity, product['amount']),
                         'image_url': product['image_url'],
                         'size': size,
