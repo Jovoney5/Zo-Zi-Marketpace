@@ -404,6 +404,7 @@ def _run_migrations_impl(cursor, conn):
             ('business_description', 'TEXT'),
             ('verification_status', "VARCHAR(50) DEFAULT 'pending_documents'"),
             ('purchase_count', 'INTEGER DEFAULT 0'),
+            ('store_logo', 'VARCHAR(255)'),
         ]
 
         for col_name, col_type in user_columns_to_add:
@@ -417,6 +418,58 @@ def _run_migrations_impl(cursor, conn):
                     logger.info(f"  ✓ Added users.{col_name}")
                 except Exception as e:
                     logger.warning(f"  ⚠ Could not add users.{col_name}: {e}")
+
+        logger.info("  Starting migration 13: products table cod_available column")
+        # Migration: Add cod_available column to products table if missing
+        cursor.execute('''
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'products' AND column_name = 'cod_available'
+        ''')
+        if not cursor.fetchone():
+            cursor.execute('ALTER TABLE products ADD COLUMN cod_available BOOLEAN DEFAULT FALSE')
+            logger.info("  ✓ Added products.cod_available column")
+        else:
+            logger.info("  ✓ products.cod_available column exists")
+        if conn:
+            conn.commit()  # Force commit so column is visible to other connections
+
+        logger.info("  Starting migration 14: cart_log table")
+        # Migration: Ensure cart_log table exists
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS cart_log (
+                id SERIAL PRIMARY KEY,
+                user_email VARCHAR(255) NOT NULL,
+                product_key VARCHAR(255) NOT NULL,
+                quantity INTEGER DEFAULT 1,
+                added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        if conn:
+            conn.commit()  # Force commit so table is visible to other connections
+        logger.info("  ✓ cart_log table checked")
+
+        logger.info("  Starting migration 15: user_sessions table user_email column")
+        # Migration: Add user_email column to user_sessions table if table exists
+        cursor.execute('''
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables
+                WHERE table_name = 'user_sessions'
+            )
+        ''')
+        if cursor.fetchone()[0]:
+            cursor.execute('''
+                SELECT column_name FROM information_schema.columns
+                WHERE table_name = 'user_sessions' AND column_name = 'user_email'
+            ''')
+            if not cursor.fetchone():
+                cursor.execute('ALTER TABLE user_sessions ADD COLUMN user_email VARCHAR(255)')
+                logger.info("  ✓ Added user_sessions.user_email column")
+            else:
+                logger.info("  ✓ user_sessions.user_email column exists")
+            if conn:
+                conn.commit()  # Force commit so column is visible to other connections
+        else:
+            logger.info("  ⚠ user_sessions table does not exist, skipping user_email column")
 
         # Migration 12: Create all indexes
         indexes = [
