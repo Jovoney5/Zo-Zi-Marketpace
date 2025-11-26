@@ -433,6 +433,14 @@ def _run_migrations_impl(cursor, conn):
         if conn:
             conn.commit()  # Force commit so column is visible to other connections
 
+        logger.info("  Starting migration 13b: enable COD for all products")
+        # Migration: Enable COD for all existing products
+        cursor.execute('UPDATE products SET cod_available = TRUE WHERE cod_available = FALSE OR cod_available IS NULL')
+        rows_updated = cursor.rowcount
+        logger.info(f"  ✓ Enabled COD for {rows_updated} products")
+        if conn:
+            conn.commit()  # Force commit so changes are visible to other connections
+
         logger.info("  Starting migration 14: cart_log table")
         # Migration: Ensure cart_log table exists
         cursor.execute('''
