@@ -493,6 +493,43 @@ def _run_migrations_impl(cursor, conn):
         else:
             logger.info("  ⚠ user_sessions table does not exist, skipping user_email column")
 
+        logger.info("  Starting migration 16: orders table missing columns")
+        # Migration: Add subtotal column to orders table if missing
+        cursor.execute('''
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'orders' AND column_name = 'subtotal'
+        ''')
+        if not cursor.fetchone():
+            cursor.execute('ALTER TABLE orders ADD COLUMN subtotal DECIMAL(10,2)')
+            logger.info("  ✓ Added orders.subtotal column")
+        else:
+            logger.info("  ✓ orders.subtotal column exists")
+
+        # Migration: Add platform_fee column to orders table if missing
+        cursor.execute('''
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'orders' AND column_name = 'platform_fee'
+        ''')
+        if not cursor.fetchone():
+            cursor.execute('ALTER TABLE orders ADD COLUMN platform_fee DECIMAL(10,2)')
+            logger.info("  ✓ Added orders.platform_fee column")
+        else:
+            logger.info("  ✓ orders.platform_fee column exists")
+
+        # Migration: Add payment_verified column to orders table if missing
+        cursor.execute('''
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'orders' AND column_name = 'payment_verified'
+        ''')
+        if not cursor.fetchone():
+            cursor.execute('ALTER TABLE orders ADD COLUMN payment_verified BOOLEAN DEFAULT FALSE')
+            logger.info("  ✓ Added orders.payment_verified column")
+        else:
+            logger.info("  ✓ orders.payment_verified column exists")
+
+        if conn:
+            conn.commit()  # Force commit so columns are visible to other connections
+
         # Migration 12: Create all indexes
         indexes = [
             ('idx_users_email', 'users', 'email'),
