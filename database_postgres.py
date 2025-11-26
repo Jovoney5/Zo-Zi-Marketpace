@@ -448,6 +448,20 @@ def _run_migrations_impl(cursor, conn):
             conn.commit()  # Force commit so table is visible to other connections
         logger.info("  ✓ cart_log table checked")
 
+        logger.info("  Starting migration 14b: cart_log table cart_date column")
+        # Migration: Add cart_date column to cart_log table if missing
+        cursor.execute('''
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'cart_log' AND column_name = 'cart_date'
+        ''')
+        if not cursor.fetchone():
+            cursor.execute('ALTER TABLE cart_log ADD COLUMN cart_date DATE DEFAULT CURRENT_DATE')
+            logger.info("  ✓ Added cart_log.cart_date column")
+        else:
+            logger.info("  ✓ cart_log.cart_date column exists")
+        if conn:
+            conn.commit()  # Force commit so column is visible to other connections
+
         logger.info("  Starting migration 15: user_sessions table user_email column")
         # Migration: Add user_email column to user_sessions table if table exists
         cursor.execute('''
