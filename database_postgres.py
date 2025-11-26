@@ -359,6 +359,20 @@ def _run_migrations_impl(cursor, conn):
             conn.commit()  # Force commit so table is visible to other connections
         logger.info("  ✓ user_product_views table checked")
 
+        logger.info("  Starting migration 11b: products table amount column")
+        # Migration: Add amount column to products table if missing
+        cursor.execute('''
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'products' AND column_name = 'amount'
+        ''')
+        if not cursor.fetchone():
+            cursor.execute('ALTER TABLE products ADD COLUMN amount INTEGER DEFAULT 1')
+            logger.info("  ✓ Added products.amount column")
+        else:
+            logger.info("  ✓ products.amount column exists")
+        if conn:
+            conn.commit()  # Force commit so column is visible to other connections
+
         logger.info("  Starting migration 12: user table columns")
         # Migration 11: Add any missing columns to users table
         user_columns_to_add = [
