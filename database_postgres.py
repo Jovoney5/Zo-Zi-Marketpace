@@ -530,6 +530,30 @@ def _run_migrations_impl(cursor, conn):
         if conn:
             conn.commit()  # Force commit so columns are visible to other connections
 
+        # Migration 16b: Add payment_gateway_fee and total_before_gateway_fee columns to orders table
+        cursor.execute('''
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'orders' AND column_name = 'payment_gateway_fee'
+        ''')
+        if not cursor.fetchone():
+            cursor.execute('ALTER TABLE orders ADD COLUMN payment_gateway_fee DECIMAL(10,2)')
+            logger.info("  ✓ Added orders.payment_gateway_fee column")
+        else:
+            logger.info("  ✓ orders.payment_gateway_fee column exists")
+
+        cursor.execute('''
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'orders' AND column_name = 'total_before_gateway_fee'
+        ''')
+        if not cursor.fetchone():
+            cursor.execute('ALTER TABLE orders ADD COLUMN total_before_gateway_fee DECIMAL(10,2)')
+            logger.info("  ✓ Added orders.total_before_gateway_fee column")
+        else:
+            logger.info("  ✓ orders.total_before_gateway_fee column exists")
+
+        if conn:
+            conn.commit()  # Force commit so columns are visible to other connections
+
         # Migration 12: Create all indexes
         indexes = [
             ('idx_users_email', 'users', 'email'),
