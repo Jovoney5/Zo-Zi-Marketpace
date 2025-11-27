@@ -8129,36 +8129,36 @@ def checkout():
                         post_offices=PARISH_POST_OFFICES.get(guest_parish, [])
                     )
 
-                # LYNK VALIDATION: Check Lynk payment requirements
-                if payment_method == 'lynk':
-                    if not lynk_reference:
-                        return render_template(
-                            'checkout.html',
-                            error="Lynk transaction reference is required for Lynk payments. Please complete the Lynk transfer and enter your transaction ID.",
-                            cart_items=cart_data['items'],
-                            cart_total=cart_data['total'],
-                            discount=cart_data['discount'],
-                            user=None,
-                            cart_item_count=cart_data['cart_item_count'],
-                            parishes=PARISHES,
-                            parish_post_offices=PARISH_POST_OFFICES,
-                            post_offices=PARISH_POST_OFFICES.get(guest_parish, [])
-                        )
-
-                    # Validate Lynk reference format (basic validation)
-                    if len(lynk_reference) < 5:
-                        return render_template(
-                            'checkout.html',
-                            error="Please enter a valid Lynk transaction reference (at least 5 characters)",
-                            cart_items=cart_data['items'],
-                            cart_total=cart_data['total'],
-                            discount=cart_data['discount'],
-                            user=None,
-                            cart_item_count=cart_data['cart_item_count'],
-                            parishes=PARISHES,
-                            parish_post_offices=PARISH_POST_OFFICES,
-                            post_offices=PARISH_POST_OFFICES.get(guest_parish, [])
-                        )
+                # LYNK VALIDATION: DISABLED - Payment integration not yet complete
+                # if payment_method == 'lynk':
+                #     if not lynk_reference:
+                #         return render_template(
+                #             'checkout.html',
+                #             error="Lynk transaction reference is required for Lynk payments. Please complete the Lynk transfer and enter your transaction ID.",
+                #             cart_items=cart_data['items'],
+                #             cart_total=cart_data['total'],
+                #             discount=cart_data['discount'],
+                #             user=None,
+                #             cart_item_count=cart_data['cart_item_count'],
+                #             parishes=PARISHES,
+                #             parish_post_offices=PARISH_POST_OFFICES,
+                #             post_offices=PARISH_POST_OFFICES.get(guest_parish, [])
+                #         )
+                #
+                #     # Validate Lynk reference format (basic validation)
+                #     if len(lynk_reference) < 5:
+                #         return render_template(
+                #             'checkout.html',
+                #             error="Please enter a valid Lynk transaction reference (at least 5 characters)",
+                #             cart_items=cart_data['items'],
+                #             cart_total=cart_data['total'],
+                #             discount=cart_data['discount'],
+                #             user=None,
+                #             cart_item_count=cart_data['cart_item_count'],
+                #             parishes=PARISHES,
+                #             parish_post_offices=PARISH_POST_OFFICES,
+                #             post_offices=PARISH_POST_OFFICES.get(guest_parish, [])
+                #         )
 
                 # Validate email format
                 email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
@@ -8381,36 +8381,36 @@ def checkout():
                         post_offices=PARISH_POST_OFFICES.get(parish, [])
                     )
 
-                # LYNK VALIDATION: Check Lynk payment requirements for logged-in users
-                if payment_method == 'lynk':
-                    if not lynk_reference:
-                        return render_template(
-                            'checkout.html',
-                            error="Lynk transaction reference is required for Lynk payments. Please complete the Lynk transfer and enter your transaction ID.",
-                            cart_items=cart_data['items'],
-                            cart_total=cart_data['total'],
-                            discount=cart_data['discount'],
-                            user=session['user'],
-                            cart_item_count=cart_data['cart_item_count'],
-                            parishes=PARISHES,
-                            parish_post_offices=PARISH_POST_OFFICES,
-                            post_offices=PARISH_POST_OFFICES.get(parish, [])
-                        )
-
-                    # Validate Lynk reference format
-                    if len(lynk_reference) < 5:
-                        return render_template(
-                            'checkout.html',
-                            error="Please enter a valid Lynk transaction reference (at least 5 characters)",
-                            cart_items=cart_data['items'],
-                            cart_total=cart_data['total'],
-                            discount=cart_data['discount'],
-                            user=session['user'],
-                            cart_item_count=cart_data['cart_item_count'],
-                            parishes=PARISHES,
-                            parish_post_offices=PARISH_POST_OFFICES,
-                            post_offices=PARISH_POST_OFFICES.get(parish, [])
-                        )
+                # LYNK VALIDATION: DISABLED - Payment integration not yet complete
+                # if payment_method == 'lynk':
+                #     if not lynk_reference:
+                #         return render_template(
+                #             'checkout.html',
+                #             error="Lynk transaction reference is required for Lynk payments. Please complete the Lynk transfer and enter your transaction ID.",
+                #             cart_items=cart_data['items'],
+                #             cart_total=cart_data['total'],
+                #             discount=cart_data['discount'],
+                #             user=session['user'],
+                #             cart_item_count=cart_data['cart_item_count'],
+                #             parishes=PARISHES,
+                #             parish_post_offices=PARISH_POST_OFFICES,
+                #             post_offices=PARISH_POST_OFFICES.get(parish, [])
+                #         )
+                #
+                #     # Validate Lynk reference format
+                #     if len(lynk_reference) < 5:
+                #         return render_template(
+                #             'checkout.html',
+                #             error="Please enter a valid Lynk transaction reference (at least 5 characters)",
+                #             cart_items=cart_data['items'],
+                #             cart_total=cart_data['total'],
+                #             discount=cart_data['discount'],
+                #             user=session['user'],
+                #             cart_item_count=cart_data['cart_item_count'],
+                #             parishes=PARISHES,
+                #             parish_post_offices=PARISH_POST_OFFICES,
+                #             post_offices=PARISH_POST_OFFICES.get(parish, [])
+                #         )
 
                 # Calculate totals using new payment system (NO SHIPPING - included in product price)
                 totals = calculate_order_totals(cart_data['total'], payment_method)
