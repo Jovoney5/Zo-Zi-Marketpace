@@ -554,6 +554,25 @@ def _run_migrations_impl(cursor, conn):
         if conn:
             conn.commit()  # Force commit so columns are visible to other connections
 
+        # Migration 17: Create seller_notifications table
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS seller_notifications (
+                id SERIAL PRIMARY KEY,
+                seller_email VARCHAR(255) NOT NULL,
+                notification_type VARCHAR(50) NOT NULL,
+                product_key VARCHAR(255),
+                product_name TEXT,
+                quantity INTEGER,
+                sale_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                read BOOLEAN DEFAULT FALSE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        logger.info("  ✓ seller_notifications table checked")
+
+        if conn:
+            conn.commit()  # Force commit so table is visible to other connections
+
         # Migration 12: Create all indexes
         indexes = [
             ('idx_users_email', 'users', 'email'),
