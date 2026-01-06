@@ -993,11 +993,6 @@
                 <div style="background: #FFD700; color: #006400; padding: 8px 12px; border-radius: 5px; font-weight: bold; margin-top: 10px; display: inline-block;">
                     ✅ FREE SHIPPING INCLUDED
                 </div>
-                {% if product.cod_available %}
-                <div style="background: #27ae60; color: white; padding: 8px 12px; border-radius: 5px; font-weight: bold; margin-top: 10px; display: inline-block; margin-left: 8px;">
-                    💵 CASH ON DELIVERY AVAILABLE
-                </div>
-                {% endif %}
             </div>
 
             <div class="shipping-info">
@@ -1007,17 +1002,7 @@
                 </div>
                 <div class="shipping-detail">
                     <span class="shipping-icon">⏱️</span>
-                    {% if product.shipping_method == 'knutsford' %}
-                        Knutsford Express • 1-2 Business Days 🇯🇲
-                    {% elif product.shipping_method == 'jamaica_post' %}
-                        Jamaica Post • 3-5 Business Days 🇯🇲
-                    {% elif product.shipping_method == 'local_delivery' %}
-                        Zo-Zi Local Delivery • Same/Next Day 🇯🇲
-                    {% elif product.shipping_method %}
-                        {{ product.shipping_method|title|replace('_', ' ') }} • 3-5 Business Days 🇯🇲
-                    {% else %}
-                        Standard Shipping • 3-5 Business Days 🇯🇲
-                    {% endif %}
+                    Delivery • 1-3 Business Days 🇯🇲
                 </div>
                 <div class="shipping-detail">
                     <span class="shipping-icon">📦</span>
