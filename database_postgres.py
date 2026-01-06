@@ -48,7 +48,7 @@ def get_db():
         if database_url.startswith('postgres://'):
             database_url = database_url.replace('postgres://', 'postgresql://', 1)
 
-        conn = psycopg2.connect(database_url)
+        conn = psycopg2.connect(database_url, sslmode='require')
         conn.autocommit = False
         yield conn
         conn.commit()
@@ -71,7 +71,7 @@ def get_db_connection():
     if database_url.startswith('postgres://'):
         database_url = database_url.replace('postgres://', 'postgresql://', 1)
 
-    conn = psycopg2.connect(database_url)
+    conn = psycopg2.connect(database_url, sslmode='require')
     return conn
 
 
