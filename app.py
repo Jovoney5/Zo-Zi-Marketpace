@@ -496,7 +496,7 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             seller_email TEXT UNIQUE NOT NULL,
             balance DECIMAL(10,2) DEFAULT 0.00,
-            total_earnings DECIMAL(10,2) DEFAULT 0.00,
+            total_sales DECIMAL(10,2) DEFAULT 0.00,
             pending_withdrawals DECIMAL(10,2) DEFAULT 0.00,
             last_withdrawal_date DATETIME,
             created_date DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -2710,7 +2710,7 @@ def signup():
                 # Create seller_finances record
                 cursor.execute('''
                     INSERT INTO seller_finances
-                    (seller_email, balance, total_earnings, pending_withdrawals)
+                    (seller_email, balance, total_sales, pending_withdrawals)
                     VALUES (%s, %s, %s, %s)
                     ON CONFLICT (seller_email) DO NOTHING
                 ''', (email, 0, 0, 0))
@@ -5888,7 +5888,7 @@ def seller_dashboard():
             actual_sales_earnings = float(sales_result['actual_earnings']) if sales_result else 0.0
 
             # Use the higher value between calculated and actual earnings
-            total_earnings = max(total_calculated_earnings, actual_sales_earnings)
+            total_sales = max(total_calculated_earnings, actual_sales_earnings)
 
             # Get total withdrawals (completed)
             cursor.execute('''
@@ -5913,12 +5913,12 @@ def seller_dashboard():
                 pending_withdrawals_result['pending_withdrawals']) if pending_withdrawals_result else 0.0
 
             # Calculate available balance
-            available_balance = total_earnings - completed_withdrawals - pending_withdrawals
+            available_balance = total_sales - completed_withdrawals - pending_withdrawals
 
             # Get or create financial data for this seller
             cursor.execute('''
-                SELECT balance, total_earnings, pending_withdrawals 
-                FROM seller_finances 
+                SELECT balance, total_sales, pending_withdrawals
+                FROM seller_finances
                 WHERE seller_email = %s
             ''', (seller_email,))
 
@@ -5927,14 +5927,14 @@ def seller_dashboard():
             # Update or create seller_finances with correct calculated values
             cursor.execute('''
                 INSERT INTO seller_finances
-                (seller_email, balance, total_earnings, pending_withdrawals)
+                (seller_email, balance, total_sales, pending_withdrawals)
                 VALUES (%s, %s, %s, %s)
                 ON CONFLICT (seller_email)
                 DO UPDATE SET
                     balance = EXCLUDED.balance,
-                    total_earnings = EXCLUDED.total_earnings,
+                    total_sales = EXCLUDED.total_sales,
                     pending_withdrawals = EXCLUDED.pending_withdrawals
-            ''', (seller_email, available_balance, total_earnings, pending_withdrawals))
+            ''', (seller_email, available_balance, total_sales, pending_withdrawals))
             conn.commit()
 
             # Get withdrawal history
@@ -5992,7 +5992,7 @@ def seller_dashboard():
 
             # Prepare financial data object with correct values
             financial_summary = {
-                'total_earnings': total_earnings,
+                'total_sales': total_sales,
                 'available_balance': available_balance,
                 'pending_withdrawals': pending_withdrawals,
                 'completed_withdrawals': completed_withdrawals,
@@ -6000,11 +6000,11 @@ def seller_dashboard():
                 'transactions': transactions[:20],  # Limit to 20 most recent
                 'total_products': total_products,
                 'total_sold': total_sold,
-                'total_revenue': total_earnings
+                'total_revenue': total_sales
             }
 
             logger.info(
-                f"Seller dashboard loaded for {seller_email}: {total_products} products, {total_sold} sold, earnings: J${total_earnings:,.2f}")
+                f"Seller dashboard loaded for {seller_email}: {total_products} products, {total_sold} sold, earnings: J${total_sales:,.2f}")
 
     except Exception as e:
         import traceback
@@ -6013,7 +6013,7 @@ def seller_dashboard():
         # Return empty dashboard on error
         products = []
         financial_summary = {
-            'total_earnings': 0.0,
+            'total_sales': 0.0,
             'available_balance': 0.0,
             'pending_withdrawals': 0.0,
             'completed_withdrawals': 0.0,
@@ -6424,7 +6424,7 @@ def seller_financials():
 
             # Get current financial data
             cursor.execute('''
-                SELECT balance, total_earnings, pending_withdrawals
+                SELECT balance, total_sales, pending_withdrawals
                 FROM seller_finances WHERE seller_email = %s
             ''', (user_email,))
             financial_data = cursor.fetchone()
@@ -6492,7 +6492,7 @@ def seller_financials():
                 'success': True,
                 'financial_data': {
                     'balance': float(financial_data['balance']),
-                    'total_earnings': float(financial_data['total_earnings']),
+                    'total_sales': float(financial_data['total_sales']),
                     'pending_withdrawals': float(financial_data['pending_withdrawals']),
                     'withdrawal_history': withdrawal_history,
                     'transactions': transactions
@@ -8296,13 +8296,13 @@ def checkout():
                             cursor.execute('''
                                 UPDATE seller_finances
                                 SET balance = COALESCE(balance, 0) + %s,
-                                    total_earnings = COALESCE(total_earnings, 0) + %s
+                                    total_sales = COALESCE(total_sales, 0) + %s
                                 WHERE seller_email = %s
                             ''', (amount, amount, seller_email))
                         else:
                             # Create new record
                             cursor.execute('''
-                                INSERT INTO seller_finances (seller_email, balance, total_earnings)
+                                INSERT INTO seller_finances (seller_email, balance, total_sales)
                                 VALUES (%s, %s, %s)
                             ''', (seller_email, amount, amount))
 
@@ -8564,13 +8564,13 @@ def checkout():
                             cursor.execute('''
                                 UPDATE seller_finances
                                 SET balance = COALESCE(balance, 0) + %s,
-                                    total_earnings = COALESCE(total_earnings, 0) + %s
+                                    total_sales = COALESCE(total_sales, 0) + %s
                                 WHERE seller_email = %s
                             ''', (amount, amount, seller_email))
                         else:
                             # Create new record
                             cursor.execute('''
-                                INSERT INTO seller_finances (seller_email, balance, total_earnings)
+                                INSERT INTO seller_finances (seller_email, balance, total_sales)
                                 VALUES (%s, %s, %s)
                             ''', (seller_email, amount, amount))
 
