@@ -2682,6 +2682,7 @@ def signup():
 
                 user_data = {
                     'first_name': request.form.get('owner_name', ''),
+                    'last_name': '',
                     'email': email,
                     'phone_number': phone_number,
                     'password': hashed_password,
@@ -2696,12 +2697,12 @@ def signup():
                     'billing_address': ''
                 }
                 cursor.execute('''
-                    INSERT INTO users (email, first_name, phone_number, notification_preference, password, business_name,
+                    INSERT INTO users (email, first_name, last_name, phone_number, notification_preference, password, business_name,
                                     business_address, is_seller, discount_applied, discount_used, gender, delivery_address,
                                     billing_address)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ''', (
-                    email, user_data['first_name'], phone_number, notification_preference, user_data['password'],
+                    email, user_data['first_name'], user_data['last_name'], phone_number, notification_preference, user_data['password'],
                     user_data['business_name'], user_data['business_address'], user_data['is_seller'],
                     user_data['discount_applied'], user_data['discount_used'], user_data['gender'],
                     user_data['delivery_address'], user_data['billing_address']
